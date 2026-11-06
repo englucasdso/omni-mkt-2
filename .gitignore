@@ -1,0 +1,25 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Credentials
+backend/secrets/
+backend/data/ga4-events.json
+backend/data/playwright_session/
+*.service-account.json
+ga4-service-account.json
+*.pem
+*.key
+
+
+
+# Node binaries/archives
+node-v*/
+node-v*.tar.*
+node-v*.zip
+

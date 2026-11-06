@@ -1,0 +1,589 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   LOCAL FONT DEFINITIONS (Fallback to system fonts if not installed locally)
+   ========================================================================== */
+@font-face {
+  font-family: 'Bradesco Sans';
+  src: local('Bradesco Sans'), local('BradescoSans'), local('Bradesco Sans Bold');
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Bradesco Sans';
+  src: local('Bradesco Sans'), local('BradescoSans'), local('Bradesco Sans Regular');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Rethink Sans';
+  src: local('Rethink Sans'), local('RethinkSans'), local('Rethink Sans Regular');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Rethink Sans';
+  src: local('Rethink Sans'), local('RethinkSans'), local('Rethink Sans Medium');
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Rethink Sans';
+  src: local('Rethink Sans'), local('RethinkSans'), local('Rethink Sans SemiBold');
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Rethink Sans';
+  src: local('Rethink Sans'), local('RethinkSans'), local('Rethink Sans Bold');
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* ==========================================================================
+   DESIGN TOKENS: Soft Flat Design Corporativo (80% Flat 2.0 + 20% Neumorfismo)
+   ========================================================================== */
+:root {
+  /* Tipografia: Rethink Sans (UI, tabelas, textos) & Bradesco Sans (Logo e títulos) */
+  --font-heading: 'Bradesco Sans', 'BradescoSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, Helvetica, sans-serif;
+  --font-ui: 'Rethink Sans', 'RethinkSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, Helvetica, sans-serif;
+
+  /* Pesos */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  /* Cores Institucionais Omni Marketing */
+  --omni-brand-primary: #7B0209;
+  --omni-brand-accent: #E30328;
+
+  /* Aliases Institucionais e Cores Funcionais */
+  --bradesco-red: #7B0209;
+  --bradesco-red-hover: #5e0107;
+  --bradesco-purple: #7B0209;
+  --accent-success: #16a34a;
+  --accent-danger: #dc2626;
+
+  /* Superfícies e Fundo Corporativo */
+  --bg: #f6f8fa;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f8fafc;
+  --color-surface-muted: #f0f3f6;
+
+  /* Bordas e Divisores */
+  --color-border: #e2e8f0;
+  --color-border-subtle: #edf2f7;
+
+  /* Texto com alto contraste e sobriedade (grafite principal, cinza médio auxiliar) */
+  --text: #1e293b;
+  --color-text-primary: #1e293b;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748b;
+  --muted: #64748b;
+
+  /* Neumorfismo Discreto: Relevo sutil, sombra externa suave e efeito pressionado */
+  --shadow-card: 4px 6px 16px rgba(160, 174, 192, 0.16), -4px -4px 12px rgba(255, 255, 255, 0.9);
+  --shadow-card-hover: 6px 8px 20px rgba(160, 174, 192, 0.22), -5px -5px 15px rgba(255, 255, 255, 1);
+  --shadow-raised: 2px 3px 7px rgba(160, 174, 192, 0.18), -2px -2px 6px rgba(255, 255, 255, 0.95);
+  --shadow-raised-hover: 3px 4px 10px rgba(160, 174, 192, 0.24), -3px -3px 8px rgba(255, 255, 255, 1);
+  --shadow-pressed: inset 2px 2px 5px rgba(160, 174, 192, 0.25), inset -2px -2px 5px rgba(255, 255, 255, 0.8);
+  --shadow-input: inset 1.5px 1.5px 4px rgba(160, 174, 192, 0.16), inset -1.5px -1.5px 4px rgba(255, 255, 255, 0.85);
+  --shadow-soft: var(--shadow-card);
+
+  /* Raios de Borda Padronizados (10px a 22px) */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 9999px;
+
+  --transition: all 0.2s ease-in-out;
+}
+
+.dark {
+  /* Fundo Corporativo Escuro Neutro */
+  --bg: #0b0f19;
+  --color-surface: #131b2e;
+  --color-surface-hover: #19233c;
+  --color-surface-muted: #101625;
+
+  --color-border: #1e293b;
+  --color-border-subtle: #192237;
+
+  --text: #f8fafc;
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #94a3b8;
+  --muted: #94a3b8;
+
+  --omni-brand-primary: #a3111b;
+  --omni-brand-accent: #E30328;
+  --bradesco-red: #a3111b;
+  --bradesco-purple: #a3111b;
+
+  --shadow-card: 4px 6px 16px rgba(0, 0, 0, 0.45);
+  --shadow-card-hover: 6px 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-raised: 2px 3px 6px rgba(0, 0, 0, 0.35);
+  --shadow-raised-hover: 3px 4px 10px rgba(0, 0, 0, 0.45);
+  --shadow-pressed: inset 2px 2px 5px rgba(0, 0, 0, 0.45);
+  --shadow-input: inset 1.5px 1.5px 4px rgba(0, 0, 0, 0.4);
+  --shadow-soft: var(--shadow-card);
+}
+
+/* EXCEL TABLE */
+.excel-table-wrapper {
+  height: 60vh;
+  min-height: 300px;
+  max-height: none;
+  resize: vertical;
+}
+
+.excel-table {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  background: white;
+}
+
+.excel-table th {
+  background: #f8f9fa;
+  color: #495057;
+  font-weight: 600;
+  border-bottom: 2px solid #dee2e6;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 0;
+}
+
+.column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 20;
+}
+.column-resize-handle:hover,
+.column-resize-handle.active {
+  background: rgba(0,0,0,0.08);
+}
+
+.excel-table th > div.resizable-header {
+  padding: 12px 16px;
+  overflow: hidden;
+  min-width: 120px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
+  position: relative;
+}
+
+.excel-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid #eee;
+  color: #212529;
+  white-space: nowrap;
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.excel-table tr:hover td {
+  background-color: #f1f3f5;
+}
+
+.dark .excel-table {
+  background: #131b2e;
+}
+
+.dark .excel-table th {
+  background: #182239;
+  color: #94a3b8;
+  border-bottom: 2px solid #23314d;
+}
+
+.dark .excel-table td {
+  border-bottom: 1px solid #1a253e;
+  color: #f8fafc;
+}
+
+.dark .excel-table tr:hover td {
+  background-color: #1a253e;
+}
+
+.dark .column-resize-handle:hover,
+.dark .column-resize-handle.active {
+  background: rgba(255,255,255,0.08);
+}
+
+.dark .excel-table th > div.resizable-header {
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+html, body {
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* ==========================================================================
+   TIPOGRAFIA & TÍTULOS (Bradesco Sans para Destaques, Rethink para UI)
+   ========================================================================== */
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+.font-ui {
+  font-family: var(--font-ui);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi-number {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.brand-text {
+  font-family: var(--font-heading);
+  color: var(--bradesco-red) !important;
+  -webkit-text-fill-color: initial !important;
+  background: none !important;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.brand-title {
+  font-family: var(--font-heading);
+  color: var(--color-text-primary) !important;
+  -webkit-text-fill-color: initial !important;
+  background: none !important;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.screen-title {
+  font-family: var(--font-heading);
+  color: var(--color-text-primary) !important;
+  -webkit-text-fill-color: initial !important;
+  background: none !important;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.bg-bradesco-solid {
+  background: var(--bradesco-red) !important;
+}
+
+/* ==========================================================================
+   COMPONENTS: Flat Design 2.0 com Neumorfismo Discreto
+   ========================================================================== */
+.neutral-badge {
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--color-surface-muted);
+  letter-spacing: 0.02em;
+  font-family: var(--font-ui);
+}
+
+.dark .neutral-badge {
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+  background: var(--color-surface-muted);
+}
+
+.red-badge {
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--color-surface-muted);
+  letter-spacing: 0.02em;
+  font-family: var(--font-ui);
+}
+
+.dark .red-badge {
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+  background: var(--color-surface-muted);
+}
+
+.red-badge-accent {
+  color: #cc092f;
+  border: 1px solid rgba(204, 9, 47, 0.25);
+  border-radius: 9999px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #fdf2f4;
+  letter-spacing: 0.02em;
+  font-family: var(--font-ui);
+}
+
+.dark .red-badge-accent {
+  background: rgba(204, 9, 47, 0.15);
+  border-color: rgba(204, 9, 47, 0.4);
+  color: #f87171;
+}
+
+.glass-card,
+.flat-card {
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.dark .glass-card,
+.dark .flat-card {
+  background: #131b2e !important;
+  border-color: var(--color-border) !important;
+  box-shadow: var(--shadow-card) !important;
+  backdrop-filter: none !important;
+}
+
+/* Botões com relevo suave e efeito pressionado no clique */
+.btn-neu {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  background: #ffffff;
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-raised);
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-neu:hover {
+  box-shadow: var(--shadow-raised-hover);
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+
+.btn-neu:active,
+.btn-neu.active {
+  box-shadow: var(--shadow-pressed) !important;
+  transform: translateY(1px);
+}
+
+.dark .btn-neu {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f8fafc;
+  box-shadow: var(--shadow-raised);
+}
+
+.dark .btn-neu:hover {
+  background: #27354f;
+  border-color: #475569;
+}
+
+.dark .btn-neu:active,
+.dark .btn-neu.active {
+  box-shadow: var(--shadow-pressed) !important;
+  transform: translateY(1px);
+}
+
+/* Inputs e filtros com leve profundidade interna */
+.neu-input {
+  font-family: var(--font-ui);
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-input);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.neu-input:focus {
+  border-color: var(--bradesco-red);
+  box-shadow: 0 0 0 3px rgba(204, 9, 47, 0.12), var(--shadow-input);
+  outline: none;
+}
+
+.dark .neu-input {
+  background: #101726;
+  border-color: #223048;
+  color: #f8fafc;
+}
+
+.dark .neu-input:focus {
+  border-color: var(--bradesco-red);
+  box-shadow: 0 0 0 3px rgba(204, 9, 47, 0.25), var(--shadow-input);
+}
+
+/* Foco acessível por teclado (neutro cinza, sem vermelho) */
+:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #94a3b8 !important;
+}
+
+.dark :focus-visible {
+  box-shadow: 0 0 0 2px #0b0f19, 0 0 0 4px #475569 !important;
+}
+
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+select:focus,
+select:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* SEARCH & HERO STYLING */
+.animated-border {
+  position: relative;
+  padding: 1px;
+  border-radius: 24px;
+  display: flex;
+  background: var(--color-border);
+  box-shadow: var(--shadow-raised);
+}
+
+.animated-border > .inner-container {
+  position: relative;
+  z-index: 1;
+  background: white;
+  border-radius: 23px;
+  width: 100%;
+}
+
+.dark .animated-border > .inner-container {
+  background: #131b2e;
+}
+
+.hero {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+}
+
+.content {
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 40px 24px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* CUSTOM BUTTONS */
+.gradient-btn {
+  background: var(--gradient-main);
+  color: white;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  box-shadow: var(--shadow-raised);
+  transition: var(--transition);
+}
+
+.gradient-btn:hover {
+  box-shadow: var(--shadow-raised-hover);
+  transform: translateY(-1px);
+}
+
+.gradient-btn:active {
+  box-shadow: var(--shadow-pressed);
+  transform: translateY(1px);
+}
+
+.ghost-btn-v2 {
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: var(--transition);
+}
+
+.ghost-btn-v2:hover {
+  color: var(--bradesco-red);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+}
+
+/* LOADING BARS */
+.loading-bars div {
+  height: 12px;
+  margin-bottom: 12px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #ececec, #dadada, #ececec);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* CUSTOM SCROLLBAR */
+.custom-scrollbar::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.12);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.22);
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+}
