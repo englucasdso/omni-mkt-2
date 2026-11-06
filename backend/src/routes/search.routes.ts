@@ -112,9 +112,9 @@ router.post("/update-inventory", async (req, res) => {
 
   try {
     const data = await runCollection(rootId, maxRows || null);
-    res.json({ success: true, count: data.length });
+    res.json({ success: true, count: data.length, status: getSyncStatus() });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, status: getSyncStatus() });
   }
 });
 

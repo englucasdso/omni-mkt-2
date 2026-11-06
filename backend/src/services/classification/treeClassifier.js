@@ -281,9 +281,11 @@ export function classifyTree(rows, rootPageId) {
     // A presença de filhos não pode sobrescrever evidência real de mapa.
     if (hasStructuredContent) {
       classified.artifact_type = 'MAPA';
-      if (hasChildren) {
+      if (hasChildren && process.env.SYNC_DEBUG === '1') {
         console.log(`[ArtifactClassifier] page=${classified.id} depth=${depth} screens=${screensCount} snippets=${snippetsCount} type=MAPA reason=STRUCTURED_CONTENT (has_children=true)`);
       }
+    } else if (classified.reused_on_error && classified.artifact_type && classified.artifact_type !== 'NAO_CLASSIFICADO') {
+      // Preserva a classificação anterior válida do cache quando a leitura detalhada atual falhou
     } else if (isIncompleteOrError) {
       classified.artifact_type = 'NAO_CLASSIFICADO';
     } else if (!hasChildren && hasDocumentationSignals) {

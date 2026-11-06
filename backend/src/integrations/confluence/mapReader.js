@@ -2,9 +2,10 @@ import crypto from 'crypto';
 import { ParameterParser } from './parameterParser.js';
 
 export class MapReader {
-  constructor(transport) {
+  constructor(transport, options = {}) {
     this.transport = transport;
     this.parameterParser = new ParameterParser();
+    this.metrics = options.metrics || null;
   }
 
   /**
@@ -487,7 +488,11 @@ export class MapReader {
             screenIndex,
             snippetSnippet: tableContent.replace(/\s+/g, ' ').slice(0, 160)
           };
-          console.warn(`[MapReader] Falha técnica de extração de status da tela: mapa=${mapId}, tela=${screenIndex}`);
+          if (this.metrics && typeof this.metrics.recordStatusMissing === 'function') {
+            this.metrics.recordStatusMissing({ mapId, produto, screenIndex });
+          } else if (process.env.SYNC_DEBUG === '1') {
+            console.warn(`[MapReader] Falha técnica de extração de status da tela: mapa=${mapId}, tela=${screenIndex}`);
+          }
         }
 
         // Extrai snippets dentro desta tabela da tela
@@ -558,6 +563,9 @@ export class MapReader {
             reason: 'Bloco de snippet isolado sem tabela de tela ou macro de status'
           }
         });
+        if (this.metrics && typeof this.metrics.recordStatusMissing === 'function') {
+          this.metrics.recordStatusMissing({ mapId, produto, screenIndex: idx });
+        }
       });
     }
 
@@ -742,7 +750,6 @@ export class MapReader {
       gtm_ids.length > 0 ? 'GTM' : 'NO_GTM'
     ].join('##');
 
-    const crypto = require('crypto');
     const signature_hash = crypto.createHash('sha256').update(sigSeed).digest('hex').slice(0, 16);
 
     return {

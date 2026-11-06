@@ -115,9 +115,9 @@ export class TreeCrawler {
     if (options.includeRoot !== false) {
       if (this.transport.isCancelled) return;
       if (maxRows === null || processCount < maxRows) {
+        processCount++;
         const trilhaRaiz = [{ id: rootNode.id, titulo: rootNode.title, nivel: 0 }];
         await processPageFn(rootNode, rootNode.is_leaf, 0, null, trilhaRaiz);
-        processCount++;
       }
     }
 
@@ -144,9 +144,12 @@ export class TreeCrawler {
         nivel: node.depth
       });
 
+      if (this.transport.isCancelled) return;
+      if (maxRows !== null && processCount >= maxRows) return;
+      processCount++;
+
       // Processar página atual (mesmo que possua filhos)
       await processPageFn(node, node.is_leaf, node.depth, node.parent_title, trilhaAtual);
-      processCount++;
 
       if (maxRows !== null && processCount >= maxRows) return;
       if (this.transport.isCancelled) return;
@@ -222,5 +225,28 @@ export class TreeCrawler {
         await traverseNode(level1Node);
       });
     }
+  }
+
+  /**
+   * Fase de descoberta da árvore: percorre a hierarquia, popula o cache de filhos (childrenCache),
+   * respeita maxRows quando informado e retorna a relação de páginas a processar.
+   */
+  async discover(rootId, maxRows = null, options = {}) {
+    const discovered = [];
+    await this.crawl(
+      rootId,
+      async (node, isLeaf, depth, parentTitle, trilhaAtual) => {
+        discovered.push({
+          node,
+          isLeaf,
+          depth,
+          parentTitle,
+          trilhaAtual
+        });
+      },
+      maxRows,
+      options
+    );
+    return discovered;
   }
 }

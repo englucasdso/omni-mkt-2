@@ -5,23 +5,54 @@ const MANUAL_AUTH_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutos para conclusão de 
 const AUTH_POLL_INTERVAL_MS = 1500;
 const INITIAL_GOTO_TIMEOUT_MS = 45000;
 
-let currentSyncSessionStatus = {
+const INITIAL_SYNC_STATUS = {
   active: false,
   phase: 'idle',
   step: 0,
   message: '',
+  processed: 0,
+  total: 0,
+  percentage: 0,
+  succeeded: 0,
+  reused: 0,
+  failed: 0,
+  warnings: 0,
+  currentItem: '',
   error: null
 };
+
+let currentSyncSessionStatus = { ...INITIAL_SYNC_STATUS };
 
 export function getSyncSessionStatus() {
   return { ...currentSyncSessionStatus };
 }
 
-export function setSyncSessionStatus(update) {
+export function resetSyncSessionStatus(overrides = {}) {
   currentSyncSessionStatus = {
+    ...INITIAL_SYNC_STATUS,
+    ...overrides
+  };
+  return { ...currentSyncSessionStatus };
+}
+
+export function setSyncSessionStatus(update) {
+  const next = {
     ...currentSyncSessionStatus,
     ...update
   };
+
+  if (next.total > 0 && next.processed > next.total) {
+    next.processed = next.total;
+  }
+
+  // Progresso monotônico durante uma execução ativa (exceto quando reiniciado explicitamente)
+  if (update.resetProgress !== true && currentSyncSessionStatus.active && next.active) {
+    next.percentage = Math.max(currentSyncSessionStatus.percentage || 0, next.percentage || 0);
+  }
+
+  delete next.resetProgress;
+  currentSyncSessionStatus = next;
+  return { ...currentSyncSessionStatus };
 }
 
 export class ConfluenceSession {
@@ -34,13 +65,14 @@ export class ConfluenceSession {
     this.userDataDir = path.resolve('backend/data/playwright_session');
   }
 
-  notifyStatus(phase, step, message, error = null) {
+  notifyStatus(phase, step, message, error = null, extra = {}) {
     setSyncSessionStatus({
       active: phase !== 'completed' && phase !== 'error' && phase !== 'idle',
       phase,
       step,
       message,
-      error
+      error,
+      ...extra
     });
   }
 
@@ -489,7 +521,7 @@ export class ConfluenceSession {
     // 4. Se a sessão estiver válida, manter contexto headless e continuar coleta normalmente
     if (initialValidation.authenticated) {
       console.log('[ConfluenceSession] Sessão válida. Executando em segundo plano.');
-      this.notifyStatus('crawling', 3, 'Lendo árvore e mapas do Confluence...');
+      this.notifyStatus('discovering_tree', 2, 'Mapeando árvore do Confluence...');
       this.page = headlessPage;
       return headlessPage;
     }
@@ -541,7 +573,7 @@ export class ConfluenceSession {
       );
     }
 
-    this.notifyStatus('crawling', 3, 'Lendo árvore e mapas do Confluence...');
+    this.notifyStatus('discovering_tree', 2, 'Mapeando árvore do Confluence...');
     this.page = resumedHeadlessPage;
     return resumedHeadlessPage;
   }

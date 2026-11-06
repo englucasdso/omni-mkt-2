@@ -330,17 +330,18 @@ const AdminUsers = ({ users, onAddUser, onUpdateUser, onDeleteUser, onClose }: {
 
 const SyncWidget = ({ job, onCancel }: { job: any, onCancel: () => void }) => {
   if (!job.active) return null;
-  
-  const stepsText = [
-    "Validando sessão do Confluence...",
-    "Sessão expirada. Conclua a autenticação na janela do Chrome.",
-    "Autenticação concluída. Retomando a sincronização...",
-    "Lendo árvore e mapas do Confluence...",
-    "Sincronização concluída."
-  ];
-  
-  const percentage = Math.min(100, Math.round(((job.step + 1) / 5) * 100));
-  const currentMessage = job.message || stepsText[job.step] || `${percentage}% concluído`;
+
+  const hasTotal = typeof job.total === "number" && job.total > 0;
+  const isSuccess = job.status === "success";
+  const isError = job.status === "error";
+  const isRunning = job.status === "running";
+  const isDeterminate = isSuccess || (isRunning && hasTotal);
+  const displayPercentage = isSuccess ? 100 : (hasTotal ? Math.max(0, Math.min(99, Number(job.percentage) || 0)) : null);
+  const currentMessage = job.message || "Validando sessão do Confluence...";
+
+  const cleanErrorMsg = isError
+    ? String(job.errorMsg || "Não foi possível concluir a sincronização.").split("\n")[0].trim()
+    : "";
 
   return (
     <motion.div 
@@ -349,38 +350,70 @@ const SyncWidget = ({ job, onCancel }: { job: any, onCancel: () => void }) => {
       exit={{ opacity: 0, y: 50, scale: 0.9 }}
       className="fixed bottom-6 right-6 z-[100] bg-white dark:bg-slate-900 dark:border-slate-800 rounded-2xl shadow-2xl dark:shadow-none border border-gray-100 dark:border-slate-700 p-4 w-80 flex flex-col gap-3 overflow-hidden"
     >
-      <div className="absolute top-0 left-0 w-full h-1 bg-gray-100 dark:bg-slate-700">
-        <div 
-          className={`h-full transition-all duration-500 ease-out ${job.status === 'error' ? 'bg-red-500' : job.status === 'success' ? 'bg-green-500' : 'bg-bradesco-red'}`} 
-          style={{ width: `${percentage}%` }}
-        />
+      <div className="absolute top-0 left-0 w-full h-1 bg-gray-100 dark:bg-slate-700 overflow-hidden">
+        {isDeterminate ? (
+          <div 
+            className={`h-full transition-all duration-300 ease-out ${isError ? 'bg-red-500' : isSuccess ? 'bg-green-500' : 'bg-bradesco-red'}`} 
+            style={{ width: `${displayPercentage ?? 0}%` }}
+          />
+        ) : isError ? (
+          <div className="h-full w-full bg-red-500" />
+        ) : (
+          <div className="h-full w-2/5 bg-bradesco-red animate-pulse rounded-full" />
+        )}
       </div>
       
       <div className="flex items-start justify-between mt-1">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full">
           <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-slate-800 flex items-center justify-center shrink-0">
-             {job.status === "running" && <Loader2 className="w-5 h-5 text-bradesco-red animate-spin" />}
-             {job.status === "success" && <CheckCircle2 className="w-5 h-5 text-green-500" />}
-             {job.status === "error" && <AlertTriangle className="w-5 h-5 text-red-500" />}
+             {isRunning && <Loader2 className="w-5 h-5 text-bradesco-red animate-spin" />}
+             {isSuccess && <CheckCircle2 className="w-5 h-5 text-green-500" />}
+             {isError && <AlertTriangle className="w-5 h-5 text-red-500" />}
           </div>
-          <div className="flex flex-col flex-1">
-            <span className="font-bold text-gray-900 dark:text-slate-50 text-sm">
-              {job.status === "running" ? "Sincronizando..." : job.status === "success" ? "Sincronização concluída." : "Falha na Sincronização"}
-            </span>
+          <div className="flex flex-col flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-bold text-gray-900 dark:text-slate-50 text-sm truncate">
+                {isRunning ? "Sincronizando..." : isSuccess ? "Sincronização concluída" : "Falha na Sincronização"}
+              </span>
+              {displayPercentage !== null && !isError && (
+                <span className="text-xs font-bold text-gray-700 dark:text-slate-200 tabular-nums shrink-0">
+                  {displayPercentage}%
+                </span>
+              )}
+            </div>
+
+            {isRunning && hasTotal && (
+              <span className="text-[11px] text-gray-700 dark:text-slate-300 font-semibold leading-tight mt-0.5 tabular-nums">
+                {job.processed} de {job.total} páginas
+              </span>
+            )}
+
+            {isSuccess && hasTotal && (
+              <span className="text-[11px] text-gray-700 dark:text-slate-300 font-semibold leading-tight mt-0.5 tabular-nums">
+                {job.total} páginas processadas
+              </span>
+            )}
+
             <span className="text-[10px] text-gray-500 dark:text-slate-400 font-medium leading-tight mt-0.5">
-              {job.status === "error" ? "Não foi possível concluir" : currentMessage}
+              {isError
+                ? "Não foi possível concluir"
+                : isSuccess
+                  ? ((job.failed > 0 || job.reused > 0)
+                      ? `${job.succeeded} lidas · ${job.reused} reutilizadas · ${job.failed} com falha`
+                      : currentMessage)
+                  : currentMessage}
             </span>
           </div>
         </div>
       </div>
       
-      {job.status === "error" && (
+      {isError && (
         <div className="text-[10px] text-red-600 font-medium bg-red-50 p-2 rounded-lg mt-1">
-          {job.errorMsg}
+          {cleanErrorMsg}
         </div>
       )}
       
-      {job.status === "running" && (
+      {isRunning && (
         <button 
           onClick={onCancel}
           className="text-[10px] font-bold text-gray-400 dark:text-slate-500 hover:text-red-500 transition-colors w-full text-left flex items-center gap-1.5 px-1 py-1 mt-1 uppercase tracking-wider"
@@ -831,10 +864,32 @@ export default function App() {
   const [syncJob, setSyncJob] = useState<{
     active: boolean;
     step: number; 
+    phase: string;
     status: "running" | "success" | "error";
     message: string;
+    processed: number;
+    total: number;
+    percentage: number;
+    succeeded: number;
+    reused: number;
+    failed: number;
+    warnings: number;
     errorMsg: string;
-  }>({ active: false, step: 0, status: "running", message: "Validando sessão do Confluence...", errorMsg: "" });
+  }>({
+    active: false,
+    step: 0,
+    phase: "idle",
+    status: "running",
+    message: "Validando sessão do Confluence...",
+    processed: 0,
+    total: 0,
+    percentage: 0,
+    succeeded: 0,
+    reused: 0,
+    failed: 0,
+    warnings: 0,
+    errorMsg: ""
+  });
 
   const syncPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -854,8 +909,16 @@ export default function App() {
     setSyncJob({
       active: true,
       step: 0,
+      phase: "validating_session",
       status: "running",
       message: "Validando sessão do Confluence...",
+      processed: 0,
+      total: 0,
+      percentage: 0,
+      succeeded: 0,
+      reused: 0,
+      failed: 0,
+      warnings: 0,
       errorMsg: ""
     });
 
@@ -864,13 +927,21 @@ export default function App() {
         const statusRes = await fetch("/api/sync-status");
         if (!statusRes.ok) return;
         const statusData = await statusRes.json();
-        if (statusData && statusData.message) {
+        if (statusData) {
           setSyncJob(s => {
             if (s.status !== "running") return s;
             return {
               ...s,
               step: typeof statusData.step === "number" ? statusData.step : s.step,
-              message: statusData.message
+              phase: statusData.phase || s.phase,
+              message: statusData.message || s.message,
+              processed: typeof statusData.processed === "number" ? statusData.processed : s.processed,
+              total: typeof statusData.total === "number" ? statusData.total : s.total,
+              percentage: typeof statusData.percentage === "number" ? statusData.percentage : s.percentage,
+              succeeded: typeof statusData.succeeded === "number" ? statusData.succeeded : s.succeeded,
+              reused: typeof statusData.reused === "number" ? statusData.reused : s.reused,
+              failed: typeof statusData.failed === "number" ? statusData.failed : s.failed,
+              warnings: typeof statusData.warnings === "number" ? statusData.warnings : s.warnings
             };
           });
         }
@@ -892,12 +963,23 @@ export default function App() {
       if (!res.ok) {
         throw new Error(data.error || "Falha na sincronização");
       }
+
+      const finalStatus = data.status || {};
+      const finalTotal = typeof finalStatus.total === "number" ? finalStatus.total : (typeof data.count === "number" ? data.count : 0);
       
       setSyncJob(s => ({
         ...s,
         step: 4,
+        phase: "completed",
         status: "success",
-        message: "Sincronização concluída."
+        message: "Sincronização concluída.",
+        processed: typeof finalStatus.processed === "number" ? finalStatus.processed : finalTotal,
+        total: finalTotal || s.total,
+        percentage: 100,
+        succeeded: typeof finalStatus.succeeded === "number" ? finalStatus.succeeded : s.succeeded,
+        reused: typeof finalStatus.reused === "number" ? finalStatus.reused : s.reused,
+        failed: typeof finalStatus.failed === "number" ? finalStatus.failed : s.failed,
+        warnings: typeof finalStatus.warnings === "number" ? finalStatus.warnings : s.warnings
       }));
       const now = new Date().toLocaleString('pt-BR');
       localStorage.setItem('last_sync', now);
@@ -920,8 +1002,9 @@ export default function App() {
       stopSyncPolling();
       setSyncJob(s => ({
         ...s,
+        phase: "error",
         status: "error",
-        errorMsg: err.message || "Erro desconhecido"
+        errorMsg: String(err.message || "Erro desconhecido").split("\n")[0].trim()
       }));
       setTimeout(() => {
         setSyncJob(s => ({ ...s, active: false }));
@@ -937,8 +1020,16 @@ export default function App() {
     setSyncJob({
       active: false,
       step: 0,
+      phase: "idle",
       status: "running",
       message: "Validando sessão do Confluence...",
+      processed: 0,
+      total: 0,
+      percentage: 0,
+      succeeded: 0,
+      reused: 0,
+      failed: 0,
+      warnings: 0,
       errorMsg: ""
     });
   };
