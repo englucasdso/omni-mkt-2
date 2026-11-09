@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { Artifact, ResolvedArtifactTaxonomy } from '../types';
 import { PageHeader } from './PageHeader';
-import { normalizarStatus, OfficialStatus } from '../utils/statusUtils';
+import { normalizarStatus, OfficialStatus, MapStatusMetrics, getMapStatusMetrics } from '../utils/statusUtils';
 import { 
   normalizeSearchText, 
   getQueryTokens, 
@@ -146,26 +146,22 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
         }
       }
 
-      const screens = art.screens || [];
-      if (screens.length > 0) {
+      const mMetrics = getMapStatusMetrics(art);
+      if (mMetrics.hasScreens) {
         pEntry.mapasComTelas++;
-        let allValidado = true;
-        screens.forEach(s => {
-          const st = normalizarStatus(s.status);
-          if (st) {
-            pEntry.screenStatusCounts[st]++;
-            pEntry.totalTelas++;
-          }
-          if (st !== 'VALIDADO') {
-            allValidado = false;
-          }
-        });
-        if (allValidado) {
+        if (mMetrics.isFullyHomologated) {
           pEntry.mapasHomologados++;
         }
       } else {
         pEntry.mapasSemTelas++;
       }
+
+      pEntry.totalTelas += mMetrics.recognizedScreens;
+      pEntry.screenStatusCounts.VALIDADO += mMetrics.validated;
+      pEntry.screenStatusCounts['CORREÇÃO'] += mMetrics.correction;
+      pEntry.screenStatusCounts.NOVO += mMetrics.new;
+      pEntry.screenStatusCounts.EXCLUIR += mMetrics.exclude;
+      pEntry.screenStatusCounts.DESCONTINUAR += mMetrics.discontinue;
 
       let mClass = art.measurement_class || 'NAO_CLASSIFICADO';
       pEntry.measurementCounts[mClass] = (pEntry.measurementCounts[mClass] || 0) + 1;
@@ -295,6 +291,15 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
     });
   }, [activeProduct, effectiveSubproduto, mapTaxonomyById]);
 
+  // Cache de métricas de status por mapa dos mapas selecionados
+  const mapStatusMetricsById = useMemo(() => {
+    const map = new Map<string, MapStatusMetrics>();
+    selectedMaps.forEach(m => {
+      map.set(String(m.id), getMapStatusMetrics(m));
+    });
+    return map;
+  }, [selectedMaps]);
+
   // Métricas dinâmicas do produto / subproduto selecionado
   const selectedMetrics = useMemo(() => {
     let totalTelas = 0;
@@ -317,28 +322,24 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
     let mapasSemTelas = 0;
 
     selectedMaps.forEach(art => {
-      const screens = art.screens || [];
-      if (screens.length > 0) {
+      const metrics = mapStatusMetricsById.get(String(art.id)) || getMapStatusMetrics(art);
+
+      if (metrics.hasScreens) {
         mapasComTelas++;
-        let allValidado = true;
-        screens.forEach(s => {
-          const st = normalizarStatus(s.status);
-          if (st) {
-            statusCounts[st]++;
-            totalTelas++;
-          } else {
-            extractionErrorsCount++;
-          }
-          if (st !== 'VALIDADO') {
-            allValidado = false;
-          }
-        });
-        if (allValidado) {
+        if (metrics.isFullyHomologated) {
           mapasHomologados++;
         }
       } else {
         mapasSemTelas++;
       }
+
+      totalTelas += metrics.recognizedScreens;
+      extractionErrorsCount += metrics.unrecognized;
+      statusCounts.VALIDADO += metrics.validated;
+      statusCounts['CORREÇÃO'] += metrics.correction;
+      statusCounts.NOVO += metrics.new;
+      statusCounts.EXCLUIR += metrics.exclude;
+      statusCounts.DESCONTINUAR += metrics.discontinue;
 
       const mClass = art.measurement_class || (art.tipo_mapa?.toLowerCase().includes('ga4') ? 'GA4' : 'GA3');
       measurementCounts[mClass] = (measurementCounts[mClass] || 0) + 1;
@@ -358,7 +359,7 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
       taxaHomologacao,
       extractionErrorsCount
     };
-  }, [selectedMaps]);
+  }, [selectedMaps, mapStatusMetricsById]);
 
   const handleSelectProduct = (prodId: string) => {
     setSelectedProductKey(prodId);
@@ -634,26 +635,83 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
                 <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider mb-3">
                   Mapas Vinculados ({selectedMaps.length})
                 </h4>
-                <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+                <div className="space-y-2.5 max-h-[520px] max-h-[55vh] overflow-y-auto custom-scrollbar pr-1">
                   {selectedMaps.map(mapItem => {
                     const taxonomy = mapTaxonomyById.get(String(mapItem.id));
                     const levels = taxonomy ? taxonomy.descendantPath.map(d => d.name) : [];
                     const pathLabel = levels.length > 0 ? levels.join(' › ') : 'Sem subproduto';
+                    const metrics = mapStatusMetricsById.get(String(mapItem.id)) || getMapStatusMetrics(mapItem);
+
                     return (
                       <div 
                         key={mapItem.id}
                         onClick={() => onOpenMap(mapItem)}
-                        className="p-3 bg-gray-50 dark:bg-slate-800 hover:bg-red-50/50 dark:hover:bg-slate-750 rounded-xl border border-gray-100 dark:border-slate-700 flex items-center justify-between cursor-pointer transition-colors group"
+                        className="p-3.5 bg-gray-50 dark:bg-slate-800 hover:bg-red-50/50 dark:hover:bg-slate-750 rounded-xl border border-gray-200 dark:border-slate-700 flex items-start justify-between cursor-pointer transition-all group shadow-sm hover:shadow"
                       >
-                        <div className="overflow-hidden pr-2">
+                        <div className="overflow-hidden pr-2 flex-1 min-w-0">
                           <p className="text-xs font-bold text-gray-900 dark:text-slate-100 group-hover:text-bradesco-red transition-colors truncate">
                             {mapItem.titulo}
                           </p>
-                          <span className="text-[10px] text-gray-400">
-                            {pathLabel} • {mapItem.screens?.length || 0} telas
+                          <span className="text-[10px] text-gray-400 dark:text-slate-400 block mt-0.5">
+                            {pathLabel} • {metrics.totalScreens} telas
                           </span>
+
+                          {/* Resumo compacto e colorido dos status do mapa */}
+                          <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                            {metrics.totalScreens === 0 ? (
+                              <>
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                  Sem telas detectadas
+                                </span>
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                  —
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60 tabular-nums">
+                                  {metrics.validated} {metrics.validated === 1 ? 'Validada' : 'Validadas'}
+                                </span>
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 tabular-nums">
+                                  {metrics.correction} {metrics.correction === 1 ? 'Correção' : 'Correções'}
+                                </span>
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 tabular-nums">
+                                  {metrics.new} {metrics.new === 1 ? 'Nova' : 'Novas'}
+                                </span>
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 tabular-nums">
+                                  {metrics.exclude} Excluir
+                                </span>
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800/60 tabular-nums">
+                                  {metrics.discontinue} Descontinuar
+                                </span>
+
+                                {/* Percentual homologado das telas */}
+                                {metrics.recognizedScreens > 0 ? (
+                                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border tabular-nums ${
+                                    metrics.homologationPercentage === 100
+                                      ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                                      : 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                                  }`}>
+                                    {metrics.homologationPercentage}% homologado
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                    Não calculável
+                                  </span>
+                                )}
+
+                                {/* Indicador discreto em caso de status não reconhecido */}
+                                {metrics.unrecognized > 0 && (
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-amber-100/70 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700 flex items-center gap-1">
+                                    <AlertTriangle className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                    {metrics.unrecognized} status não reconhecido{metrics.unrecognized > 1 ? 's' : ''}
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-bradesco-red shrink-0" />
+                        <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-bradesco-red shrink-0 mt-0.5" />
                       </div>
                     );
                   })}

@@ -52,8 +52,15 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
   }, [artifacts, effProductFilter, effSubprodutoFilter, effMeasurementFilter]);
 
   const stats = useMemo(() => {
-    let totalMaps = 0;
-    let totalDocs = 0;
+    // 1. Separar explicitamente os artefatos filtrados em conjuntos canônicos
+    const filteredMaps = filteredArtifacts.filter(art => art.artifact_type === 'MAPA');
+    const filteredDocs = filteredArtifacts.filter(art => art.artifact_type === 'DOCUMENTACAO');
+
+    // 2. Contagens canônicas: nós, raiz e não classificados não entram em totalMaps nem totalArtifacts
+    const totalMaps = filteredMaps.length;
+    const totalDocs = filteredDocs.length;
+    const totalArtifacts = totalMaps + totalDocs;
+
     let totalScreens = 0;
     let totalSnippets = 0;
     let divergentCount = 0;
@@ -77,19 +84,14 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
     const patternMap = new Map<string, { count: number; event: string }>();
     const productStatsMap = new Map<string, { maps: number; screens: number }>();
 
-    filteredArtifacts.forEach(art => {
-      if (art.artifact_type === 'DOCUMENTACAO') {
-        totalDocs++;
-      } else {
-        totalMaps++;
-      }
-
+    // 3. Todas as métricas analíticas consideram exclusivamente MAPA
+    filteredMaps.forEach(art => {
       if (art.status_divergent) {
         divergentCount++;
       }
 
       const screens = art.screens || [];
-      // Contagem de status feita estritamente por tela
+      // Contagem de status feita estritamente por tela de mapas
       screens.forEach(sc => {
         const norm = normalizarStatus(sc.status);
         if (norm) {
@@ -102,7 +104,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
       const mClass = art.measurement_class || (art.tipo_mapa?.toLowerCase().includes('ga4') ? 'GA4' : 'GA3');
       measurementCounts[mClass] = (measurementCounts[mClass] || 0) + 1;
 
-      // Products aggregation
+      // Products aggregation exclusiva para mapas
       const pName = art.produto || 'Sem Produto';
       if (!productStatsMap.has(pName)) {
         productStatsMap.set(pName, { maps: 0, screens: 0 });
@@ -111,7 +113,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
       pEntry.maps += 1;
       pEntry.screens += screens.length;
 
-      // Parameters aggregation
+      // Parameters aggregation de mapas
       (art.parameter_summary || []).forEach(p => {
         const cur = paramMap.get(p.name) || { count: 0, screens: 0 };
         cur.count += p.occurrences;
@@ -119,7 +121,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
         paramMap.set(p.name, cur);
       });
 
-      // Patterns aggregation
+      // Patterns aggregation de mapas
       (art.pattern_summary || []).forEach(pat => {
         const cur = patternMap.get(pat.pattern_id) || { count: 0, event: pat.event };
         cur.count += pat.count;
@@ -127,10 +129,9 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
       });
     });
 
-    const totalArtifacts = filteredArtifacts.length;
     const validatedScreens = screenStatusCounts.VALIDADO || 0;
     const taxaHomologacao = totalScreens > 0 ? Math.round((validatedScreens / totalScreens) * 100) : 0;
-    const taxaDivergencia = totalArtifacts > 0 ? Math.round((divergentCount / totalArtifacts) * 100) : 0;
+    const taxaDivergencia = totalMaps > 0 ? Math.round((divergentCount / totalMaps) * 100) : 0;
 
     const topParameters = Array.from(paramMap.entries())
       .sort((a, b) => b[1].count - a[1].count)
