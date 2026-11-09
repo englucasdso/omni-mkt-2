@@ -192,7 +192,9 @@ export const SearchResultCard: React.FC<SearchResultCardProps> = ({
         <div className="my-2 p-2 rounded-lg bg-gray-50 dark:bg-slate-900 border border-gray-100 dark:border-slate-800 text-[11px] space-y-1">
           <div className="flex items-center justify-between text-gray-500 dark:text-slate-400">
             <span className="font-semibold text-gray-700 dark:text-slate-300">
-              {screenTitle ? `Tela: ${screenTitle}` : `Tela #${screenIndex || 1}`}
+              {screenTitle
+                ? `Tela: ${screenTitle}`
+                : `Tela #${Number.isInteger(screenIndex) ? screenIndex! + 1 : 1}`}
             </span>
             {typeof snippetIndex === 'number' && (
               <span className="font-mono text-[10px]">Snippet #{snippetIndex + 1}</span>

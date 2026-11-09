@@ -6,38 +6,98 @@
  * valores brutos, valores normalizados, tipos de valores e assinaturas estruturais.
  */
 
+import {
+  decodeHtmlEntities,
+  detectReplacementCharDiagnostic
+} from './unicodeNormalizer.js';
+
 export class ParameterParser {
   /**
-   * Decodifica entidades HTML e limpa caracteres invisíveis
+   * Decodifica entidades HTML (nomeadas, decimais e hexadecimais), repara mojibake determinístico
+   * e limpa caracteres invisíveis delegando à rotina central compartilhada.
    */
   decodeHtml(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&amp;/g, '&')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/\u00a0/g, ' ')
-      .replace(/\u200B/g, '')
-      .replace(/\uFEFF/g, '');
+    return decodeHtmlEntities(str);
   }
 
   /**
-   * Normaliza chaves e eventos para comparação:
-   * "Screen_Data" -> "screendata"
-   * "Screen Data" -> "screendata"
-   * "Screen_Data_New" -> normalized: "screendatanew", base: "screendata"
+   * Remove comentários de linha (//) e de bloco (/* *\/) preservando intacto o conteúdo
+   * dentro de strings ("...", '...', `...`), como URLs "https://...".
+   */
+  stripCommentsPreservingStrings(code) {
+    if (!code) return '';
+    const str = String(code);
+    let out = '';
+    let i = 0;
+    const len = str.length;
+    let quote = '';
+
+    while (i < len) {
+      const ch = str[i];
+
+      if (quote) {
+        out += ch;
+        if (ch === '\\' && i + 1 < len) {
+          out += str[i + 1];
+          i += 2;
+          continue;
+        }
+        if (ch === quote) {
+          quote = '';
+        }
+        i++;
+        continue;
+      }
+
+      if (ch === '"' || ch === "'" || ch === '`') {
+        quote = ch;
+        out += ch;
+        i++;
+        continue;
+      }
+
+      // Comentário de bloco /* ... */
+      if (ch === '/' && str[i + 1] === '*') {
+        i += 2;
+        while (i < len && !(str[i] === '*' && str[i + 1] === '/')) {
+          i++;
+        }
+        i += 2;
+        out += ' ';
+        continue;
+      }
+
+      // Comentário de linha // ...
+      if (ch === '/' && str[i + 1] === '/') {
+        i += 2;
+        while (i < len && str[i] !== '\n') {
+          i++;
+        }
+        continue;
+      }
+
+      out += ch;
+      i++;
+    }
+
+    return out;
+  }
+
+  /**
+   * Normaliza chaves e eventos para comparação interna mantendo `raw` fiel ao original Unicode:
+   * "Simulação_Concluída" -> raw: "Simulação_Concluída", normalized: "simulacaoconcluida", base: "simulacaoconcluida"
+   * "Screen_Data_New" -> raw: "Screen_Data_New", normalized: "screendatanew", base: "screendata"
    */
   normalizeKey(key) {
     if (!key) return { raw: '', normalized: '', base: '' };
-    const raw = String(key).trim();
+    const raw = decodeHtmlEntities(String(key)).trim();
     const normalized = raw
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()
       .replace(/[\s_\-]+/g, '')
       .replace(/[^\w]/g, '');
-    
+
     // Identifica base_key removendo sufixo "new" se existir
     let base = normalized;
     if (normalized.endsWith('new') && normalized.length > 3) {
@@ -57,7 +117,7 @@ export class ParameterParser {
       return quoteChar ? 'EMPTY' : 'NULL';
     }
 
-    // Placeholder do GTM / Figma (ex: {{user-id}}, {{segmento}}, <id>)
+    // Placeholder do GTM / Figma (ex: {{user-id}}, {{código-produto}}, <id>)
     if ((trimmed.startsWith('{{') && trimmed.endsWith('}}')) || (trimmed.startsWith('<') && trimmed.endsWith('>'))) {
       return 'PLACEHOLDER';
     }
@@ -86,7 +146,7 @@ export class ParameterParser {
       trimmed.startsWith('document.') ||
       trimmed.startsWith('window.') ||
       trimmed.startsWith('location.') ||
-      /^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*$/.test(trimmed)
+      /^[\p{L}_$][\p{L}\p{N}_$]*(\.[\p{L}_$][\p{L}\p{N}_$]*)*$/u.test(trimmed)
     ) {
       return 'JAVASCRIPT_REFERENCE';
     }
@@ -105,7 +165,7 @@ export class ParameterParser {
     const dlPushRegex = /dataLayer\.push\s*\(/g;
     let match;
     while ((match = dlPushRegex.exec(code)) !== null) {
-      const startIndex = match.index + match[0].length;
+      const startIndex = match.index + match[0].length - 1; // aponta para '('
       const objStr = this.extractBalancedBrackets(code, startIndex, '(', ')');
       if (objStr) {
         // Dentro do push, procura o primeiro '{'
@@ -128,7 +188,7 @@ export class ParameterParser {
         const candidate = this.extractBalancedBrackets(code, braceIdx, '{', '}');
         if (candidate && candidate.length > 5 && (candidate.includes(':') || candidate.includes('event'))) {
           blocks.push(candidate);
-          braceIdx = code.indexOf('{', braceIdx + candidate.length + 2);
+          braceIdx = code.indexOf('{', braceIdx + candidate.length);
         } else {
           braceIdx = code.indexOf('{', braceIdx + 1);
         }
@@ -139,7 +199,7 @@ export class ParameterParser {
   }
 
   /**
-   * Extrai substring balanceando parênteses ou chaves com segurança
+   * Extrai substring balanceando parênteses, colchetes ou chaves com segurança
    */
   extractBalancedBrackets(text, startIndex, openChar, closeChar) {
     let depth = 0;
@@ -192,14 +252,42 @@ export class ParameterParser {
   }
 
   /**
-   * Parser tolerante de pares chave-valor e aninhamentos em JavaScript Object Literal
+   * Constrói um item de parâmetro preservando campos raw e normalizados sem remover acentos de normalized_value
+   */
+  buildParameterEntry(rawKey, fullPath, val, quote) {
+    const cleanKey = decodeHtmlEntities(rawKey).trim();
+    const cleanFullPath = decodeHtmlEntities(fullPath).trim();
+    const decodedVal = decodeHtmlEntities(val);
+    const normalizedVal = quote ? decodedVal : decodedVal.trim();
+    const rawValue = quote ? `${quote}${decodedVal}${quote}` : decodedVal.trim();
+    const valueType = this.classifyValueType(normalizedVal, quote);
+
+    const { raw: nameRaw, normalized: nameNormalized } = this.normalizeKey(cleanKey);
+    const pathNormalized = cleanFullPath
+      .split('.')
+      .map((seg) => this.normalizeKey(seg).normalized || seg.toLowerCase())
+      .join('.');
+
+    return {
+      name: nameRaw || cleanKey,
+      name_raw: nameRaw || cleanKey,
+      name_normalized: nameNormalized,
+      path: cleanFullPath,
+      path_raw: cleanFullPath,
+      path_normalized: pathNormalized,
+      raw_value: rawValue,
+      normalized_value: normalizedVal,
+      value_type: valueType
+    };
+  }
+
+  /**
+   * Parser tolerante de pares chave-valor e aninhamentos em JavaScript Object Literal / JSON
+   * Suporta chaves e valores Unicode (com acentos, cedilha, símbolos, placeholders).
    */
   parseObjectLiteral(objText) {
-    let text = this.decodeHtml(objText);
-    
-    // Remove comentários de linha // e de bloco /* */
-    text = text.replace(/\/\*[\s\S]*?\*\//g, ' ');
-    text = text.replace(/\/\/.*$/gm, ' ');
+    const decodedText = this.decodeHtml(objText);
+    const text = this.stripCommentsPreservingStrings(decodedText);
 
     // Se estiver envolvido por { ... }, remove as chaves externas
     const trimmed = text.trim();
@@ -218,14 +306,14 @@ export class ParameterParser {
       const len = str.length;
 
       while (i < len) {
-        // Pula espaços e vírgulas
+        // Pula espaços, vírgulas e ponto-e-vírgula
         while (i < len && /[\s,;]/.test(str[i])) i++;
         if (i >= len) break;
 
-        // Extrai a chave
+        // Extrai a chave (entre aspas ou identificador Unicode válido)
         let key = '';
         let keyQuote = '';
-        if (str[i] === '"' || str[i] === "'") {
+        if (str[i] === '"' || str[i] === "'" || str[i] === '`') {
           keyQuote = str[i];
           i++;
           const start = i;
@@ -237,11 +325,11 @@ export class ParameterParser {
           i++; // fecha aspas
         } else {
           const start = i;
-          while (i < len && /[a-zA-Z0-9_$]/.test(str[i])) i++;
+          while (i < len && /[\p{L}\p{N}_$.-]/u.test(str[i])) i++;
           key = str.substring(start, i);
         }
 
-        key = key.trim();
+        key = decodeHtmlEntities(key).trim();
         if (!key) {
           i++;
           continue;
@@ -273,6 +361,20 @@ export class ParameterParser {
           }
         }
 
+        // Se o valor for um array '[ ... ]'
+        if (str[i] === '[') {
+          const nestedArr = this.extractBalancedBrackets(str, i, '[', ']');
+          if (nestedArr) {
+            const fullPath = prefix ? `${prefix}.${key}` : key;
+            if (!prefix && fullPath.toLowerCase() !== 'event') {
+              topLevelGroups.add(key);
+            }
+            params.push(this.buildParameterEntry(key, fullPath, nestedArr, ''));
+            i += nestedArr.length;
+            continue;
+          }
+        }
+
         // Se for valor simples (string com aspas ou literal)
         let val = '';
         let quote = '';
@@ -288,7 +390,6 @@ export class ParameterParser {
           i++; // fecha aspas
         } else {
           // Valor sem aspas até a próxima vírgula, quebra de linha ou '}'
-          const valStart = i;
           while (i < len && str[i] !== ',' && str[i] !== '}' && str[i] !== '\n') {
             val += str[i];
             i++;
@@ -297,53 +398,39 @@ export class ParameterParser {
         }
 
         const fullPath = prefix ? `${prefix}.${key}` : key;
-        const normalizedVal = val.trim();
-        const valueType = this.classifyValueType(normalizedVal, quote);
+        const paramEntry = this.buildParameterEntry(key, fullPath, val, quote);
 
         if (fullPath.toLowerCase() === 'event') {
-          eventRaw = normalizedVal;
-        } else {
-          if (!prefix) {
-            topLevelGroups.add(key);
-          }
+          eventRaw = paramEntry.normalized_value;
+        } else if (!prefix) {
+          topLevelGroups.add(key);
         }
 
-        params.push({
-          name: key,
-          path: fullPath,
-          raw_value: quote ? `${quote}${val}${quote}` : val,
-          normalized_value: normalizedVal,
-          value_type: valueType
-        });
+        params.push(paramEntry);
       }
     };
 
     parseNested(content, '');
 
-    // Fallback: se regex padrão falhou por sintaxe muito incomum, extrai pares por regex
+    // Fallback: se o parser estruturado não extraiu pares por sintaxe incomum, extrai pares com suporte a chaves Unicode
     if (params.length === 0) {
-      const lineRegex = /['"]?([a-zA-Z0-9_$.]+)['"]?\s*:\s*(['"`]?)([\s\S]*?)\2(?=[,\n\r}]|$)/g;
+      const lineRegex = /['"]?([\p{L}\p{N}_$.-]+)['"]?\s*:\s*(['"`]?)([\s\S]*?)\2(?=[,\n\r}]|$)/gu;
       let m;
       while ((m = lineRegex.exec(content)) !== null) {
-        const key = m[1].trim();
+        const fullKey = decodeHtmlEntities(m[1]).trim();
         const quote = m[2] || '';
-        const rawVal = m[3] ? m[3].trim() : '';
-        const valueType = this.classifyValueType(rawVal, quote);
-        
-        if (key.toLowerCase() === 'event') {
-          eventRaw = rawVal;
+        const rawVal = m[3] !== undefined ? m[3] : '';
+        const leafKey = fullKey.split('.').pop() || fullKey;
+        const paramEntry = this.buildParameterEntry(leafKey, fullKey, rawVal, quote);
+
+        if (fullKey.toLowerCase() === 'event') {
+          eventRaw = paramEntry.normalized_value;
         } else {
-          const rootKey = key.split('.')[0];
+          const rootKey = fullKey.split('.')[0];
           topLevelGroups.add(rootKey);
         }
 
-        params.push({
-          name: key.split('.').pop() || key,
-          path: key,
-          raw_value: quote ? `${quote}${rawVal}${quote}` : rawVal,
-          normalized_value: rawVal,
-          value_type: valueType
-        });
+        params.push(paramEntry);
       }
     }
 
@@ -355,9 +442,16 @@ export class ParameterParser {
   }
 
   /**
-   * Analisa um snippet completo e extrai seu modelo canônico
+   * Analisa um snippet completo e extrai seu modelo canônico preservando fielmente Unicode
    */
-  parseSnippet(rawCode, mapId = '', screenId = '', snippetIndex = 0) {
+  parseSnippet(rawCode, mapId = '', screenId = '', snippetIndex = 0, options = {}) {
+    const inputStageDiag = detectReplacementCharDiagnostic(String(rawCode || ''), {
+      mapId,
+      screenIndex: options.screenIndex ?? null,
+      snippetIndex,
+      stage: options.stage || 'parameter_parser_input'
+    });
+
     const cleanCode = this.decodeHtml(rawCode).trim();
     const objectBlocks = this.extractObjectBlocks(cleanCode);
 
@@ -396,9 +490,18 @@ export class ParameterParser {
     const measurement_class = this.classifySnippetMeasurement(detected_paths, signature, event_normalized);
 
     const snippetId = `${mapId}-${screenId}-snip-${snippetIndex}`;
+    const unicodeDiagnostic =
+      inputStageDiag ||
+      detectReplacementCharDiagnostic(cleanCode, {
+        mapId,
+        screenIndex: options.screenIndex ?? null,
+        snippetIndex,
+        stage: options.stage || 'parameter_parser_output'
+      });
 
     return {
       snippet_id: snippetId,
+      snippet_index: snippetIndex,
       map_id: mapId,
       screen_id: screenId,
       raw_code: cleanCode,
@@ -409,7 +512,8 @@ export class ParameterParser {
       signature,
       pattern_id,
       measurement_class,
-      parameters: allParams
+      parameters: allParams,
+      ...(unicodeDiagnostic ? { unicode_diagnostics: unicodeDiagnostic } : {})
     };
   }
 

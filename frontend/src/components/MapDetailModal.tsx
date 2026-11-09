@@ -386,6 +386,9 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                   const isExpanded = !!expandedScreens[screenKey];
                   const screenSnippets = screen.snippets || [];
                   const totalScreenParams = screenSnippets.reduce((acc, sn) => acc + (sn.parameters?.length || 0), 0);
+                  const displayScreenNumber = Number.isInteger(screen.screen_index)
+                    ? screen.screen_index + 1
+                    : sIdx + 1;
 
                   return (
                     <div 
@@ -401,7 +404,7 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                       >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                           <span className="w-6 h-6 rounded-md bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 text-xs font-bold flex items-center justify-center shrink-0">
-                            #{screen.screen_index || (sIdx + 1)}
+                            #{displayScreenNumber}
                           </span>
                           <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded border shrink-0 ${sBadge.bg} ${sBadge.text} ${sBadge.border}`}>
                             {sBadge.label}

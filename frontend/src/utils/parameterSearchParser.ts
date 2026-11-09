@@ -98,8 +98,11 @@ export function detectQueryKind(rawQuery: string): ParameterQueryKind {
     return 'full_snippet';
   }
 
-  // Count key-value occurrences: key: val or key = val
-  const pairMatches = trimmed.match(/[a-zA-Z0-9_$.-]+\s*[:=]\s*(?:"[^"]*"|'[^']*'|`[^`]*`|[a-zA-Z0-9_$.-]+)/g) || [];
+  // Count key-value occurrences: key: val or key = val (including Unicode keys and values)
+  const pairMatches =
+    trimmed.match(
+      /(?:"[^"]+"|'[^']+'|[\p{L}\p{N}_$.-]+)\s*[:=]\s*(?:"[^"]*"|'[^']*'|`[^`]*`|[^\s,;}\n]+)/gu
+    ) || [];
 
   if (pairMatches.length > 1 || (pairMatches.length === 1 && trimmed.includes('\n'))) {
     return 'code_fragment';
@@ -128,7 +131,7 @@ export function detectQueryKind(rawQuery: string): ParameterQueryKind {
  * Supports:
  * - Object syntax: { event: "contratacao", produto: "credito" }
  * - Code fragments: event: "contratacao",\nproduto: "credito"
- * - Key-value: tipo_pessoa: "PF" or tipo_pessoa="PF"
+ * - Key-value: tipo_pessoa: "PF" or tipo_pessoa="PF" or "ação": "Contratação de crédito"
  * - Parameter names: user_id, event_data.produto
  */
 export function extractQueryParams(rawQuery: string): ParsedQueryParam[] {
@@ -138,13 +141,14 @@ export function extractQueryParams(rawQuery: string): ParsedQueryParam[] {
   const results: ParsedQueryParam[] = [];
   const seenKeys = new Set<string>();
 
-  // Regex to match pairs: key: "value" OR key: 'value' OR key: value OR key = "value"
-  const pairRegex = /([a-zA-Z0-9_$.-]+)\s*[:=]\s*(?:"([^"]*)"|'([^']*)'|`([^`]*)`|([a-zA-Z0-9_$.-]+))/g;
+  // Regex to match pairs with optional quotes on keys and full Unicode support
+  const pairRegex =
+    /(?:"([^"]+)"|'([^']+)'|([\p{L}\p{N}_$.-]+))\s*[:=]\s*(?:"([^"]*)"|'([^']*)'|`([^`]*)`|([^\s,;}\n]+))/gu;
   let match: RegExpExecArray | null;
 
   while ((match = pairRegex.exec(trimmed)) !== null) {
-    const rawKey = match[1]?.trim();
-    const rawVal = (match[2] ?? match[3] ?? match[4] ?? match[5] ?? '').trim();
+    const rawKey = (match[1] ?? match[2] ?? match[3] ?? '').trim();
+    const rawVal = (match[4] ?? match[5] ?? match[6] ?? match[7] ?? '').trim();
 
     if (rawKey) {
       const isPath = rawKey.includes('.');

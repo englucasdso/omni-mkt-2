@@ -124,3 +124,30 @@ export function getStatusStyle(raw: string | null | undefined): StatusStyleConfi
     chartColor: '#64748b'
   };
 }
+
+/**
+ * Converte o índice estrutural interno da tela (0-based) em número de exibição humano (1-based).
+ * Ex: screen_index 0 -> 1 (#1), screen_index 34 -> 35 (#35).
+ */
+export function toDisplayScreenNumber(
+  screenIndex?: number | null,
+  fallbackZeroBasedIndex = 0
+): number {
+  if (typeof screenIndex === 'number' && Number.isInteger(screenIndex) && screenIndex >= 0) {
+    return screenIndex + 1;
+  }
+  if (screenIndex !== null && screenIndex !== undefined) {
+    const parsed = Number(screenIndex);
+    if (Number.isInteger(parsed) && parsed >= 0) {
+      return parsed + 1;
+    }
+  }
+  return (
+    typeof fallbackZeroBasedIndex === 'number' &&
+    Number.isInteger(fallbackZeroBasedIndex) &&
+    fallbackZeroBasedIndex >= 0
+      ? fallbackZeroBasedIndex
+      : 0
+  ) + 1;
+}
+

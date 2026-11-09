@@ -129,8 +129,12 @@ export class SyncMetricsAggregator {
       ...details
     });
     if (this.debug) {
+      const displayNum =
+        details.displayScreenNumber ??
+        (Number.isInteger(details.screenIndex) ? details.screenIndex + 1 : '');
+      const candidatos = JSON.stringify(details.candidateValues || []);
       console.warn(
-        `[MapReader] Falha técnica de extração de status da tela: mapa=${details.mapId || ''}, tela=${details.screenIndex ?? ''}`
+        `[STATUS] mapa=${details.mapId || ''} tela=${displayNum} candidatos=${candidatos}`
       );
     }
   }

@@ -2,7 +2,7 @@
 // Pure in-memory deterministic search engine for tracking artifacts, screens, snippets, and parameters.
 // Runs seamlessly in Web Workers, Node, or Browser main thread without DOM dependencies.
 
-import { Artifact } from '../types';
+import { Artifact, ContentMatchType } from '../types';
 import {
   cleanCodeLiteral,
   normalizeCodeForComparison,
@@ -12,6 +12,88 @@ import {
   ParameterQueryKind,
   ParsedQueryParam,
 } from '../utils/parameterSearchParser';
+
+export type { ContentMatchType };
+
+/**
+ * Pure normalization exclusively for content titles and content search queries.
+ * Ignores case, accents/diacritics, duplicate spaces, leading/trailing spaces,
+ * common hyphens (-), en-dashes (–), em-dashes (—), slashes (/), and non-semantic punctuation.
+ */
+export function normalizeContentTitle(value: string): string {
+  if (!value) return '';
+  return String(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[-–—\u2010-\u2015\u2212/|\\•·.,;:!?()"'[\]{}<>+*=~`@#$%^&*_]+/g, ' ')
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function getContentMatchLabel(matchType: ContentMatchType): string {
+  switch (matchType) {
+    case 'EXACT_ID':
+    case 'EXACT_TITLE':
+      return 'Correspondência exata';
+    case 'TITLE_PREFIX':
+    case 'TITLE_PHRASE':
+    case 'ALL_TITLE_TOKENS':
+      return 'Título correspondente';
+    case 'TAXONOMY':
+      return 'Produto ou subproduto';
+    case 'SCREEN_OR_SNIPPET':
+      return 'Encontrado em tela ou snippet';
+    case 'PARTIAL':
+    default:
+      return 'Resultado relacionado';
+  }
+}
+
+const CONTENT_MATCH_PRIORITY: Record<ContentMatchType, number> = {
+  EXACT_ID: 1,
+  EXACT_TITLE: 2,
+  TITLE_PREFIX: 3,
+  TITLE_PHRASE: 4,
+  ALL_TITLE_TOKENS: 5,
+  TAXONOMY: 6,
+  SCREEN_OR_SNIPPET: 7,
+  PARTIAL: 8,
+};
+
+const GENERIC_CONTENT_TOKENS = new Set([
+  'mt',
+  'mm',
+  'wv',
+  'pf',
+  'pj',
+  'app',
+  'web',
+  'mapa',
+  'mapas',
+  'jornada',
+  'fluxo',
+  'de',
+  'da',
+  'do',
+  'das',
+  'dos',
+  'em',
+  'na',
+  'no',
+  'nas',
+  'nos',
+  'para',
+  'com',
+  'por',
+  'ou',
+  'e',
+  'a',
+  'o',
+  'as',
+  'os',
+]);
 
 export interface WorkerArtifactItem {
   id: string;
@@ -30,12 +112,15 @@ export interface WorkerArtifactItem {
     snippets?: Array<{
       snippet_id?: string;
       raw_code?: string;
+      event_raw?: string;
       event_normalized?: string;
       base_key?: string;
       parameters?: Array<{
         name?: string;
         path?: string;
         value?: any;
+        normalized_value?: string;
+        raw_value?: string;
       }>;
     }>;
   }>;
@@ -76,15 +161,21 @@ export interface IndexedScreen {
 export interface IndexedArtifact {
   id: string;
   normId: string;
+  contentNormId: string;
   titulo: string;
   normTitle: string;
+  contentNormTitle: string;
+  contentTitleTokens: string[];
   artifact_type: string;
   produto: string;
   normProduto: string;
+  contentNormProduto: string;
   subproduto: string;
   normSubproduto: string;
+  contentNormSubproduto: string;
   full_path: string;
   normFullPath: string;
+  contentNormFullPath: string;
   responsavel: string;
   screens: IndexedScreen[];
 }
@@ -92,6 +183,7 @@ export interface IndexedArtifact {
 export interface ContentSearchResult {
   artifactId: string;
   score: number;
+  matchType: ContentMatchType;
   matchedFields: string[];
   screenId?: string;
   screenIndex?: number;
@@ -185,10 +277,17 @@ class ArtifactSearchEngine {
     this.indexedArtifacts = artifacts.map((art) => {
       const screens: IndexedScreen[] = (art.screens || []).map((sc, scIdx) => {
         const snippets: IndexedSnippet[] = (sc.snippets || []).map((snip, snipIdx) => {
-          const params = (snip.parameters || []).map((p) => {
-            const rawName = String(p.name || '').trim();
-            const rawPath = String(p.path || '').trim();
-            const rawVal = p.value !== undefined && p.value !== null ? String(p.value).trim() : '';
+          const params = (snip.parameters || []).map((p: any) => {
+            const rawName = String(p.name_raw || p.name || '').trim();
+            const rawPath = String(p.path_raw || p.path || '').trim();
+            const rawVal =
+              p.normalized_value !== undefined && p.normalized_value !== null
+                ? String(p.normalized_value).trim()
+                : p.value !== undefined && p.value !== null
+                ? String(p.value).trim()
+                : p.raw_value !== undefined && p.raw_value !== null
+                ? String(p.raw_value).replace(/^['"`]|['"`]$/g, '').trim()
+                : '';
 
             const nName = normalizeText(rawName);
             const nPath = normalizeText(rawPath);
@@ -204,7 +303,7 @@ class ArtifactSearchEngine {
               cur.count++;
               this.pathFrequency.set(nPath, cur);
             }
-            if (rawVal && nVal.length > 1 && nVal.length < 50) {
+            if (rawVal && nVal.length > 1 && nVal.length < 80) {
               const cur = this.valueFrequency.get(nVal) || { original: rawVal, count: 0 };
               cur.count++;
               this.valueFrequency.set(nVal, cur);
@@ -220,7 +319,7 @@ class ArtifactSearchEngine {
             };
           });
 
-          const rawEvent = String(snip.event_normalized || '').trim();
+          const rawEvent = String((snip as any).event_raw || snip.event_normalized || '').trim();
           const rawBaseKey = String(snip.base_key || '').trim();
           const rawCode = String(snip.raw_code || '').trim();
 
@@ -254,7 +353,7 @@ class ArtifactSearchEngine {
         const rawInst = String(sc.instruction || '').trim();
         return {
           screen_id: String(sc.screen_id || scIdx + 1),
-          screen_index: sc.screen_index ?? scIdx + 1,
+          screen_index: Number.isInteger(sc.screen_index) ? sc.screen_index! : scIdx,
           instruction: rawInst,
           normInstruction: normalizeText(rawInst),
           status: String(sc.status || ''),
@@ -267,19 +366,26 @@ class ArtifactSearchEngine {
       const rawSub = String(art.subproduto || '');
       const rawPath = String(art.full_path || '');
       const rawId = String(art.id || '');
+      const contentNormTitle = normalizeContentTitle(rawTitle);
 
       return {
         id: rawId,
         normId: normalizeText(rawId),
+        contentNormId: normalizeContentTitle(rawId),
         titulo: rawTitle,
         normTitle: normalizeText(rawTitle),
+        contentNormTitle,
+        contentTitleTokens: contentNormTitle ? contentNormTitle.split(/\s+/).filter(Boolean) : [],
         artifact_type: art.artifact_type || 'MAPA',
         produto: rawProd,
         normProduto: normalizeText(rawProd),
+        contentNormProduto: normalizeContentTitle(rawProd),
         subproduto: rawSub,
         normSubproduto: normalizeText(rawSub),
+        contentNormSubproduto: normalizeContentTitle(rawSub),
         full_path: rawPath,
         normFullPath: normalizeText(rawPath),
+        contentNormFullPath: normalizeContentTitle(rawPath),
         responsavel: String(art.responsavel || ''),
         screens,
       };
@@ -288,14 +394,70 @@ class ArtifactSearchEngine {
     this.isReady = true;
   }
 
-  public searchContent(query: string, limit = 50): ContentSearchResult[] {
-    const normQuery = normalizeText(query);
+  public searchContent(query: string, limit = 500): ContentSearchResult[] {
+    const rawTrimmedLower = String(query || '').trim().toLowerCase();
+    const normQuery = normalizeContentTitle(query);
     if (!normQuery) return [];
 
+    // 1. Deterministic Exact Match Stage (ID first, then Normalized Title)
+    const exactIdMatches: ContentSearchResult[] = [];
+    for (const art of this.indexedArtifacts) {
+      if (!art.id) continue;
+      if (art.id.trim().toLowerCase() === rawTrimmedLower || art.contentNormId === normQuery) {
+        exactIdMatches.push({
+          artifactId: art.id,
+          score: 10000,
+          matchType: 'EXACT_ID',
+          matchedFields: ['ID exato'],
+        });
+      }
+    }
+    if (exactIdMatches.length > 0) {
+      return exactIdMatches.slice(0, limit);
+    }
+
+    const exactTitleMatches: Array<{ art: IndexedArtifact; result: ContentSearchResult }> = [];
+    for (const art of this.indexedArtifacts) {
+      if (art.contentNormTitle && art.contentNormTitle === normQuery) {
+        exactTitleMatches.push({
+          art,
+          result: {
+            artifactId: art.id,
+            score: 9000,
+            matchType: 'EXACT_TITLE',
+            matchedFields: ['Título exato'],
+          },
+        });
+      }
+    }
+    if (exactTitleMatches.length > 0) {
+      exactTitleMatches.sort(
+        (a, b) =>
+          a.art.titulo.localeCompare(b.art.titulo, 'pt-BR') ||
+          a.art.full_path.localeCompare(b.art.full_path, 'pt-BR') ||
+          a.art.id.localeCompare(b.art.id, 'pt-BR')
+      );
+      return exactTitleMatches.map((entry) => entry.result).slice(0, limit);
+    }
+
+    // 2. Hierarchical Partial Search Stage
     const tokens = normQuery.split(/\s+/).filter(Boolean);
     if (tokens.length === 0) return [];
 
-    const results: ContentSearchResult[] = [];
+    const meaningfulQueryTokens = tokens.filter(
+      (t) => !GENERIC_CONTENT_TOKENS.has(t) && t.length >= 2
+    );
+
+    interface RankedCandidate {
+      result: ContentSearchResult;
+      priority: number;
+      tokenCoverage: number;
+      titleTokenHits: number;
+      titleLenDiff: number;
+      title: string;
+    }
+
+    const candidates: RankedCandidate[] = [];
 
     for (const art of this.indexedArtifacts) {
       let score = 0;
@@ -307,31 +469,61 @@ class ArtifactSearchEngine {
       let codeExcerpt: string | undefined;
       let matchedValue: string | undefined;
 
-      // Check exact title or ID match
-      if (art.normId === normQuery || art.normTitle === normQuery) {
-        score += 150;
-        matchedFields.add('Título/ID exato');
-      } else if (art.normTitle.startsWith(normQuery) || art.normId.startsWith(normQuery)) {
-        score += 100;
-        matchedFields.add('Início do Título');
+      const titleOrIdMatchedTokens = new Set<string>();
+      const taxonomyMatchedTokens = new Set<string>();
+      const pathOnlyMatchedTokens = new Set<string>();
+      const screenOrSnippetMatchedTokens = new Set<string>();
+      const primaryFieldMatchedTokens = new Set<string>();
+
+      for (const t of tokens) {
+        const inTitleOrId = art.contentNormTitle.includes(t) || art.contentNormId.includes(t);
+        const inProdOrSub =
+          art.contentNormProduto.includes(t) || art.contentNormSubproduto.includes(t);
+        const inPath = art.contentNormFullPath.includes(t);
+
+        if (inTitleOrId) {
+          titleOrIdMatchedTokens.add(t);
+          taxonomyMatchedTokens.add(t);
+          primaryFieldMatchedTokens.add(t);
+        }
+        if (inProdOrSub) {
+          taxonomyMatchedTokens.add(t);
+          primaryFieldMatchedTokens.add(t);
+        }
+        if (inPath) {
+          taxonomyMatchedTokens.add(t);
+          pathOnlyMatchedTokens.add(t);
+        }
       }
 
-      // Check tokens in title
-      const titleTokenHits = tokens.filter((t) => art.normTitle.includes(t) || art.normId.includes(t)).length;
-      if (titleTokenHits > 0) {
-        score += titleTokenHits * 35;
+      const isTitlePrefix =
+        art.contentNormTitle.startsWith(normQuery) || art.contentNormId.startsWith(normQuery);
+      const isTitlePhrase =
+        !isTitlePrefix &&
+        (art.contentNormTitle.includes(normQuery) || art.contentNormId.includes(normQuery));
+
+      if (isTitlePrefix) {
+        score += 400;
+        matchedFields.add('Início do Título');
+      } else if (isTitlePhrase) {
+        score += 300;
+        matchedFields.add('Frase no Título');
+      }
+
+      if (titleOrIdMatchedTokens.size > 0) {
+        score += titleOrIdMatchedTokens.size * 50;
         matchedFields.add('Título');
       }
 
-      // Check Produto / Subproduto
-      const prodHits = tokens.filter((t) => art.normProduto.includes(t) || art.normSubproduto.includes(t)).length;
+      const prodHits = tokens.filter(
+        (t) => art.contentNormProduto.includes(t) || art.contentNormSubproduto.includes(t)
+      ).length;
       if (prodHits > 0) {
-        score += prodHits * 25;
+        score += prodHits * 30;
         matchedFields.add('Produto/Subproduto');
       }
 
-      // Check Full Path
-      const pathHits = tokens.filter((t) => art.normFullPath.includes(t)).length;
+      const pathHits = tokens.filter((t) => art.contentNormFullPath.includes(t)).length;
       if (pathHits > 0) {
         score += pathHits * 10;
         matchedFields.add('Caminho');
@@ -340,9 +532,13 @@ class ArtifactSearchEngine {
       // Search inside screens and snippets
       let foundInSnippet = false;
       for (const sc of art.screens) {
-        const instHits = tokens.filter((t) => sc.normInstruction.includes(t)).length;
-        if (instHits > 0) {
-          score += instHits * 20;
+        const instTokens = tokens.filter((t) => sc.normInstruction.includes(t));
+        if (instTokens.length > 0) {
+          instTokens.forEach((t) => {
+            screenOrSnippetMatchedTokens.add(t);
+            primaryFieldMatchedTokens.add(t);
+          });
+          score += instTokens.length * 22;
           matchedFields.add('Instrução da Tela');
           if (!bestScreenId) {
             bestScreenId = sc.screen_id;
@@ -353,29 +549,42 @@ class ArtifactSearchEngine {
 
         for (const snip of sc.snippets) {
           let snippetScore = 0;
-          const evHits = tokens.filter((t) => snip.normEvent.includes(t) || snip.normBaseKey.includes(t)).length;
-          if (evHits > 0) {
-            snippetScore += evHits * 30;
+          const evTokens = tokens.filter(
+            (t) => snip.normEvent.includes(t) || snip.normBaseKey.includes(t)
+          );
+          if (evTokens.length > 0) {
+            evTokens.forEach((t) => {
+              screenOrSnippetMatchedTokens.add(t);
+              primaryFieldMatchedTokens.add(t);
+            });
+            snippetScore += evTokens.length * 32;
             matchedFields.add('Evento');
-            matchedValue = snip.event_normalized || snip.base_key;
+            if (!matchedValue) matchedValue = snip.event_normalized || snip.base_key;
           }
 
           let paramHitCount = 0;
           for (const p of snip.parameters) {
-            const matchParam = tokens.filter((t) => p.normName.includes(t) || p.normPath.includes(t) || p.normValue.includes(t)).length;
-            if (matchParam > 0) {
-              paramHitCount += matchParam;
+            const pTokens = tokens.filter(
+              (t) => p.normName.includes(t) || p.normPath.includes(t) || p.normValue.includes(t)
+            );
+            if (pTokens.length > 0) {
+              pTokens.forEach((t) => {
+                screenOrSnippetMatchedTokens.add(t);
+                primaryFieldMatchedTokens.add(t);
+              });
+              paramHitCount += pTokens.length;
               if (!matchedValue) matchedValue = `${p.name}: ${p.value}`;
             }
           }
           if (paramHitCount > 0) {
-            snippetScore += paramHitCount * 18;
+            snippetScore += paramHitCount * 20;
             matchedFields.add('Parâmetro');
           }
 
-          const codeHits = tokens.filter((t) => snip.normRawCode.includes(t)).length;
-          if (codeHits > 0) {
-            snippetScore += codeHits * 12;
+          const codeTokens = tokens.filter((t) => snip.normRawCode.includes(t));
+          if (codeTokens.length > 0) {
+            codeTokens.forEach((t) => screenOrSnippetMatchedTokens.add(t));
+            snippetScore += codeTokens.length * 12;
             matchedFields.add('Código');
           }
 
@@ -392,10 +601,82 @@ class ArtifactSearchEngine {
         }
       }
 
-      if (score > 0) {
-        results.push({
+      if (score <= 0) continue;
+
+      const allMatchedTokens = new Set<string>([
+        ...titleOrIdMatchedTokens,
+        ...taxonomyMatchedTokens,
+        ...screenOrSnippetMatchedTokens,
+      ]);
+
+      if (allMatchedTokens.size === 0) continue;
+
+      const hasAllTitleTokens = titleOrIdMatchedTokens.size === tokens.length;
+      const hasAllTaxonomyTokens = taxonomyMatchedTokens.size === tokens.length;
+      const hasAllTokensAcrossArtifact = allMatchedTokens.size === tokens.length;
+
+      let matchType: ContentMatchType;
+      if (isTitlePrefix) {
+        matchType = 'TITLE_PREFIX';
+      } else if (isTitlePhrase) {
+        matchType = 'TITLE_PHRASE';
+      } else if (hasAllTitleTokens) {
+        matchType = 'ALL_TITLE_TOKENS';
+      } else if (hasAllTaxonomyTokens) {
+        matchType = 'TAXONOMY';
+      } else if (
+        (hasAllTokensAcrossArtifact && screenOrSnippetMatchedTokens.size > 0) ||
+        (tokens.length === 1 && screenOrSnippetMatchedTokens.size > 0)
+      ) {
+        matchType = 'SCREEN_OR_SNIPPET';
+      } else {
+        matchType = 'PARTIAL';
+      }
+
+      // Filter out noisy low-value partial matches on multi-word queries
+      if (matchType === 'PARTIAL' && tokens.length >= 2) {
+        const matchedMeaningful = Array.from(allMatchedTokens).filter(
+          (t) => !GENERIC_CONTENT_TOKENS.has(t) && t.length >= 2
+        );
+
+        // If query has meaningful tokens, a partial match must match at least one meaningful token
+        if (meaningfulQueryTokens.length > 0 && matchedMeaningful.length === 0) {
+          continue;
+        }
+
+        // Partial match must hit at least one primary field (not solely full_path or raw code)
+        if (primaryFieldMatchedTokens.size === 0) {
+          continue;
+        }
+
+        if (tokens.length === 2) {
+          // For 2-token queries, a 1-token partial match is only kept if that token is meaningful and in Title or Event/Param
+          const hitInTitleOrEvent = Array.from(matchedMeaningful).some(
+            (t) => titleOrIdMatchedTokens.has(t) || screenOrSnippetMatchedTokens.has(t)
+          );
+          if (!hitInTitleOrEvent) {
+            continue;
+          }
+        } else {
+          // For 3+ token queries, require >= 50% token coverage and at least 2 meaningful tokens (when available)
+          const minRequiredTokens = Math.max(2, Math.ceil(tokens.length * 0.5));
+          if (allMatchedTokens.size < minRequiredTokens) {
+            continue;
+          }
+          if (meaningfulQueryTokens.length >= 2 && matchedMeaningful.length < 2) {
+            continue;
+          }
+        }
+      }
+
+      const tokenCoverage = allMatchedTokens.size / tokens.length;
+      const titleLenDiff = Math.abs((art.contentNormTitle || art.titulo).length - normQuery.length);
+
+      candidates.push({
+        result: {
           artifactId: art.id,
           score,
+          matchType,
           matchedFields: Array.from(matchedFields),
           screenId: bestScreenId,
           screenIndex: bestScreenIndex,
@@ -403,13 +684,46 @@ class ArtifactSearchEngine {
           snippetIndex: bestSnippetIndex,
           codeExcerpt,
           matchedValue,
-        });
-      }
+        },
+        priority: CONTENT_MATCH_PRIORITY[matchType],
+        tokenCoverage,
+        titleTokenHits: titleOrIdMatchedTokens.size,
+        titleLenDiff,
+        title: art.titulo || art.id,
+      });
     }
 
-    results.sort((a, b) => b.score - a.score);
-    return results.slice(0, limit);
+    candidates.sort((a, b) => {
+      // 1. Hierarchical layer priority (lower number = higher priority)
+      if (a.priority !== b.priority) {
+        return a.priority - b.priority;
+      }
+      // 2. Higher query token coverage
+      if (b.tokenCoverage !== a.tokenCoverage) {
+        return b.tokenCoverage - a.tokenCoverage;
+      }
+      // 3. Higher title token hits
+      if (b.titleTokenHits !== a.titleTokenHits) {
+        return b.titleTokenHits - a.titleTokenHits;
+      }
+      // 4. Higher internal score
+      if (b.result.score !== a.result.score) {
+        return b.result.score - a.result.score;
+      }
+      // 5. Shorter title / closer to query length
+      if (a.titleLenDiff !== b.titleLenDiff) {
+        return a.titleLenDiff - b.titleLenDiff;
+      }
+      // 6. Alphabetical order as final deterministic tie-breaker
+      return (
+        a.title.localeCompare(b.title, 'pt-BR') ||
+        a.result.artifactId.localeCompare(b.result.artifactId, 'pt-BR')
+      );
+    });
+
+    return candidates.slice(0, limit).map((c) => c.result);
   }
+
 
   private evaluateCriterionOnSnippet(
     criterion: ParameterCriterion,
@@ -836,7 +1150,7 @@ class ArtifactSearchEngine {
               occurrencesMap.set(occKey, {
                 screenId: sc.screen_id,
                 screenIndex: sc.screen_index,
-                screenTitle: sc.instruction || `Tela #${sc.screen_index}`,
+                screenTitle: sc.instruction || `Tela #${sc.screen_index + 1}`,
                 snippetIndex: snip.snippet_index,
                 event: snip.event_normalized || snip.base_key || 'Snippet',
                 quality: bestQuality,
@@ -910,7 +1224,7 @@ class ArtifactSearchEngine {
               occurrencesMap.set(occKey, {
                 screenId: sc.screen_id,
                 screenIndex: sc.screen_index,
-                screenTitle: sc.instruction || `Tela #${sc.screen_index}`,
+                screenTitle: sc.instruction || `Tela #${sc.screen_index + 1}`,
                 snippetIndex: 0,
                 event: firstSnip?.event_normalized || 'Vários disparos',
                 quality: 'all_params_screen',
@@ -930,7 +1244,7 @@ class ArtifactSearchEngine {
               occurrencesMap.set(occKey, {
                 screenId: sc.screen_id,
                 screenIndex: sc.screen_index,
-                screenTitle: sc.instruction || `Tela #${sc.screen_index}`,
+                screenTitle: sc.instruction || `Tela #${sc.screen_index + 1}`,
                 snippetIndex: 0,
                 event: firstSnip?.event_normalized || 'Snippet',
                 quality: 'partial_match',

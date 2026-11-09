@@ -19,8 +19,9 @@ export interface SidebarContextualAreaProps {
   // Cards (results)
   cardSearch: string;
   onCardSearchChange: (val: string) => void;
-  cardSort: 'recentes' | 'antigos' | 'az' | 'za';
-  onCardSortChange: (val: 'recentes' | 'antigos' | 'az' | 'za') => void;
+  cardSort: 'relevancia' | 'recentes' | 'antigos' | 'az' | 'za';
+  onCardSortChange: (val: 'relevancia' | 'recentes' | 'antigos' | 'az' | 'za') => void;
+  hasActiveSearch?: boolean;
   cardArtifactType: 'todos' | 'mapas' | 'docs' | 'nos';
   onCardArtifactTypeChange: (val: 'todos' | 'mapas' | 'docs' | 'nos') => void;
   cardResponsible: string;
@@ -97,6 +98,7 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
   onCardSearchChange,
   cardSort,
   onCardSortChange,
+  hasActiveSearch = false,
   cardArtifactType,
   onCardArtifactTypeChange,
   cardResponsible,
@@ -156,11 +158,22 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
 
   // 1. CARDS (results)
   if (currentRouteId === 'results') {
+    const defaultSort = hasActiveSearch ? 'relevancia' : 'recentes';
     let activeFiltersCount = 0;
-    if (cardSort !== 'recentes') activeFiltersCount++;
+    if (cardSort !== defaultSort) activeFiltersCount++;
     if (cardArtifactType !== 'todos') activeFiltersCount++;
     if (cardResponsible !== 'todos') activeFiltersCount++;
     if (cardYear !== 'todas') activeFiltersCount++;
+
+    const sortOptions = [
+      ...(hasActiveSearch || cardSort === 'relevancia'
+        ? [{ value: 'relevancia' as const, label: 'Relevância' }]
+        : []),
+      { value: 'recentes' as const, label: 'Mais recentes' },
+      { value: 'antigos' as const, label: 'Mais antigos' },
+      { value: 'az' as const, label: 'A a Z' },
+      { value: 'za' as const, label: 'Z a A' },
+    ];
 
     return (
       <div className="flex flex-col gap-2 w-full min-w-0" id="sidebar-contextual-cards">
@@ -201,13 +214,9 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
             label="Ordenação"
             value={cardSort}
             onChange={(v) => onCardSortChange(v)}
-            options={[
-              { value: 'recentes', label: 'Mais recentes' },
-              { value: 'antigos', label: 'Mais antigos' },
-              { value: 'az', label: 'A a Z' },
-              { value: 'za', label: 'Z a A' },
-            ]}
+            options={sortOptions}
           />
+
 
           {/* Tipo de Artefato */}
           <FilterSegmentedRow

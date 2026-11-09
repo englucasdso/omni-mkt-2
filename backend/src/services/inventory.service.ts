@@ -258,32 +258,134 @@ export function calculateInsights(inventory: any[]) {
   };
 }
 
+export function normalizeBackendContentTitle(value: string): string {
+  if (!value) return '';
+  return String(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[-–—\u2010-\u2015\u2212/|\\•·.,;:!?()"'[\]{}<>+*=~`@#$%^&*_]+/g, ' ')
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function searchArtifacts(query: string) {
   const inventory = getInventoryData();
   if (!query) return inventory;
-  const lowerQuery = query.toLowerCase().trim();
 
-  return inventory.filter((item: any) => {
-    if (item.titulo && item.titulo.toLowerCase().includes(lowerQuery)) return true;
-    if (item.full_path && item.full_path.toLowerCase().includes(lowerQuery)) return true;
-    if (item.responsavel && item.responsavel.toLowerCase().includes(lowerQuery)) return true;
-    if (item.produto && item.produto.toLowerCase().includes(lowerQuery)) return true;
-    if (item.subproduto && item.subproduto.toLowerCase().includes(lowerQuery)) return true;
-    if (item.numero_da_task && item.numero_da_task.toLowerCase().includes(lowerQuery)) return true;
-    if (item.propriedade_ga4_stream_id && item.propriedade_ga4_stream_id.toLowerCase().includes(lowerQuery)) return true;
-    if (item.gtm_id && item.gtm_id.toLowerCase().includes(lowerQuery)) return true;
-    if (item.gtm_ids && item.gtm_ids.some((g: string) => String(g).toLowerCase().includes(lowerQuery))) return true;
-    if (item.artifact_type && item.artifact_type.toLowerCase().includes(lowerQuery)) return true;
-    if (item.measurement_class && item.measurement_class.toLowerCase().includes(lowerQuery)) return true;
+  const rawLower = String(query).trim().toLowerCase();
+  const normQuery = normalizeBackendContentTitle(query);
+  if (!normQuery) return inventory;
 
-    // Busca dentro dos parâmetros
-    if (item.parameter_summary) {
+  // 1. Exact ID match
+  const exactIdMatches = inventory.filter((item: any) => {
+    const idStr = String(item.id || '').trim();
+    if (!idStr) return false;
+    return idStr.toLowerCase() === rawLower || normalizeBackendContentTitle(idStr) === normQuery;
+  });
+  if (exactIdMatches.length > 0) {
+    return exactIdMatches;
+  }
+
+  // 2. Exact normalized Title match
+  const exactTitleMatches = inventory.filter(
+    (item: any) => item.titulo && normalizeBackendContentTitle(item.titulo) === normQuery
+  );
+  if (exactTitleMatches.length > 0) {
+    return exactTitleMatches;
+  }
+
+  // 3. Layered partial search
+  const tokens = normQuery.split(/\s+/).filter(Boolean);
+  const scored: Array<{ item: any; layer: number; score: number; titleLenDiff: number }> = [];
+
+  for (const item of inventory) {
+    const normTitle = normalizeBackendContentTitle(item.titulo || '');
+    const normId = normalizeBackendContentTitle(item.id || '');
+    const normProd = normalizeBackendContentTitle(item.produto || '');
+    const normSub = normalizeBackendContentTitle(item.subproduto || '');
+    const normPath = normalizeBackendContentTitle(item.full_path || '');
+
+    const titleTokensHit = tokens.filter((t) => normTitle.includes(t) || normId.includes(t)).length;
+    const taxTokensHit = tokens.filter(
+      (t) =>
+        normTitle.includes(t) ||
+        normId.includes(t) ||
+        normProd.includes(t) ||
+        normSub.includes(t) ||
+        normPath.includes(t)
+    ).length;
+
+    let otherHit = false;
+    if (
+      (item.responsavel && item.responsavel.toLowerCase().includes(rawLower)) ||
+      (item.numero_da_task && item.numero_da_task.toLowerCase().includes(rawLower)) ||
+      (item.propriedade_ga4_stream_id &&
+        item.propriedade_ga4_stream_id.toLowerCase().includes(rawLower)) ||
+      (item.gtm_id && item.gtm_id.toLowerCase().includes(rawLower)) ||
+      (item.gtm_ids &&
+        item.gtm_ids.some((g: string) => String(g).toLowerCase().includes(rawLower))) ||
+      (item.artifact_type && item.artifact_type.toLowerCase().includes(rawLower)) ||
+      (item.measurement_class && item.measurement_class.toLowerCase().includes(rawLower))
+    ) {
+      otherHit = true;
+    }
+
+    if (!otherHit && item.parameter_summary) {
       for (const p of item.parameter_summary) {
-        if (p.path && p.path.toLowerCase().includes(lowerQuery)) return true;
-        if (p.distinct_values && p.distinct_values.some((v: string) => String(v).toLowerCase().includes(lowerQuery))) return true;
+        if (
+          p.path &&
+          (p.path.toLowerCase().includes(rawLower) ||
+            normalizeBackendContentTitle(p.path).includes(normQuery))
+        ) {
+          otherHit = true;
+          break;
+        }
+        if (
+          p.distinct_values &&
+          p.distinct_values.some((v: string) => {
+            const vStr = String(v);
+            return (
+              vStr.toLowerCase().includes(rawLower) ||
+              normalizeBackendContentTitle(vStr).includes(normQuery)
+            );
+          })
+        ) {
+          otherHit = true;
+          break;
+        }
       }
     }
 
-    return false;
-  });
+    const isPrefix = normTitle.startsWith(normQuery) || normId.startsWith(normQuery);
+    const isPhrase = !isPrefix && (normTitle.includes(normQuery) || normId.includes(normQuery));
+    const isAllTitle = tokens.length > 0 && titleTokensHit === tokens.length;
+    const isAllTax = tokens.length > 0 && taxTokensHit === tokens.length;
+
+    let layer = 0;
+    if (isPrefix) layer = 1;
+    else if (isPhrase) layer = 2;
+    else if (isAllTitle) layer = 3;
+    else if (isAllTax) layer = 4;
+    else if (otherHit) layer = 5;
+    else if (titleTokensHit > 0 || (tokens.length === 1 && taxTokensHit > 0)) layer = 6;
+
+    if (layer > 0) {
+      const score = titleTokensHit * 50 + taxTokensHit * 20 + (otherHit ? 15 : 0);
+      const titleLenDiff = Math.abs(normTitle.length - normQuery.length);
+      scored.push({ item, layer, score, titleLenDiff });
+    }
+  }
+
+  scored.sort(
+    (a, b) =>
+      a.layer - b.layer ||
+      b.score - a.score ||
+      a.titleLenDiff - b.titleLenDiff ||
+      String(a.item.titulo || '').localeCompare(String(b.item.titulo || ''), 'pt-BR')
+  );
+
+  return scored.map((s) => s.item);
 }
+

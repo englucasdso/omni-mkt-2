@@ -107,7 +107,10 @@ const ScreenNode = React.memo(({ data, selected }: any) => {
         <div className="flex justify-between items-center mb-2.5">
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-bold bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 px-2.5 py-1 rounded-md">
-              Etapa #{data.screen?.screen_index ?? data.screenIndex ?? '?'}
+              Etapa #{(() => {
+                const rawIdx = data.screen?.screen_index ?? data.screenIndex;
+                return Number.isInteger(rawIdx) ? rawIdx + 1 : '?';
+              })()}
             </span>
             {data.screen?.screen_id && (
               <span className="text-[10px] font-mono text-gray-400 dark:text-slate-500 truncate max-w-[120px]">
@@ -449,7 +452,7 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({
         type: 'screen',
         data: {
           screen,
-          screenIndex: screen.screen_index ?? (i + 1),
+          screenIndex: Number.isInteger(screen.screen_index) ? screen.screen_index : i,
           summary: screen.instruction || 'Tela sem instrução especificada',
           confidence: 'INFERIDO',
           isAiGenerated: false,

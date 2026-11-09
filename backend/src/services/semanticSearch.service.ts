@@ -105,7 +105,7 @@ function selectLocalCandidates(inventory: any[], question: string, maxCandidates
             if (Array.isArray(snip.parameters)) {
               for (const p of snip.parameters) {
                 const normPName = normalizeString(p.name || "");
-                const normPVal = normalizeString(String(p.value || ""));
+                const normPVal = normalizeString(String(p.normalized_value ?? p.value ?? p.raw_value ?? ""));
                 for (const term of terms) {
                   if (normPName.includes(term)) score += 8;
                   if (normPVal.includes(term)) score += 10;
@@ -138,7 +138,7 @@ function sanitizeCandidatesForModel(candidates: any[]) {
     subproduto: String(art.subproduto || ""),
     screens: (art.screens || []).slice(0, 10).map((sc: any, scIdx: number) => ({
       screen_id: String(sc.screen_id || scIdx + 1),
-      screen_index: sc.screen_index ?? scIdx + 1,
+      screen_index: Number.isInteger(sc.screen_index) ? sc.screen_index : scIdx,
       instruction: (sc.instruction || "").slice(0, 200),
       status: sc.status || "",
       snippets: (sc.snippets || []).slice(0, 6).map((snip: any, snipIdx: number) => ({
@@ -149,7 +149,7 @@ function sanitizeCandidatesForModel(candidates: any[]) {
         parameters: (snip.parameters || []).slice(0, 12).map((p: any) => ({
           name: p.name || "",
           path: p.path || "",
-          value: String(p.value ?? "").slice(0, 60),
+          value: String(p.normalized_value ?? p.value ?? p.raw_value ?? "").slice(0, 60),
         })),
       })),
     })),
@@ -312,7 +312,9 @@ Identifique os artefatos mais relevantes para responder à pergunta com base em 
       subproduto: realArtifact.subproduto || "",
       screenId: targetScreen ? String(targetScreen.screen_id) : undefined,
       screenIndex: screenIndex,
-      screenTitle: targetScreen ? (targetScreen.instruction || `Tela ${screenIndex || 1}`) : undefined,
+      screenTitle: targetScreen
+        ? targetScreen.instruction || `Tela ${Number.isInteger(screenIndex) ? screenIndex! + 1 : 1}`
+        : undefined,
       snippetIndex: typeof res.snippetIndex === "number" ? res.snippetIndex : 0,
       score: typeof res.score === "number" ? res.score : 0.8,
       confidence,

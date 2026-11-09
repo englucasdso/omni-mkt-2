@@ -14,9 +14,19 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Artifact, ActiveSearch, ParameterArtifactGroupSummary } from '../../types';
+import {
+  Artifact,
+  ActiveSearch,
+  ParameterArtifactGroupSummary,
+  ContentMatchSummary,
+} from '../../types';
 import { searchWorkerClient } from '../../services/searchWorkerClient';
-import type { ParameterCriterion } from '../../workers/artifactSearch.worker';
+import {
+  artifactSearchEngine,
+  getContentMatchLabel,
+  type ContentSearchResult,
+  type ParameterCriterion,
+} from '../../services/artifactSearchEngine';
 
 export interface SearchCenterProps {
   artifacts: Artifact[];
@@ -32,6 +42,7 @@ export interface SearchCenterProps {
       scope?: 'SNIPPET' | 'SCREEN';
       operator?: 'AND' | 'OR';
       parameterGroups?: Record<string, ParameterArtifactGroupSummary>;
+      contentMatches?: Record<string, ContentMatchSummary>;
       matchedTerms?: string[];
       queryKind?: string;
     }
@@ -43,6 +54,7 @@ export interface SearchCenterProps {
   onViewInTree?: (artifactId: string) => void;
   onOpenJourney?: (mapId: string) => void;
 }
+
 
 const PARAM_EXAMPLES = [
   {

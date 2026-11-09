@@ -20,7 +20,7 @@ import { JourneysCanvas } from "../components/JourneysCanvas";
 import { JourneysSidebarFilters } from "../components/JourneysSidebarFilters";
 import { getOperationalInsights } from "../utils/inventoryHelpers";
 import { fetchInventory, searchContent, fetchUsers, createUser, updateUser, deleteUser } from "../services/api";
-import { Artifact, Insights, SearchResponse, User as UserType, UserRole, UserStatus, ActiveSearch, ParameterArtifactGroupSummary } from "../types";
+import { Artifact, Insights, SearchResponse, User as UserType, UserRole, UserStatus, ActiveSearch, ParameterArtifactGroupSummary, ContentMatchSummary } from "../types";
 import { normalizar, formatDataBR, getFilteredInsights } from "../utils/helpers";
 import { 
   buildArtifactSearchableText, 
@@ -601,6 +601,7 @@ export default function App() {
       scope?: 'SNIPPET' | 'SCREEN';
       operator?: 'AND' | 'OR';
       parameterGroups?: Record<string, ParameterArtifactGroupSummary>;
+      contentMatches?: Record<string, ContentMatchSummary>;
       matchedTerms?: string[];
       queryKind?: string;
     }
@@ -641,22 +642,26 @@ export default function App() {
       scope: meta?.scope,
       operator: meta?.operator,
       parameterGroups: meta?.parameterGroups,
+      contentMatches: meta?.contentMatches,
       matchedTerms: meta?.matchedTerms,
       queryKind: meta?.queryKind,
     };
     setActiveSearch(newActiveSearch);
 
-    // 8. Resetar a paginação e limpar cardSearch para não conflitar
+    // 8. Definir ordenação por Relevância para buscas ativas (preservando a ordem do buscador)
+    setCardSort(isFullBase ? "recentes" : "relevancia");
+
+    // 9. Resetar a paginação e limpar cardSearch para não conflitar
     setCardSearch("");
     setCardPage(1);
 
-    // 9. Navegar para /hub-de-artefatos/cards
+    // 10. Navegar para /hub-de-artefatos/cards
     setAppState("results");
   }, [fullInventory]);
 
   // Estados e controle exclusivos da tela de Cards
   const [cardSearch, setCardSearch] = useState("");
-  const [cardSort, setCardSort] = useState<"recentes" | "antigos" | "az" | "za">("recentes");
+  const [cardSort, setCardSort] = useState<"relevancia" | "recentes" | "antigos" | "az" | "za">("recentes");
   const [cardArtifactType, setCardArtifactType] = useState<"todos" | "mapas" | "docs" | "nos">("todos");
   const [cardResponsible, setCardResponsible] = useState<string>("todos");
   const [cardYear, setCardYear] = useState<string>("todas");
@@ -742,30 +747,32 @@ export default function App() {
       list = list.filter(({ searchableText }) => matchesAllTokens(searchableText, queryTokens));
     }
 
-    // 5. Ordenação padrão da tela
-    const sorted = [...list].sort((a, b) => {
-      const artA = a.artifact;
-      const artB = b.artifact;
-      if (cardSort === "recentes") {
-        const timeA = artA.ultima_atualizacao ? new Date(artA.ultima_atualizacao).getTime() : 0;
-        const timeB = artB.ultima_atualizacao ? new Date(artB.ultima_atualizacao).getTime() : 0;
-        return timeB - timeA;
-      }
-      if (cardSort === "antigos") {
-        const timeA = artA.ultima_atualizacao ? new Date(artA.ultima_atualizacao).getTime() : 0;
-        const timeB = artB.ultima_atualizacao ? new Date(artB.ultima_atualizacao).getTime() : 0;
-        return timeA - timeB;
-      }
-      if (cardSort === "az") {
-        return (artA.titulo || "").localeCompare(artB.titulo || "", "pt-BR");
-      }
-      if (cardSort === "za") {
-        return (artB.titulo || "").localeCompare(artA.titulo || "", "pt-BR");
-      }
-      return 0;
-    });
+    // 5. Ordenação da tela de Cards (quando cardSort === 'relevancia', preserva a ordem exata do buscador)
+    const sorted = cardSort === "relevancia"
+      ? [...list]
+      : [...list].sort((a, b) => {
+          const artA = a.artifact;
+          const artB = b.artifact;
+          if (cardSort === "recentes") {
+            const timeA = artA.ultima_atualizacao ? new Date(artA.ultima_atualizacao).getTime() : 0;
+            const timeB = artB.ultima_atualizacao ? new Date(artB.ultima_atualizacao).getTime() : 0;
+            return timeB - timeA;
+          }
+          if (cardSort === "antigos") {
+            const timeA = artA.ultima_atualizacao ? new Date(artA.ultima_atualizacao).getTime() : 0;
+            const timeB = artB.ultima_atualizacao ? new Date(artB.ultima_atualizacao).getTime() : 0;
+            return timeA - timeB;
+          }
+          if (cardSort === "az") {
+            return (artA.titulo || "").localeCompare(artB.titulo || "", "pt-BR");
+          }
+          if (cardSort === "za") {
+            return (artB.titulo || "").localeCompare(artA.titulo || "", "pt-BR");
+          }
+          return 0;
+        });
 
-    // 6. Quando houver busca: priorizar correspondência exata de ID, depois título começando pela consulta
+    // 6. Quando houver busca secundária na barra lateral: priorizar correspondência exata de ID, depois título começando pela consulta
     const prioritized = queryTokens.length > 0
       ? sortWithSearchPriority(sorted, debouncedCardSearch)
       : sorted;
@@ -791,14 +798,15 @@ export default function App() {
 
   // Indicador de filtro ativo
   const isCardFilterActive = useMemo(() => {
+    const defaultSort = activeSearch !== null ? "relevancia" : "recentes";
     return (
       cardSearch.trim() !== "" ||
-      cardSort !== "recentes" ||
+      cardSort !== defaultSort ||
       cardArtifactType !== "todos" ||
       cardResponsible !== "todos" ||
       cardYear !== "todas"
     );
-  }, [cardSearch, cardSort, cardArtifactType, cardResponsible, cardYear]);
+  }, [cardSearch, cardSort, cardArtifactType, cardResponsible, cardYear, activeSearch]);
 
   const hasActiveCardFilters = cardArtifactType !== "todos" || cardResponsible !== "todos" || cardYear !== "todas";
 
@@ -811,7 +819,7 @@ export default function App() {
 
   const resetCardFilters = () => {
     setCardSearch("");
-    setCardSort("recentes");
+    setCardSort(activeSearch !== null ? "relevancia" : "recentes");
     setCardArtifactType("todos");
     setCardResponsible("todos");
     setCardYear("todas");
@@ -1626,8 +1634,13 @@ export default function App() {
       setResults(fullInventory);
     }
 
-    // 4. Limpar filtros e paginação da tela de Cards
-    resetCardFilters();
+    // 4. Limpar filtros e paginação da tela de Cards (restaurando ordenação padrão 'recentes')
+    setCardSearch("");
+    setCardSort("recentes");
+    setCardArtifactType("todos");
+    setCardResponsible("todos");
+    setCardYear("todas");
+    setCardPage(1);
 
     // 5. Limpar filtros e estados contextuais das demais telas (Inventário, Produtos, Parâmetros, Insights)
     resetInventoryFilters();
@@ -1770,6 +1783,7 @@ export default function App() {
             setCardSort(val);
             setCardPage(1);
           }}
+          hasActiveSearch={activeSearch !== null}
           cardArtifactType={cardArtifactType}
           onCardArtifactTypeChange={(val) => {
             setCardArtifactType(val);
@@ -2473,6 +2487,21 @@ export default function App() {
                       {item.produto && <span className="red-badge font-ui">{item.produto}</span>}
                       {item.subproduto && <span className="red-badge font-ui">{item.subproduto}</span>}
                     </div>
+                    {activeSearch?.mode === 'conteudo' && activeSearch.contentMatches?.[item.id] && (() => {
+                      const matchInfo = activeSearch.contentMatches[item.id];
+                      const isExact = matchInfo.matchType === 'EXACT_ID' || matchInfo.matchType === 'EXACT_TITLE';
+                      const isTitle = matchInfo.matchType === 'TITLE_PREFIX' || matchInfo.matchType === 'TITLE_PHRASE' || matchInfo.matchType === 'ALL_TITLE_TOKENS';
+                      const badgeStyle = isExact
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                        : isTitle
+                        ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
+                        : 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
+                      return (
+                        <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-ui font-semibold border ${badgeStyle}`}>
+                          {matchInfo.label}
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   <div className="mb-6">

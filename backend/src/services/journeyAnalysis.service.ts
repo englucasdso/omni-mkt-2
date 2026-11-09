@@ -65,6 +65,32 @@ export interface JourneyAnalysisResult {
 }
 
 /**
+ * Converte o índice estrutural interno da tela (0-based) em número de exibição humano (1-based).
+ * Ex: screen_index 0 -> 1, screen_index 34 -> 35.
+ */
+export function toDisplayScreenNumber(
+  screenIndex?: number | null,
+  fallbackZeroBasedIndex = 0
+): number {
+  if (typeof screenIndex === 'number' && Number.isInteger(screenIndex) && screenIndex >= 0) {
+    return screenIndex + 1;
+  }
+  if (screenIndex !== null && screenIndex !== undefined) {
+    const parsed = Number(screenIndex);
+    if (Number.isInteger(parsed) && parsed >= 0) {
+      return parsed + 1;
+    }
+  }
+  return (
+    typeof fallbackZeroBasedIndex === 'number' &&
+    Number.isInteger(fallbackZeroBasedIndex) &&
+    fallbackZeroBasedIndex >= 0
+      ? fallbackZeroBasedIndex
+      : 0
+  ) + 1;
+}
+
+/**
  * Cria a sequência documental determinística de telas
  */
 export function buildDocumentarySequence(artifact: JourneyArtifactInput): { nodes: JourneyNode[]; edges: JourneyEdge[] } {
@@ -81,13 +107,15 @@ export function buildDocumentarySequence(artifact: JourneyArtifactInput): { node
   screens.forEach((screen, i) => {
     const screenId = String(screen.screen_id || i);
     const id = `journey-screen-${artifact.id}-${screenId}`;
+    const internalScreenIndex = Number.isInteger(screen.screen_index) ? screen.screen_index! : i;
+    const displayScreenNumber = toDisplayScreenNumber(screen.screen_index, i);
 
     nodes.push({
       id,
       kind: 'screen',
       screenId: screen.screen_id,
-      screenIndex: screen.screen_index ?? (i + 1),
-      label: `Tela ${screen.screen_index || i + 1}`,
+      screenIndex: internalScreenIndex,
+      label: `Tela ${displayScreenNumber}`,
       summary: screen.instruction || 'Sem instrução',
       confidence: 'INFERIDO',
       evidence: ['DOCUMENT_ORDER'],
@@ -137,7 +165,7 @@ export function validateGeminiConfig(): { apiKey: string; modelName: string } {
 function prepareModelInput(artifact: JourneyArtifactInput) {
   const screens = (artifact.screens || []).map((screen, idx) => ({
     screen_id: String(screen.screen_id || idx),
-    screen_index: screen.screen_index ?? (idx + 1),
+    screen_index: Number.isInteger(screen.screen_index) ? screen.screen_index! : idx,
     instruction: String(screen.instruction || ''),
     status: String(screen.status || ''),
     snippets: (screen.snippets || []).map((s, sIdx) => ({
@@ -204,13 +232,15 @@ function validateAndBuildGraph(
     const sid = String(s.screen_id || idx);
     const nodeId = `journey-screen-${artifact.id}-${sid}`;
     const prefSnippet = screenPreferredSnippet.has(sid) ? screenPreferredSnippet.get(sid)! : 0;
+    const internalScreenIndex = Number.isInteger(s.screen_index) ? s.screen_index! : idx;
+    const displayScreenNumber = toDisplayScreenNumber(s.screen_index, idx);
 
     return {
       id: nodeId,
       kind: 'screen' as const,
       screenId: s.screen_id,
-      screenIndex: s.screen_index ?? (idx + 1),
-      label: `Tela ${s.screen_index || idx + 1}`,
+      screenIndex: internalScreenIndex,
+      label: `Tela ${displayScreenNumber}`,
       summary: s.instruction || 'Sem instrução',
       confidence: 'INFERIDO' as const,
       evidence: ['DOCUMENT_ORDER'],

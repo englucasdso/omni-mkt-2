@@ -23,9 +23,14 @@ export interface SemanticHeader {
 
 export interface ParameterItem {
   name: string;
+  name_raw?: string;
+  name_normalized?: string;
   path: string;
+  path_raw?: string;
+  path_normalized?: string;
   raw_value: string;
   normalized_value: string;
+  value?: string;
   value_type: ValueType;
   map_id?: string;
   screen_id?: string;
@@ -33,6 +38,7 @@ export interface ParameterItem {
 
 export interface SnippetItem {
   snippet_id: string;
+  snippet_index?: number;
   map_id: string;
   screen_id: string;
   raw_code: string;
@@ -44,6 +50,14 @@ export interface SnippetItem {
   pattern_id: string;
   measurement_class: MeasurementClass;
   parameters: ParameterItem[];
+  unicode_diagnostics?: {
+    type: string;
+    mapId: string;
+    screenIndex: number | null;
+    snippetIndex: number | null;
+    stage: string;
+    occurrences: number;
+  };
 }
 
 export interface ScreenItem {
@@ -281,6 +295,24 @@ export interface ParameterArtifactGroupSummary {
   occurrences: ParameterOccurrenceSummary[];
 }
 
+export type ContentMatchType =
+  | 'EXACT_ID'
+  | 'EXACT_TITLE'
+  | 'TITLE_PREFIX'
+  | 'TITLE_PHRASE'
+  | 'ALL_TITLE_TOKENS'
+  | 'TAXONOMY'
+  | 'SCREEN_OR_SNIPPET'
+  | 'PARTIAL';
+
+export interface ContentMatchSummary {
+  artifactId: string;
+  matchType: ContentMatchType;
+  score: number;
+  matchedFields: string[];
+  label: string;
+}
+
 export interface ActiveSearch {
   mode: 'conteudo' | 'parametros' | 'ia';
   query: string;
@@ -292,7 +324,9 @@ export interface ActiveSearch {
   scope?: 'SNIPPET' | 'SCREEN';
   operator?: 'AND' | 'OR';
   parameterGroups?: Record<string, ParameterArtifactGroupSummary>;
+  contentMatches?: Record<string, ContentMatchSummary>;
   matchedTerms?: string[];
   queryKind?: string;
 }
+
 
