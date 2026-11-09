@@ -1295,10 +1295,15 @@ class ArtifactSearchEngine {
     completeGroups.sort(groupSorter);
     partialGroups.sort(groupSorter);
 
-    const allArtifactIds: string[] = [
-      ...completeGroups.map((g) => g.artifactId),
-      ...partialGroups.map((g) => g.artifactId),
-    ];
+    // Regra do blueprint: no modo AND só contam artefatos que têm TODOS os parâmetros
+    // no escopo escolhido. Correspondências parciais ficam disponíveis apenas como
+    // sugestão (partialGroups) e nunca entram na contagem de resultados.
+    const allArtifactIds: string[] = condition === 'AND'
+      ? completeGroups.map((g) => g.artifactId)
+      : [
+          ...completeGroups.map((g) => g.artifactId),
+          ...partialGroups.map((g) => g.artifactId),
+        ];
 
     return {
       completeGroups,

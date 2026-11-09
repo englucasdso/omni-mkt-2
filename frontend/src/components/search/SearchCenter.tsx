@@ -45,6 +45,7 @@ export interface SearchCenterProps {
       contentMatches?: Record<string, ContentMatchSummary>;
       matchedTerms?: string[];
       queryKind?: string;
+      partialMatchesCount?: number;
     }
   ) => void;
   onNavigateToOperationalInsights?: () => void;
@@ -350,6 +351,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
         parameterGroups: groupMap,
         matchedTerms,
         queryKind: res.queryKind,
+        partialMatchesCount: criteriaCombination === 'AND' ? res.partialGroups.length : 0,
       });
     } catch (err) {
       console.error('[SearchCenter] Parameter search error:', err);

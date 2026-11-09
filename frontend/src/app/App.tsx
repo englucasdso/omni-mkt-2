@@ -601,6 +601,7 @@ export default function App() {
       contentMatches?: Record<string, ContentMatchSummary>;
       matchedTerms?: string[];
       queryKind?: string;
+      partialMatchesCount?: number;
     }
   ) => {
     // 1. Receber filteredIds
@@ -642,6 +643,7 @@ export default function App() {
       contentMatches: meta?.contentMatches,
       matchedTerms: meta?.matchedTerms,
       queryKind: meta?.queryKind,
+      partialMatchesCount: meta?.partialMatchesCount,
     };
     setActiveSearch(newActiveSearch);
 
@@ -2438,6 +2440,14 @@ export default function App() {
               <ContextualEmptyState
                 searchTerm={cardSearch}
                 hasActiveFilters={hasActiveCardFilters}
+                customTitle={activeSearch?.mode === 'parametros' && activeSearch.query && !cardSearch && !hasActiveCardFilters
+                  ? 'Nenhum artefato contém todos os parâmetros'
+                  : undefined}
+                customDescription={activeSearch?.mode === 'parametros' && activeSearch.query && !cardSearch && !hasActiveCardFilters
+                  ? (activeSearch.partialMatchesCount
+                      ? `Nenhum ${activeSearch.scope === 'SCREEN' ? 'tela' : 'snippet'} reúne todos os critérios de “${activeSearch.query}”. ${activeSearch.partialMatchesCount} ${activeSearch.partialMatchesCount === 1 ? 'artefato tem' : 'artefatos têm'} correspondência parcial — use o operador OU em Editar busca para vê-los.`
+                      : `Nenhum ${activeSearch.scope === 'SCREEN' ? 'tela' : 'snippet'} contém os critérios de “${activeSearch.query}”.`)
+                  : undefined}
                 onClearSearch={() => setCardSearch("")}
                 onClearFilters={clearOnlyCardFilters}
                 onClearAll={resetCardFilters}

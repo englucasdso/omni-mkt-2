@@ -327,6 +327,8 @@ export interface ActiveSearch {
   contentMatches?: Record<string, ContentMatchSummary>;
   matchedTerms?: string[];
   queryKind?: string;
+  /** Artefatos com correspondência parcial que NÃO entram nos resultados (modo AND). */
+  partialMatchesCount?: number;
 }
 
 

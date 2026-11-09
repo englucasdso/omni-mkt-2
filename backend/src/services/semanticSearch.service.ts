@@ -44,6 +44,18 @@ function normalizeString(str: string): string {
     .trim();
 }
 
+export type AiSearchErrorCode = 'AI_NOT_CONFIGURED' | 'AI_TIMEOUT' | 'AI_MODEL_UNAVAILABLE' | 'AI_INVALID_RESPONSE';
+
+/** Erro tipado para que a API e a interface diferenciem as causas de falha da IA. */
+export class AiSearchError extends Error {
+  code: AiSearchErrorCode;
+  constructor(code: AiSearchErrorCode, message: string) {
+    super(message);
+    this.name = 'AiSearchError';
+    this.code = code;
+  }
+}
+
 /**
  * Valida a configuração do Gemini para a busca semântica
  */
@@ -51,7 +63,7 @@ export function validateSearchGeminiConfig(): { apiKey: string; modelName: strin
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || !apiKey.trim()) {
     console.error("[SearchAI] Erro de configuração: GEMINI_API_KEY não configurada.");
-    throw new Error("Configuração ausente: variável de ambiente GEMINI_API_KEY não foi definida.");
+    throw new AiSearchError('AI_NOT_CONFIGURED', "Configuração ausente: variável de ambiente GEMINI_API_KEY não foi definida.");
   }
 
   const modelName = process.env.GEMINI_MODEL ? process.env.GEMINI_MODEL.trim() : "gemini-1.5-flash";
@@ -242,13 +254,23 @@ Identifique os artefatos mais relevantes para responder à pergunta com base em 
   const modelStartTime = Date.now();
 
   let responseText = "";
+  const timeoutMs = Number(process.env.GEMINI_TIMEOUT_MS || 30000);
   try {
-    const aiResult = await model.generateContent(prompt);
-    responseText = aiResult.response.text();
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new AiSearchError('AI_TIMEOUT', `A IA não respondeu em ${Math.round(timeoutMs / 1000)}s.`)), timeoutMs);
+    });
+    try {
+      const aiResult = await Promise.race([model.generateContent(prompt), timeout]);
+      responseText = aiResult.response.text();
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
     console.log(`[SearchAI] Fim da chamada ao modelo. Duração: ${Date.now() - modelStartTime}ms`);
   } catch (modelError: any) {
+    if (modelError instanceof AiSearchError) throw modelError;
     console.error(`[SearchAI] Erro na chamada ao modelo Gemini: ${modelError.message}`);
-    throw new Error(`Erro ao consultar modelo Gemini: ${modelError.message}`);
+    throw new AiSearchError('AI_MODEL_UNAVAILABLE', `O modelo "${modelName}" não respondeu corretamente.`);
   }
 
   // Parsing e Validação
@@ -257,7 +279,7 @@ Identifique os artefatos mais relevantes para responder à pergunta com base em 
     parsedJson = JSON.parse(responseText);
   } catch (parseError: any) {
     console.error(`[SearchAI] Erro de parsing da resposta do modelo: ${parseError.message}`);
-    throw new Error("Resposta inválida do modelo de IA.");
+    throw new AiSearchError('AI_INVALID_RESPONSE', "A IA devolveu uma resposta em formato inválido.");
   }
 
   const rawResults = Array.isArray(parsedJson?.results) ? parsedJson.results : [];

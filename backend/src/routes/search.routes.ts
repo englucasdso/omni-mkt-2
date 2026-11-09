@@ -160,13 +160,16 @@ router.post("/search/semantic", async (req, res) => {
     const result = await searchSemantic(queryText, filters, limit || 10);
     return res.json(result);
   } catch (error: any) {
-    const isConfigError = String(error.message || "").includes("Configuração ausente:");
-    const statusCode = isConfigError ? 400 : 502;
-    console.error(`[SearchAI] Falha na busca por IA: ${error.message}`);
-    return res.status(statusCode).json({
-      error: error.message || "Não foi possível concluir a busca por IA.",
-      message: "Não foi possível concluir a busca por IA."
-    });
+    const code: string = error?.code || 'AI_UNKNOWN';
+    const byCode: Record<string, { status: number; message: string }> = {
+      AI_NOT_CONFIGURED: { status: 503, message: 'A busca com IA não está configurada neste servidor (GEMINI_API_KEY ausente). As buscas por Conteúdo e Parâmetros continuam disponíveis.' },
+      AI_TIMEOUT: { status: 504, message: 'A IA demorou demais para responder. Tente novamente ou simplifique a pergunta.' },
+      AI_MODEL_UNAVAILABLE: { status: 502, message: 'O modelo de IA está indisponível no momento. Tente novamente em alguns minutos.' },
+      AI_INVALID_RESPONSE: { status: 502, message: 'A IA respondeu em um formato inesperado. Tente reformular a pergunta.' },
+    };
+    const mapped = byCode[code] || { status: 500, message: 'Não foi possível concluir a busca por IA.' };
+    console.error(`[SearchAI] Falha na busca por IA (${code}): ${error?.message}`);
+    return res.status(mapped.status).json({ code, error: mapped.message, message: mapped.message });
   }
 });
 
