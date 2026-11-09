@@ -8,6 +8,9 @@ import {
 import { Artifact, ScreenItem, SnippetItem } from '../types';
 import { getStatusStyle, normalizarStatus } from '../utils/statusUtils';
 import { formatUltimaSincronizacao } from '../utils/helpers';
+import { isMap as checkIsMap, isDocumentation, getArtifactTypeLabel } from '../domain/artifacts';
+import { resolveMeasurementClass, getMeasurementLabel } from '../domain/measurement';
+import { getMapStatusMetrics } from '../domain/status';
 
 interface MapDetailModalProps {
   item: Artifact | null;
@@ -95,61 +98,34 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
   const parameters = item.parameter_summary || [];
   const patterns = item.pattern_summary || [];
   const header = item.header || {};
-  const isDoc = item.artifact_type === 'DOCUMENTACAO';
-  const isMap = item.artifact_type === 'MAPA';
+  const isDoc = isDocumentation(item);
+  const isMap = checkIsMap(item);
   
+  const artifactBadgeLabel = getArtifactTypeLabel(item.artifact_type);
 
-  let artifactBadgeLabel = 'Não classificado';
-  if (isDoc) artifactBadgeLabel = 'Documento';
-  else if (isMap) artifactBadgeLabel = 'Mapa'; else if (item.artifact_type === 'NO') artifactBadgeLabel = 'Nó';
-  
+  // Classificação de Mensuração Canônica (apenas para mapas, nunca para documentações ou nós)
+  const measurementClass = resolveMeasurementClass(item);
+  const measurementLabel = isMap ? getMeasurementLabel(measurementClass) : null;
 
-  // Classificação de Mensuração (não é status)
-  const getMeasurementLabel = () => {
-    if (!isMap) return null; // Apenas mapas possuem classificação (GA4, GA3, Híbrido)
-    const mc = item.measurement_class;
-    if (mc === 'GA4') return 'GA4';
-    if (mc === 'GA3') return 'GA3';
-    if (mc === 'HIBRIDO') return 'Híbrido';
-    if (mc === 'NAO_CLASSIFICADO') return 'Não classificado';
-    if (mc) return mc;
-    return 'Não classificado';
-  };
-
-  const measurementLabel = getMeasurementLabel();
-
-  // Resumo de Telas & Homologação
-  const totalScreens = item.total_screens ?? screens.length ?? 0;
-  
-  const getScreenCountByStatus = (statusNorm: string) => {
-    if (item.status_summary) {
-      if (statusNorm === 'VALIDADO') return item.status_summary.VALIDADO ?? 0;
-      if (statusNorm === 'CORREÇÃO') return item.status_summary['EM CORREÇÃO'] ?? item.status_summary.CORRECAO ?? item.status_summary['CORREÇÃO'] ?? 0;
-      if (statusNorm === 'NOVO') return item.status_summary.NOVO ?? 0;
-      if (statusNorm === 'EXCLUIR') return item.status_summary.EXCLUIR ?? 0;
-      if (statusNorm === 'DESCONTINUAR') return item.status_summary.DESCONTINUAR ?? 0;
-    }
-    return screens.filter(s => normalizarStatus(s.status) === statusNorm).length;
-  };
-
-  const validatedScreens = item.validated_screens ?? getScreenCountByStatus('VALIDADO');
-  const correctionScreens = getScreenCountByStatus('CORREÇÃO');
-  const newScreens = getScreenCountByStatus('NOVO');
-  const deleteScreens = getScreenCountByStatus('EXCLUIR');
-  const discontinueScreens = getScreenCountByStatus('DESCONTINUAR');
-  
-  const homologationPercentage = item.homologation_percentage ?? (totalScreens > 0 ? Math.round((validatedScreens / totalScreens) * 100) : 0);
+  // Resumo de Telas & Homologação Canônicos
+  const metrics = getMapStatusMetrics(item);
+  const totalScreens = metrics.totalScreens;
+  const validatedScreens = metrics.validated;
+  const correctionScreens = metrics.correction;
+  const newScreens = metrics.new;
+  const deleteScreens = metrics.exclude;
+  const discontinueScreens = metrics.discontinue;
+  const homologationPercentage = metrics.homologationPercentage ?? 0;
 
   // Badge de Homologação do Mapa (3 estados canônicos, nunca "Validado")
   let homologationBadge = null;
-  if (isMap) {
-    const status = item.homologation_status || (homologationPercentage === 100 && totalScreens > 0 ? 'HOMOLOGADO' : (homologationPercentage > 0 ? 'PARCIAL' : 'NAO_HOMOLOGADO'));
-    if (status === 'HOMOLOGADO') {
+  if (isMap && metrics.hasScreens) {
+    if (metrics.homologationStatus === 'HOMOLOGADO') {
       homologationBadge = {
         label: `Homologado · ${homologationPercentage}%`,
         bg: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
       };
-    } else if (status === 'PARCIAL') {
+    } else if (metrics.homologationStatus === 'PARCIAL') {
       homologationBadge = {
         label: `Parcial · ${homologationPercentage}%`,
         bg: 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'

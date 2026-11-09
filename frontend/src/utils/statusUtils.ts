@@ -220,3 +220,9 @@ export function getMapStatusMetrics(map?: { screens?: Array<{ status?: string | 
   };
 }
 
+export const calculateScreenStatusMetrics = (
+  screens?: Array<{ status?: string | null }> | null
+) => {
+  return getMapStatusMetrics({ screens: screens || [] });
+};
+

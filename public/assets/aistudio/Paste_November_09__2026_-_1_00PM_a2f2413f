@@ -1,0 +1,1198 @@
+Faça primeiro uma auditoria completa do código atual do OMNI antes de editar.
+
+Repositório oficial:
+englucasdso/omni-mkt-2
+
+Branch:
+main
+
+Commit inicial de referência:
+681810404b4149057dbc76dbd1779b7dd10e1719
+
+Não altere Git. Não faça commit, push, merge, checkout, reset ou troca de branch.
+
+Esta tarefa não é apenas uma correção visual ou uma mudança isolada no Insights.
+
+O problema central é arquitetural:
+
+As diferentes telas do OMNI estão usando regras, nomenclaturas, cálculos, filtros e mecanismos de busca próprios. Isso faz o mesmo dado aparecer de maneiras diferentes conforme a aba acessada.
+
+Precisamos criar uma padronização global e uma única fonte de verdade no frontend, usando os dados canônicos do backend.
+
+O usuário não pode entrar em uma aba e encontrar 65 mapas, entrar em outra e encontrar 34, sendo que está olhando para o mesmo produto e para o mesmo inventário.
+
+==================================================
+1. PROBLEMA CONFIRMADO
+==================================================
+
+No arquivo:
+
+frontend/src/components/CanonicalInsightsDashboard.tsx
+
+a contagem atual possui esta lógica:
+
+if (art.artifact_type === 'DOCUMENTACAO') {
+  totalDocs++;
+} else {
+  totalMaps++;
+}
+
+Essa lógica transforma em mapa:
+
+- NO
+- RAIZ
+- NAO_CLASSIFICADO
+- qualquer outro tipo que não seja DOCUMENTACAO
+
+Por isso o produto [APP BETA] apresenta 65 mapas no Insights.
+
+Na tela “Por Produto”, o arquivo:
+
+frontend/src/components/ProductAnalysisView.tsx
+
+utiliza a regra correta:
+
+if (art.artifact_type !== 'MAPA') return;
+
+Por isso “Por Produto” apresenta corretamente 34 mapas.
+
+A correção não deve apenas trocar um if.
+
+Precisamos impedir que esse tipo de divergência volte a acontecer em qualquer módulo.
+
+==================================================
+2. OBJETIVO CENTRAL: UMA ÚNICA FONTE DE VERDADE
+==================================================
+
+Criar uma camada de domínio canônica reutilizada por todas as telas.
+
+Nenhum componente visual deve decidir sozinho:
+
+- o que é mapa;
+- o que é documentação;
+- o que é nó;
+- o que é raiz;
+- o que é não classificado;
+- qual é o produto;
+- qual é o subproduto;
+- qual é a classe de mensuração;
+- como calcular homologação;
+- como contar status;
+- como nomear classificações;
+- como ordenar resultados;
+- como interpretar filtros.
+
+Essas decisões devem ficar em funções, seletores, configurações e agregadores compartilhados.
+
+Os componentes devem apenas:
+
+1. receber os dados canônicos;
+2. aplicar filtros por meio da camada compartilhada;
+3. renderizar o resultado.
+
+==================================================
+3. FAZER UMA AUDITORIA ANTES DE ALTERAR
+==================================================
+
+Mapear todas as implementações duplicadas ou divergentes relacionadas a:
+
+- artifact_type;
+- measurement_class;
+- produto;
+- subproduto;
+- taxonomia;
+- status de tela;
+- homologação;
+- filtros;
+- busca;
+- labels;
+- cores;
+- contadores;
+- agrupamento;
+- ordenação;
+- fallback de campos legados.
+
+Inspecionar pelo menos:
+
+- frontend/src/app/App.tsx
+- frontend/src/types/index.ts
+- frontend/src/components/CanonicalInsightsDashboard.tsx
+- frontend/src/components/ProductAnalysisView.tsx
+- frontend/src/components/ParameterAnalysisView.tsx
+- componentes de Cards
+- componentes de Inventário
+- componentes de Conexões
+- componentes de Jornadas
+- componentes de filtros
+- frontend/src/services/artifactSearchEngine.ts
+- frontend/src/workers/artifactSearch.worker.ts
+- frontend/src/utils/contextualSearch.ts
+- frontend/src/utils/statusUtils.ts
+- frontend/src/utils/taxonomyResolver.ts
+- frontend/src/services/api.ts
+
+Antes da implementação, apresentar resumidamente:
+
+- quais regras estão duplicadas;
+- quais nomenclaturas divergem;
+- quais telas fazem cálculos próprios;
+- quais filtros têm contratos diferentes;
+- quais buscas usam algoritmos diferentes;
+- qual será a arquitetura canônica proposta.
+
+Depois da auditoria, implementar a padronização. Não parar apenas no relatório.
+
+==================================================
+4. PADRÃO GLOBAL DE TIPO DE ARTEFATO
+==================================================
+
+Valores técnicos canônicos:
+
+- RAIZ
+- NO
+- MAPA
+- DOCUMENTACAO
+- NAO_CLASSIFICADO
+
+Labels globais da interface:
+
+- RAIZ → Raiz
+- NO → Nó
+- MAPA → Mapa
+- DOCUMENTACAO → Documentação
+- NAO_CLASSIFICADO → Não classificado
+
+Criar seletores compartilhados, por exemplo:
+
+isMap(artifact)
+isDocumentation(artifact)
+isNode(artifact)
+isRoot(artifact)
+isUnclassified(artifact)
+getMaps(artifacts)
+getDocuments(artifacts)
+getCatalogedArtifacts(artifacts)
+getStructuralArtifacts(artifacts)
+deduplicateArtifactsById(artifacts)
+
+Regras obrigatórias:
+
+- somente artifact_type === 'MAPA' é mapa;
+- somente artifact_type === 'DOCUMENTACAO' é documentação;
+- nó nunca entra na quantidade de mapas;
+- raiz nunca entra na quantidade de mapas;
+- não classificado nunca entra silenciosamente na quantidade de mapas;
+- profundidade não define tipo;
+- presença de filhos não transforma automaticamente um mapa em nó;
+- o frontend não deve reclassificar artefatos.
+
+Definição de “Artefatos catalogados” no Insights:
+
+totalArtifacts = totalMaps + totalDocs
+
+Nós, raiz e não classificados ficam fora desse KPI, a menos que exista um indicador estrutural explicitamente criado para eles.
+
+Definição de “Mapas” em qualquer aba:
+
+artifacts.filter(artifact => artifact.artifact_type === 'MAPA')
+
+Essa regra deve produzir o mesmo número em:
+
+- Cards;
+- Inventário;
+- Por Produto;
+- Insights;
+- Conexões;
+- Jornadas;
+- resultados de busca quando o filtro for “Mapas”.
+
+==================================================
+5. PADRÃO GLOBAL DE TAXONOMIA
+==================================================
+
+O frontend já possui:
+
+frontend/src/utils/taxonomyResolver.ts
+
+Esse arquivo deve continuar sendo o adaptador canônico da taxonomia gerada pelo backend.
+
+Nenhuma tela deve tentar reconstruir produto ou subproduto usando:
+
+- título;
+- split de strings;
+- posição de palavras;
+- nome do mapa;
+- snippets;
+- heurísticas locais.
+
+Padronizar:
+
+- produto_id;
+- produto_nome;
+- subproduto_id;
+- subproduto_nome;
+- descendantPath;
+- full_path;
+- productKey;
+- subproductKey.
+
+Labels globais:
+
+- Sem Produto
+- Sem Subproduto
+- Todos os produtos
+- Todos os subprodutos
+
+Não utilizar simultaneamente:
+
+- “Sem produto”
+- “Sem Produto”
+- “SEM_PRODUTO”
+- “Não informado”
+- string vazia
+
+O valor técnico pode ser:
+
+SEM_PRODUTO
+SEM_SUBPRODUTO
+
+Mas a interface sempre deve usar:
+
+Sem Produto
+Sem Subproduto
+
+Filtros e agrupamentos devem usar IDs/chaves canônicas internamente, e não o texto exibido.
+
+==================================================
+6. PADRÃO GLOBAL DE MENSURAÇÃO
+==================================================
+
+Valores técnicos canônicos:
+
+- GA4
+- GA3
+- HIBRIDO
+- NAO_CLASSIFICADO
+
+Labels globais:
+
+- GA4
+- Universal Analytics (GA3)
+- Híbrido
+- Não classificado
+
+Eliminar globalmente as variações:
+
+- GA4 Puro
+- Universal
+- Universal/GA3
+- Universal (GA3)
+- GA3 / Universal
+- Não Classif.
+- Docs / Outros como label de measurement_class
+
+Criar uma configuração compartilhada semelhante a:
+
+MEASUREMENT_CONFIGS
+
+Cada item deve possuir:
+
+- value técnico;
+- label;
+- descrição;
+- cor;
+- classes visuais;
+- ordem de exibição.
+
+Exemplo:
+
+GA4:
+label: “GA4”
+
+GA3:
+label: “Universal Analytics (GA3)”
+
+HIBRIDO:
+label: “Híbrido”
+
+NAO_CLASSIFICADO:
+label: “Não classificado”
+
+As telas não devem recriar esses textos manualmente.
+
+Não utilizar fallback espalhado como:
+
+artifact.measurement_class ||
+artifact.tipo_mapa?.toLowerCase().includes('ga4')
+  ? 'GA4'
+  : 'GA3'
+
+Se for necessário manter compatibilidade com campos legados, criar uma única função:
+
+resolveMeasurementClass(artifact)
+
+Essa função deve:
+
+1. priorizar measurement_class;
+2. tratar campos legados somente em um lugar;
+3. retornar um dos quatro valores oficiais;
+4. nunca assumir GA3 apenas porque não encontrou GA4;
+5. retornar NAO_CLASSIFICADO quando não houver evidência.
+
+Todas as telas devem usar a mesma função.
+
+==================================================
+7. PADRÃO GLOBAL DE STATUS
+==================================================
+
+Utilizar como fonte única:
+
+frontend/src/utils/statusUtils.ts
+
+Valores oficiais:
+
+- VALIDADO
+- CORREÇÃO
+- NOVO
+- EXCLUIR
+- DESCONTINUAR
+
+Labels:
+
+- Validado
+- Correção
+- Novo
+- Excluir
+- Descontinuar
+
+Não criar outras funções locais para normalização.
+
+Usar obrigatoriamente:
+
+normalizarStatus()
+OFFICIAL_STATUSES
+STATUS_CONFIGS
+
+As cores, labels e estilos dos status devem vir de STATUS_CONFIGS.
+
+Não repetir manualmente dentro dos componentes:
+
+- emerald para Validado;
+- rose para Correção;
+- amber para Novo;
+- slate para Excluir;
+- blue para Descontinuar.
+
+Se for necessário ajustar alguma cor, ajustar uma única vez em STATUS_CONFIGS.
+
+Criar um agregador compartilhado, por exemplo:
+
+calculateScreenStatusMetrics(screens)
+
+Retorno esperado:
+
+{
+  totalScreens: number;
+  recognizedScreens: number;
+  unrecognizedScreens: number;
+  counts: {
+    VALIDADO: number;
+    CORREÇÃO: number;
+    NOVO: number;
+    EXCLUIR: number;
+    DESCONTINUAR: number;
+  };
+  homologationPercentage: number | null;
+  homologationStatus: string;
+  isFullyValidated: boolean;
+}
+
+Esse cálculo deve ser usado em:
+
+- detalhe do mapa;
+- Cards;
+- Por Produto;
+- Insights;
+- relatórios;
+- Jornadas, quando exibir status;
+- qualquer outro componente com contagem de telas.
+
+==================================================
+8. DEFINIÇÕES GLOBAIS DE HOMOLOGAÇÃO
+==================================================
+
+Precisamos diferenciar claramente três métricas.
+
+1. Homologação de telas de um mapa
+
+validatedScreens / recognizedScreens * 100
+
+Exemplo:
+
+10 validadas de 16 telas reconhecidas = 63%.
+
+2. Mapa integralmente homologado
+
+Um mapa está integralmente homologado quando:
+
+- possui pelo menos uma tela reconhecida;
+- todas as telas reconhecidas estão como VALIDADO;
+- não possui tela reconhecida em outro status.
+
+Mapa sem telas não é 0% homologado. Ele é “Não calculável” ou “Sem telas detectadas”.
+
+3. Percentual de mapas homologados em um produto
+
+fullyValidatedMaps / mapsWithRecognizedScreens * 100
+
+Essas métricas não podem usar o mesmo nome de maneira ambígua.
+
+Labels recomendados:
+
+- “Homologação das telas” para o percentual interno do mapa.
+- “Mapas integralmente homologados” para o percentual consolidado do produto.
+- “Telas validadas” para a distribuição de status.
+
+Aplicar essas definições globalmente.
+
+==================================================
+9. PADRONIZAÇÃO GLOBAL DOS FILTROS
+==================================================
+
+Atualmente existem variações como:
+
+- all;
+- TODOS;
+- Todos;
+- Qualquer;
+- Todos os produtos;
+- Todos os subprodutos.
+
+Criar contrato técnico único para filtros.
+
+Exemplo:
+
+type GlobalFilterValue = 'ALL' | string;
+
+Usar internamente:
+
+ALL
+
+Labels visíveis conforme o campo:
+
+- Todos os tipos
+- Todos os produtos
+- Todos os subprodutos
+- Todas as classificações
+- Todos os status
+- Todos os responsáveis
+- Todos os anos
+
+“Qualquer” não deve ser usado quando o significado real for “Todos”.
+
+Criar componentes compartilhados para filtros, por exemplo:
+
+- FilterBar
+- FilterGroup
+- FilterSelect
+- FilterChip
+- ClearFiltersButton
+- ActiveFiltersSummary
+
+Todas as telas devem manter:
+
+- mesma altura dos controles;
+- mesma tipografia;
+- mesmo espaçamento;
+- mesma aparência de estado ativo;
+- mesmo botão de limpar;
+- mesma contagem de filtros ativos;
+- mesmo comportamento responsivo;
+- mesma nomenclatura.
+
+Não significa que todas as telas precisam exibir todos os filtros.
+
+Significa que, quando o mesmo filtro aparecer em duas telas, ele deve:
+
+- ter o mesmo nome;
+- usar a mesma fonte de opções;
+- ter o mesmo valor técnico;
+- produzir o mesmo resultado;
+- usar o mesmo componente visual.
+
+==================================================
+10. CONTRATO GLOBAL DOS FILTROS
+==================================================
+
+Padronizar os filtros possíveis:
+
+artifactType:
+- ALL
+- MAPA
+- DOCUMENTACAO
+- NO
+- NAO_CLASSIFICADO
+
+productId:
+- ALL
+- ID canônico do produto
+
+subproductId:
+- ALL
+- ID canônico do subproduto
+
+measurementClass:
+- ALL
+- GA4
+- GA3
+- HIBRIDO
+- NAO_CLASSIFICADO
+
+screenStatus:
+- ALL
+- VALIDADO
+- CORREÇÃO
+- NOVO
+- EXCLUIR
+- DESCONTINUAR
+
+responsible:
+- ALL
+- responsável exato
+
+year:
+- ALL
+- ano
+
+Os filtros de produto e subproduto devem ser dependentes:
+
+- ao trocar produto, recalcular subprodutos válidos;
+- se o subproduto anterior não pertencer ao novo produto, voltar para ALL;
+- não manter filtro invisível ou inválido;
+- o botão limpar deve restaurar todos os filtros para ALL.
+
+==================================================
+11. PADRONIZAÇÃO GLOBAL DO MOTOR DE BUSCA
+==================================================
+
+A busca principal não pode possuir comportamentos contraditórios dependendo da tela.
+
+A fonte canônica da busca de artefatos deve ser:
+
+frontend/src/services/artifactSearchEngine.ts
+
+O Web Worker deve executar o mesmo contrato:
+
+frontend/src/workers/artifactSearch.worker.ts
+
+As telas não devem criar motores alternativos de busca por artefatos usando apenas:
+
+includes()
+filter()
+split()
+match local improvisado
+
+Diferenciar claramente:
+
+1. Busca global de artefatos
+
+Usa artifactSearchEngine e pode buscar:
+
+- ID;
+- título;
+- produto;
+- subproduto;
+- conteúdo;
+- parâmetros;
+- snippets;
+- pergunta semântica.
+
+2. Busca contextual simples
+
+Pode ser usada para filtrar uma lista local já consolidada, como a lista de produtos.
+
+Porém deve usar utilidades compartilhadas e não pode alterar a definição de mapa, produto ou taxonomia.
+
+3. Filtros estruturados
+
+Não são busca textual.
+
+Devem usar o contrato global de filtros.
+
+==================================================
+12. REGRAS GLOBAIS DA BUSCA DE CONTEÚDO
+==================================================
+
+Ranking obrigatório:
+
+1. ID exato;
+2. título exato;
+3. título normalizado exato;
+4. prefixo;
+5. expressão completa;
+6. todos os tokens relevantes;
+7. taxonomia;
+8. conteúdo de tela ou snippet;
+9. correspondência parcial.
+
+Quando existir título exato:
+
+- ele deve aparecer isolado ou inequivocamente no topo;
+- resultados vagamente relacionados não podem ficar acima;
+- a interface deve explicar “Título exato”.
+
+A normalização deve:
+
+- ignorar diferença de maiúsculas/minúsculas;
+- tolerar acentos para busca;
+- tolerar espaços repetidos;
+- não deformar o valor original exibido.
+
+==================================================
+13. REGRAS GLOBAIS DA BUSCA POR PARÂMETROS
+==================================================
+
+Aceitar:
+
+- uma chave;
+- chave e valor;
+- combinação de parâmetros;
+- fragmento de código;
+- snippet completo.
+
+Regras:
+
+- snippet idêntico primeiro;
+- trecho normalizado depois;
+- combinações devem respeitar AND ou OR;
+- “mesmo snippet” exige todos no mesmo snippet;
+- “mesma tela” permite snippets diferentes da mesma tela;
+- parâmetro ausente impede correspondência em AND;
+- consulta inválida não pode retornar toda a base;
+- explicar por que cada mapa correspondeu.
+
+Não deve existir uma implementação diferente dessa lógica dentro de Cards ou Por Parâmetro.
+
+==================================================
+14. IDENTIDADE ÚNICA DA BUSCA
+==================================================
+
+A entrada principal continua em:
+
+/hub-de-artefatos
+
+Modos:
+
+- Conteúdo
+- Parâmetros
+- Perguntar à IA
+
+Os três modos devem preservar:
+
+- mesma largura;
+- mesma altura;
+- mesma tipografia;
+- mesma posição;
+- mesmos estados de foco;
+- mesmo botão de busca;
+- mesmo tratamento de carregamento;
+- mesma área de resultados.
+
+Mudam apenas:
+
+- título;
+- placeholder;
+- exemplos;
+- controles específicos.
+
+Cards não deve possuir uma segunda busca principal concorrente.
+
+Se Cards tiver uma filtragem local da lista já exibida, ela deve ser visualmente secundária e claramente identificada como:
+
+“Filtrar resultados”
+
+e não como uma nova busca global.
+
+==================================================
+15. NOMENCLATURA GLOBAL
+==================================================
+
+Criar um catálogo central de labels da interface ou configurações por domínio.
+
+Padronizar, no mínimo:
+
+Tipos:
+- Mapa
+- Documentação
+- Nó
+- Raiz
+- Não classificado
+
+Mensuração:
+- GA4
+- Universal Analytics (GA3)
+- Híbrido
+- Não classificado
+
+Status:
+- Validado
+- Correção
+- Novo
+- Excluir
+- Descontinuar
+
+Taxonomia:
+- Produto
+- Subproduto
+- Caminho
+- Sem Produto
+- Sem Subproduto
+
+Métricas:
+- Mapas
+- Documentações
+- Artefatos catalogados
+- Telas
+- Snippets
+- Parâmetros
+- Homologação das telas
+- Mapas integralmente homologados
+- Divergências
+- Status não reconhecido
+
+A mesma entidade deve ter o mesmo nome em:
+
+- Cards;
+- Inventário;
+- Por Produto;
+- Por Parâmetro;
+- Insights;
+- Conexões;
+- Jornadas;
+- modais;
+- filtros;
+- estados vazios;
+- tooltips.
+
+Não abreviar em uma tela e escrever por extenso em outra sem necessidade real de espaço.
+
+Exemplo proibido:
+
+- “Universal/GA3” numa tela;
+- “Universal (GA3)” em outra;
+- “GA3” numa terceira.
+
+Usar sempre:
+
+Universal Analytics (GA3)
+
+==================================================
+16. COMPONENTES VISUAIS COMPARTILHADOS
+==================================================
+
+Criar ou consolidar componentes reutilizáveis para:
+
+- ArtifactTypeBadge
+- MeasurementBadge
+- ScreenStatusBadge
+- ScreenStatusSummary
+- HomologationIndicator
+- FilterBar
+- FilterChip
+- MetricCard
+- EmptyState
+- SearchMatchExplanation
+
+Não criar componentes apenas para mudar o nome do arquivo.
+
+O componente compartilhado deve realmente eliminar:
+
+- JSX duplicado;
+- label duplicado;
+- cor duplicada;
+- regra duplicada;
+- cálculo duplicado.
+
+As configurações visuais devem vir de objetos canônicos.
+
+==================================================
+17. CORREÇÃO DO INSIGHTS
+==================================================
+
+No CanonicalInsightsDashboard:
+
+Criar conjuntos explícitos:
+
+const filteredMaps = filteredArtifacts.filter(isMap);
+const filteredDocs = filteredArtifacts.filter(isDocumentation);
+
+Calcular:
+
+totalMaps = filteredMaps.length;
+totalDocs = filteredDocs.length;
+totalArtifacts = totalMaps + totalDocs;
+
+Somente filteredMaps alimenta:
+
+- telas;
+- snippets;
+- status;
+- homologação;
+- mensuração;
+- parâmetros;
+- padrões;
+- divergências;
+- mapas por produto;
+- telas por produto.
+
+Não usar mais:
+
+if DOCUMENTACAO
+else MAPA
+
+No filtro [APP BETA], o resultado esperado é:
+
+- 34 mapas;
+- 0 nós contados como mapa;
+- documentações separadas, caso existam.
+
+==================================================
+18. RELATÓRIO DE STATUS EM “POR PRODUTO”
+==================================================
+
+Na seção:
+
+Mapas Vinculados
+
+mostrar abaixo de cada mapa:
+
+- quantidade Validado;
+- quantidade Correção;
+- quantidade Novo;
+- quantidade Excluir;
+- quantidade Descontinuar;
+- percentual de homologação das telas.
+
+Utilizar:
+
+calculateScreenStatusMetrics(map.screens)
+
+e os estilos de:
+
+STATUS_CONFIGS
+
+Exemplo:
+
+[36 Validadas] [2 Correções] [27 Novas]
+[0 Excluir] [0 Descontinuar] [56% homologado]
+
+Regras:
+
+- badges compactos;
+- flex-wrap;
+- mesma paleta usada globalmente;
+- mapa sem telas: “Sem telas detectadas”;
+- status não reconhecido: indicador de diagnóstico;
+- clicar no item continua abrindo apenas aquele mapa;
+- não abrir modal adicional;
+- não alterar a taxonomia;
+- aumentar a altura útil da lista, pois os itens ficarão maiores.
+
+Usar aproximadamente:
+
+max-h-[55vh]
+
+ou valor responsivo equivalente.
+
+==================================================
+19. PADRONIZAÇÃO ENTRE TODAS AS TELAS
+==================================================
+
+Depois de criar a camada canônica, migrar as telas para ela.
+
+Verificar individualmente:
+
+1. Cards
+
+- contagem correta por tipo;
+- badges canônicos;
+- filtro de tipo canônico;
+- nomenclatura canônica;
+- busca local não concorrente com a busca principal.
+
+2. Inventário
+
+- mesmas quantidades;
+- mesmos labels;
+- mesmas classificações;
+- mesmos filtros.
+
+3. Por Produto
+
+- apenas mapas;
+- taxonomia canônica;
+- status canônicos;
+- homologação canônica;
+- mensuração canônica.
+
+4. Por Parâmetro
+
+- somente parâmetros de mapas válidos;
+- mesma taxonomia;
+- links para os mesmos artefatos;
+- motor de busca por parâmetros compartilhado.
+
+5. Insights
+
+- métricas somente dos tipos corretos;
+- filtros canônicos;
+- nomenclatura canônica;
+- mesma quantidade de mapas que Por Produto.
+
+6. Conexões
+
+- árvore pode exibir nós e raiz;
+- contadores de mapas devem considerar somente MAPA;
+- labels canônicos;
+- navegação preservada.
+
+7. Jornadas
+
+- etapas vinculadas a mapas reais;
+- status e mensuração com os mesmos labels;
+- não reclassificar artefatos localmente.
+
+==================================================
+20. MATRIZ GLOBAL DE CONSISTÊNCIA
+==================================================
+
+Criar testes que garantam a mesma resposta para o mesmo conjunto de dados.
+
+Dataset de exemplo:
+
+- 1 RAIZ;
+- 3 NO;
+- 34 MAPA;
+- 2 DOCUMENTACAO;
+- 4 NAO_CLASSIFICADO.
+
+Resultados obrigatórios:
+
+- Mapas: 34
+- Documentações: 2
+- Artefatos catalogados: 36
+- Nós: 3
+- Raiz: 1
+- Não classificados: 4
+
+Esses resultados devem ser iguais nos seletores usados por:
+
+- Cards;
+- Inventário;
+- Por Produto;
+- Insights.
+
+Quando uma tela quiser mostrar estruturas, deve solicitar explicitamente os nós. Não pode incluí-los por acidente.
+
+==================================================
+21. TESTES OBRIGATÓRIOS
+==================================================
+
+Adicionar testes para:
+
+- seletores de tipo de artefato;
+- deduplicação por ID;
+- taxonomia canônica;
+- normalização de mensuração;
+- labels de mensuração;
+- cálculo de status;
+- percentual de homologação;
+- mapa sem telas;
+- status não reconhecido;
+- contrato dos filtros;
+- dependência produto/subproduto;
+- limpeza dos filtros;
+- busca exata por ID;
+- busca exata por título;
+- ranking de busca;
+- combinação AND de parâmetros;
+- mesmo snippet;
+- mesma tela;
+- consistência das contagens entre módulos.
+
+Caso o projeto ainda não tenha infraestrutura apropriada para teste de componentes, testar pelo menos as funções puras da nova camada de domínio.
+
+==================================================
+22. MIGRAÇÃO SEGURA
+==================================================
+
+Não reescrever o sistema inteiro de uma vez.
+
+Ordem recomendada:
+
+Fase 1:
+- criar seletores e configurações canônicas;
+- criar agregador de status;
+- criar normalizador de mensuração;
+- criar contrato de filtros;
+- adicionar testes das funções puras.
+
+Fase 2:
+- corrigir Insights;
+- migrar Por Produto;
+- adicionar status individual dos mapas.
+
+Fase 3:
+- migrar Cards e Inventário.
+
+Fase 4:
+- migrar Por Parâmetro, Conexões e Jornadas.
+
+Fase 5:
+- remover implementações duplicadas que ficaram sem uso.
+
+Durante a migração:
+
+- preservar rotas;
+- preservar navegação;
+- preservar dados;
+- preservar comportamento funcional já validado;
+- não alterar backend sem necessidade demonstrada;
+- não editar inventario.json;
+- não alterar classificação de origem;
+- não fazer redesign completo.
+
+==================================================
+23. ARQUIVOS NOVOS SUGERIDOS
+==================================================
+
+A nomenclatura final pode ser adaptada à estrutura do projeto, mas a separação deve ser equivalente a:
+
+frontend/src/domain/artifacts/artifactSelectors.ts
+frontend/src/domain/artifacts/artifactLabels.ts
+frontend/src/domain/measurement/measurementResolver.ts
+frontend/src/domain/measurement/measurementConfig.ts
+frontend/src/domain/status/screenStatusMetrics.ts
+frontend/src/domain/filters/filterContract.ts
+frontend/src/domain/metrics/productMetrics.ts
+frontend/src/domain/metrics/inventoryMetrics.ts
+
+Não duplicar o que já existe em:
+
+- statusUtils.ts
+- taxonomyResolver.ts
+- artifactSearchEngine.ts
+
+Se esses arquivos existentes já forem adequados, ampliá-los ou utilizá-los. Não criar uma segunda “fonte canônica” concorrente.
+
+==================================================
+24. PROIBIÇÕES
+==================================================
+
+Não:
+
+- corrigir somente o número 65 com um filtro solto;
+- colocar outro if diferente em cada componente;
+- recriar cores de status manualmente;
+- criar novas labels locais;
+- usar título para determinar taxonomia;
+- classificar mapa pela profundidade;
+- considerar nó como mapa;
+- assumir GA3 quando GA4 não for encontrado;
+- editar o JSON para fazer os números baterem;
+- quebrar o motor de busca que já funciona;
+- duplicar a busca global em Cards;
+- alterar Git;
+- declarar sucesso apenas porque o build passou.
+
+==================================================
+25. CRITÉRIOS DE ACEITE FUNCIONAIS
+==================================================
+
+1. [APP BETA] deve apresentar 34 mapas em Insights e Por Produto.
+
+2. Se Cards for filtrado por:
+
+Tipo = Mapas
+Produto = [APP BETA]
+
+também deve apresentar os mesmos 34 mapas.
+
+3. Inventário, ao aplicar os mesmos filtros, deve apresentar os mesmos IDs.
+
+4. Nó deve aparecer somente quando:
+
+Tipo = Nó
+
+ou quando a visualização estrutural de Conexões precisar dele.
+
+5. O mesmo mapa deve apresentar a mesma classificação de mensuração em todas as telas.
+
+6. O mesmo status deve possuir o mesmo:
+
+- nome;
+- cor;
+- label;
+- contagem.
+
+7. O mesmo produto deve possuir o mesmo nome e ID em todas as telas.
+
+8. Trocar produto deve limpar subproduto incompatível.
+
+9. Limpar filtros deve restaurar o estado global padrão.
+
+10. Título exato deve continuar sendo o primeiro resultado da busca.
+
+11. Busca por parâmetros deve manter os critérios de correspondência existentes.
+
+12. Mapas Vinculados deve exibir status individuais e homologação sem exigir abertura do mapa.
+
+13. Nenhuma funcionalidade existente de navegação pode ser removida.
+
+==================================================
+26. VALIDAÇÃO FINAL
+==================================================
+
+Executar:
+
+npm run lint
+npm run build
+
+Executar todos os testes existentes e os novos testes da camada canônica.
+
+Fazer validação manual nas telas:
+
+- Cards;
+- Inventário;
+- Por Produto;
+- Por Parâmetro;
+- Insights;
+- Conexões;
+- Jornadas.
+
+Comparar os mesmos produtos e mapas entre as telas.
+
+Gerar no final uma tabela semelhante a:
+
+| Métrica | Cards | Inventário | Por Produto | Insights |
+|---|---:|---:|---:|---:|
+| Mapas [APP BETA] | 34 | 34 | 34 | 34 |
+| Documentações | X | X | X | X |
+| Nós | Y | Y | não computado | não computado |
+
+Entregar também:
+
+- causa raiz;
+- inconsistências encontradas;
+- camada canônica criada;
+- componentes migrados;
+- duplicações removidas;
+- arquivos alterados;
+- testes adicionados;
+- resultados dos testes;
+- resultado de lint;
+- resultado de build;
+- divergências de dados encontradas;
+- pontos ainda pendentes.
+
+Não declarar a padronização concluída se alguma tela continuar calculando localmente uma regra que já deveria ser canônica.

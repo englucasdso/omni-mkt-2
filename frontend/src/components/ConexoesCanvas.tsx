@@ -17,6 +17,7 @@ import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
 import { AlertCircle } from 'lucide-react';
 import { Artifact } from '../types';
+import { isMap, isDocumentation, isRoot, isCataloged } from '../domain/artifacts';
 
 // ==========================================
 // Custom Nodes
@@ -341,7 +342,7 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
     let topLevel = sortByTitleAndId(Array.from(rootsSet));
     
     // Skip single abstract RAIZ node to show actual products
-    if (topLevel.length === 1 && topLevel[0].artifact_type === 'RAIZ') {
+    if (topLevel.length === 1 && isRoot(topLevel[0])) {
       topLevel = mapByParent.get(topLevel[0].id) || [];
     }
 
@@ -431,8 +432,8 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
       if (level === 0) type = 'produto';
       else if (level === 1) type = 'subproduto';
       
-      if (item.artifact_type === 'MAPA') type = 'mapa';
-      else if (item.artifact_type === 'DOCUMENTACAO') type = 'documento';
+      if (isMap(item)) type = 'mapa';
+      else if (isDocumentation(item)) type = 'documento';
 
       n.push({
         id: item.id,
@@ -448,7 +449,7 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
           onToggle: () => handleToggle(item.id),
           onSelect: () => {
             if (onSelectItem) onSelectItem(item.id);
-            if (type === 'mapa' || type === 'documento' || item.artifact_type === 'MAPA' || item.artifact_type === 'DOCUMENTACAO') {
+            if (type === 'mapa' || type === 'documento' || isCataloged(item)) {
               if (onOpenItem) {
                 onOpenItem(item);
               } else if (onOpenMap) {

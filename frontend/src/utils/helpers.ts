@@ -1,4 +1,6 @@
 import { Artifact, Insights } from "../types";
+import { isMap, isDocumentation } from "../domain/artifacts";
+import { resolveMeasurementClass } from "../domain/measurement";
 
 export const normalizar = (txt: string): string => {
   return String(txt || "")
@@ -89,16 +91,10 @@ export const getFilteredInsights = (subset: Artifact[], queryText: string): Insi
   if (total === 0) return null;
 
   const counts = {
-    ga4: subset.filter(item => normalizar(item.tipo_mapa) === "ga4").length,
-    universalAnalytics: subset.filter(item => normalizar(item.tipo_mapa) === "universal analytics").length,
-    mapas: subset.filter(item => {
-      const type = normalizar(item.tipo_mapa);
-      return type === "ga4" || type === "universal analytics";
-    }).length,
-    documentos: subset.filter(item => {
-      const type = normalizar(item.tipo_mapa);
-      return type === "doc" || (type !== "ga4" && type !== "universal analytics");
-    }).length,
+    ga4: subset.filter(item => isMap(item) && resolveMeasurementClass(item) === 'GA4').length,
+    universalAnalytics: subset.filter(item => isMap(item) && resolveMeasurementClass(item) === 'GA3').length,
+    mapas: subset.filter(item => isMap(item)).length,
+    documentos: subset.filter(item => isDocumentation(item)).length,
   };
 
   const prodMap: Record<string, number> = {};
@@ -157,7 +153,7 @@ export const getFilteredInsights = (subset: Artifact[], queryText: string): Insi
   // Problemas Detectados
   const semResponsavel = subset.filter(i => !i.responsavel || i.responsavel === "-").length;
   const semSubproduto = subset.filter(i => !i.subproduto || i.subproduto === "-").length;
-  const foraPadraoGA4 = subset.filter(i => normalizar(i.tipo_mapa) === "universal analytics").length;
+  const foraPadraoGA4 = subset.filter(i => isMap(i) && resolveMeasurementClass(i) === 'GA3').length;
   
   // Consideramos desatualizado o que não foi atualizado em 2024 (exemplo hipotético)
   const desatualizados = subset.filter(item => {

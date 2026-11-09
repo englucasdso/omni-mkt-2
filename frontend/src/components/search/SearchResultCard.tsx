@@ -1,6 +1,7 @@
 import React from 'react';
 import { Network, Eye, Code, Compass, CheckCircle2, AlertCircle, Info, Sparkles } from 'lucide-react';
 import { Artifact } from '../../types';
+import { isMap, isDocumentation, getArtifactTypeLabel } from '../../domain/artifacts';
 
 export interface SearchResultCardProps {
   artifact: Artifact;
@@ -46,9 +47,9 @@ export const SearchResultCard: React.FC<SearchResultCardProps> = ({
   onViewInTree,
   onOpenJourney,
 }) => {
-  const isMap = artifact.artifact_type === 'MAPA';
+  const isMapArtifact = isMap(artifact);
   const hasScreens = Array.isArray(artifact.screens) && artifact.screens.length > 0;
-  const isJourneyEligible = isMap && hasScreens;
+  const isJourneyEligible = isMapArtifact && hasScreens;
 
   const hasSnippetMatch = Boolean(
     screenId !== undefined || (typeof snippetIndex === 'number' && snippetIndex >= 0)
@@ -61,15 +62,15 @@ export const SearchResultCard: React.FC<SearchResultCardProps> = ({
         <div className="flex-1 min-w-[200px]">
           <div className="flex items-center gap-2 mb-1">
             <span
-              className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                artifact.artifact_type === 'MAPA'
+              className={`px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider ${
+                isMapArtifact
                   ? 'bg-red-100 text-[#E30328] dark:bg-red-950/40 dark:text-red-400'
-                  : artifact.artifact_type === 'DOCUMENTACAO'
+                  : isDocumentation(artifact)
                   ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
                   : 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300'
               }`}
             >
-              {artifact.artifact_type || 'ARTEFATO'}
+              {getArtifactTypeLabel(artifact.artifact_type)}
             </span>
 
             {aiConfidence && (

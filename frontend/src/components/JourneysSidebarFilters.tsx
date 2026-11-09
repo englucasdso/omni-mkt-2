@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Artifact } from '../types';
+import { isMap } from '../domain/artifacts';
 import { resolveArtifactTaxonomy } from '../utils/taxonomyResolver';
 
 interface Props {
@@ -24,7 +25,7 @@ export const JourneysSidebarFilters: React.FC<Props> = ({
   isLoading
 }) => {
   const eligibleMaps = useMemo(() => {
-    return (artifacts || []).filter(a => a.artifact_type === 'MAPA' && Array.isArray(a.screens) && a.screens.length > 0);
+    return (artifacts || []).filter(a => isMap(a) && Array.isArray(a.screens) && a.screens.length > 0);
   }, [artifacts]);
 
   const mapTaxonomies = useMemo(() => {

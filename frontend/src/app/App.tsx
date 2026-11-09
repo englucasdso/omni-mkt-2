@@ -42,6 +42,9 @@ import { AppShell } from "../components/AppShell";
 import { PageHeader } from "../components/PageHeader";
 import { SidebarContextualArea } from "../components/SidebarContextualArea";
 import { SearchCenter } from "../components/search/SearchCenter";
+import { isMap, isDocumentation, isNode, isRoot, isCataloged, getArtifactTypeLabel } from "../domain/artifacts";
+import { resolveMeasurementClass, getMeasurementLabel, MEASUREMENT_CONFIGS } from "../domain/measurement";
+import { getMapStatusMetrics } from "../domain/status";
 
 // Espaçamento lateral global reutilizado no cabeçalho e rodapé para alinhamento no mesmo eixo vertical
 const GLOBAL_SCREEN_PADDING = "px-6 sm:px-8";
@@ -93,13 +96,7 @@ const GraphView = ({
   }, []);
 
   const handleOpenItem = useCallback((item: Artifact) => {
-    if (
-      item &&
-      (
-        item.artifact_type === 'MAPA' ||
-        item.artifact_type === 'DOCUMENTACAO'
-      )
-    ) {
+    if (item && isCataloged(item)) {
       onOpenMap?.(item);
     }
   }, [onOpenMap]);
@@ -705,7 +702,7 @@ export default function App() {
   const indexedCards = useMemo(() => {
     if (appState !== 'results') return [];
     return cardSource
-      .filter(i => i.artifact_type !== 'RAIZ')
+      .filter(i => !isRoot(i))
       .map(artifact => ({
         artifact,
         normId: normalizeSearchText(artifact.id),
@@ -720,11 +717,11 @@ export default function App() {
 
     // 1. Filtro de Artefato (Todos, Mapas, Documentações, Nós)
     if (cardArtifactType === "mapas") {
-      list = list.filter(({ artifact: i }) => i.artifact_type === 'MAPA');
+      list = list.filter(({ artifact: i }) => isMap(i));
     } else if (cardArtifactType === "docs") {
-      list = list.filter(({ artifact: i }) => i.artifact_type === 'DOCUMENTACAO');
+      list = list.filter(({ artifact: i }) => isDocumentation(i));
     } else if (cardArtifactType === "nos") {
-      list = list.filter(({ artifact: i }) => i.artifact_type === 'NO');
+      list = list.filter(({ artifact: i }) => isNode(i));
     }
 
     // 2. Filtro de Responsável
@@ -1252,7 +1249,7 @@ export default function App() {
   const indexedInventory = useMemo(() => {
     if (appState !== 'inventory_table') return [];
     return results
-      .filter(i => i.artifact_type !== 'RAIZ')
+      .filter(i => !isRoot(i))
       .map(artifact => ({
         artifact,
         normId: normalizeSearchText(artifact.id),
@@ -1285,7 +1282,7 @@ export default function App() {
     }
     if (inventoryFilters.measurement_class && inventoryFilters.measurement_class.length > 0) {
       list = list.filter(({ artifact: i }) => {
-        const m = (i.measurement_class || 'NAO_CLASSIFICADO').toUpperCase();
+        const m = resolveMeasurementClass(i);
         return inventoryFilters.measurement_class.includes(m);
       });
     }
@@ -1325,8 +1322,8 @@ export default function App() {
           valA = a.artifact_type || 'NAO_CLASSIFICADO';
           valB = b.artifact_type || 'NAO_CLASSIFICADO';
         } else if (inventorySort.field === 'measurement_class') {
-          valA = a.measurement_class || 'NAO_CLASSIFICADO';
-          valB = b.measurement_class || 'NAO_CLASSIFICADO';
+          valA = resolveMeasurementClass(a);
+          valB = resolveMeasurementClass(b);
         } else {
           valA = String(a[inventorySort.field as keyof Artifact] || "");
           valB = String(b[inventorySort.field as keyof Artifact] || "");
@@ -1478,7 +1475,7 @@ export default function App() {
       if (i.produto) prodCounts.set(i.produto, (prodCounts.get(i.produto) || 0) + 1);
       if (i.subproduto) subCounts.set(i.subproduto, (subCounts.get(i.subproduto) || 0) + 1);
 
-      const mc = (i.measurement_class || 'NAO_CLASSIFICADO').toUpperCase();
+      const mc = resolveMeasurementClass(i);
       measurementCounts.set(mc, (measurementCounts.get(mc) || 0) + 1);
 
       const tp = (i.artifact_type || 'NAO_CLASSIFICADO').toUpperCase();
@@ -1502,13 +1499,16 @@ export default function App() {
       tipoArtefato: [
         { v: 'all', l: 'Todos' },
         { v: 'MAPA', l: `Mapas (${typeCounts.get('MAPA') || 0})` },
-        { v: 'DOCUMENTACAO', l: `Documentações (${typeCounts.get('DOCUMENTACAO') || 0})` }],
+        { v: 'DOCUMENTACAO', l: `Documentações (${typeCounts.get('DOCUMENTACAO') || 0})` },
+        { v: 'NO', l: `Nós (${typeCounts.get('NO') || 0})` },
+        { v: 'NAO_CLASSIFICADO', l: `Não classificados (${typeCounts.get('NAO_CLASSIFICADO') || 0})` }
+      ],
       classificacao: [
         { v: 'all', l: 'Todos' },
         { v: 'GA4', l: `GA4 (${measurementCounts.get('GA4') || 0})` },
-        { v: 'GA3', l: `GA3 (${measurementCounts.get('GA3') || 0})` },
+        { v: 'GA3', l: `Universal Analytics (GA3) (${measurementCounts.get('GA3') || 0})` },
         { v: 'HIBRIDO', l: `Híbrido (${measurementCounts.get('HIBRIDO') || 0})` },
-        { v: 'NAO_CLASSIFICADO', l: `Não Classificado (${measurementCounts.get('NAO_CLASSIFICADO') || 0})` }
+        { v: 'NAO_CLASSIFICADO', l: `Não classificado (${measurementCounts.get('NAO_CLASSIFICADO') || 0})` }
       ],
       produtos: [
         { v: 'all', l: 'Todos' },
@@ -2205,7 +2205,7 @@ export default function App() {
                   <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-bradesco-red mb-4 group-hover:scale-110 transition-transform">
                     <AlertCircle className="w-6 h-6" />
                   </div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1">Univ. Analytics</p>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1">Universal Analytics (GA3)</p>
                   <p className="text-4xl font-extrabold text-gray-900 dark:text-slate-50 leading-none">{insights.universalAnalytics}</p>
                   <span className="absolute top-6 right-6 text-[10px] font-black text-bradesco-red bg-red-50 px-2 py-1 rounded-full">{insights.porcentagens.universalAnalytics}%</span>
                 </div>
@@ -2214,7 +2214,7 @@ export default function App() {
                   <div className="w-12 h-12 rounded-2xl bg-gray-50 dark:bg-slate-800 flex items-center justify-center text-gray-400 dark:text-slate-500 mb-4 group-hover:scale-110 transition-transform">
                     <FileText className="w-6 h-6" />
                   </div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1">Documentos</p>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1">Documentações</p>
                   <p className="text-4xl font-extrabold text-gray-900 dark:text-slate-50 leading-none">{insights.documentos}</p>
                   <span className="absolute top-6 right-6 text-[10px] font-black text-gray-600 dark:text-slate-300 bg-gray-100 dark:bg-slate-700 px-2 py-1 rounded-full">{insights.porcentagens.documentos}%</span>
                 </div>
@@ -2448,24 +2448,18 @@ export default function App() {
             <div className="space-y-6">
               <AnimatePresence>
                 {paginatedCards.map((item, index) => {
-                const isDoc = item.artifact_type === 'DOCUMENTACAO';
-                const isMap = item.artifact_type === 'MAPA';
-                
-                
-                let artifactLabel = 'Não classificado';
-                if (isDoc) artifactLabel = 'Documento';
-                else if (isMap) artifactLabel = 'Mapa';
-                else if (item.artifact_type === 'NO') artifactLabel = 'Nó';
-                
+                const isDoc = isDocumentation(item);
+                const isMapArtifact = isMap(item);
+                const artifactLabel = getArtifactTypeLabel(item.artifact_type);
 
                 let homologationStatusLabel = '';
                 let statusColorClass = 'text-gray-800 dark:text-slate-200';
-                if (isMap) {
-                  const homologationStatus = item.homologation_status || 'NAO_HOMOLOGADO';
-                  if (homologationStatus === 'HOMOLOGADO') {
+                if (isMapArtifact) {
+                  const metrics = getMapStatusMetrics(item);
+                  if (metrics.homologationStatus === 'HOMOLOGADO') {
                     homologationStatusLabel = 'Homologado';
                     statusColorClass = 'text-emerald-600 dark:text-emerald-400';
-                  } else if (homologationStatus === 'PARCIAL') {
+                  } else if (metrics.homologationStatus === 'PARCIAL') {
                     homologationStatusLabel = 'Parcial';
                     statusColorClass = 'text-amber-600 dark:text-amber-400';
                   } else {
@@ -2520,7 +2514,7 @@ export default function App() {
                       <span className="text-[10px] font-ui font-semibold uppercase text-gray-400 dark:text-slate-500 tracking-wider">Artefato</span>
                       <span className="text-sm font-heading font-bold text-gray-800 dark:text-slate-200 tabular-nums">{artifactLabel}</span>
                     </div>
-                    {isMap && (
+                    {isMapArtifact && (
                       <>
                         <div className="flex flex-col gap-1">
                           <span className="text-[10px] font-ui font-semibold uppercase text-gray-400 dark:text-slate-500 tracking-wider">Status</span>
@@ -2829,30 +2823,24 @@ export default function App() {
                             </tr>
                           ) : (
                             filteredInventory.map((item) => {
-                              const isDoc = item.artifact_type === 'DOCUMENTACAO';
-                              const isMap = item.artifact_type === 'MAPA';
-                              
-
-                              let artifactLabel = 'Não classificado';
-                if (isDoc) artifactLabel = 'Documento';
-                else if (isMap) artifactLabel = 'Mapa';
-                else if (item.artifact_type === 'NO') artifactLabel = 'Nó';
-                              
+                              const isDoc = isDocumentation(item);
+                              const isMapItem = isMap(item);
+                              const artifactLabel = getArtifactTypeLabel(item.artifact_type);
 
                               let classLabel = '—';
                               let classStyle = 'text-gray-400 dark:text-slate-500';
 
-                              if (isMap) {
-                                const mRaw = (item.measurement_class || '').toUpperCase();
-                                if (mRaw === 'GA4') {
-                                  classLabel = 'GA4';
+                              if (isMapItem) {
+                                const mc = resolveMeasurementClass(item);
+                                classLabel = getMeasurementLabel(mc);
+                                if (mc === 'GA4') {
                                   classStyle = 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300';
-                                } else if (mRaw === 'GA3') {
-                                  classLabel = 'GA3';
+                                } else if (mc === 'GA3') {
                                   classStyle = 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300';
-                                } else if (mRaw === 'HIBRIDO') {
-                                  classLabel = 'Híbrido';
+                                } else if (mc === 'HIBRIDO') {
                                   classStyle = 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300';
+                                } else {
+                                  classStyle = 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300';
                                 }
                               }
 
@@ -2899,7 +2887,7 @@ export default function App() {
                                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold tracking-tight ${
                                       isDoc 
                                         ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' 
-                                        : item.artifact_type === 'NO'
+                                        : isNode(item)
                                           ? 'bg-gray-100 text-gray-500 dark:bg-slate-800 dark:text-slate-400'
                                           : 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300'
                                     }`}>

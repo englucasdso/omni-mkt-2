@@ -8,6 +8,10 @@ import { Artifact } from '../types';
 import { PageHeader } from './PageHeader';
 import { normalizarStatus, OfficialStatus } from '../utils/statusUtils';
 
+import { isMap, isDocumentation } from '../domain/artifacts/artifactSelectors';
+import { resolveMeasurementClass, getMeasurementLabel } from '../domain/measurement/measurementResolver';
+import { MEASUREMENT_CONFIGS } from '../domain/measurement/measurementConfig';
+
 interface CanonicalInsightsDashboardProps {
   artifacts: Artifact[];
   onOpenMap: (map: Artifact) => void;
@@ -44,7 +48,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
       if (effProductFilter !== 'all' && art.produto !== effProductFilter) return false;
       if (effSubprodutoFilter !== 'all' && (art.subproduto || 'Sem subproduto') !== effSubprodutoFilter) return false;
       if (effMeasurementFilter !== 'all') {
-        const mc = art.measurement_class || (art.tipo_mapa?.toLowerCase().includes('ga4') ? 'GA4' : 'GA3');
+        const mc = resolveMeasurementClass(art);
         if (mc !== effMeasurementFilter) return false;
       }
       return true;
@@ -53,8 +57,8 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
 
   const stats = useMemo(() => {
     // 1. Separar explicitamente os artefatos filtrados em conjuntos canônicos
-    const filteredMaps = filteredArtifacts.filter(art => art.artifact_type === 'MAPA');
-    const filteredDocs = filteredArtifacts.filter(art => art.artifact_type === 'DOCUMENTACAO');
+    const filteredMaps = filteredArtifacts.filter(art => isMap(art) && art.artifact_type === 'MAPA');
+    const filteredDocs = filteredArtifacts.filter(art => isDocumentation(art) && art.artifact_type === 'DOCUMENTACAO');
 
     // 2. Contagens canônicas: nós, raiz e não classificados não entram em totalMaps nem totalArtifacts
     const totalMaps = filteredMaps.length;
@@ -101,7 +105,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
         totalSnippets += (sc.snippets || []).length;
       });
 
-      const mClass = art.measurement_class || (art.tipo_mapa?.toLowerCase().includes('ga4') ? 'GA4' : 'GA3');
+      const mClass = resolveMeasurementClass(art);
       measurementCounts[mClass] = (measurementCounts[mClass] || 0) + 1;
 
       // Products aggregation exclusiva para mapas
@@ -302,24 +306,24 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
 
           <div className="grid grid-cols-2 gap-3 pt-2 font-ui">
             <div className="p-4 rounded-xl bg-gray-50/80 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 text-center shadow-neu-raised">
-              <span className="text-[10px] font-medium uppercase text-gray-500 dark:text-slate-400 block">GA4 Puro</span>
+              <span className="text-[10px] font-medium uppercase text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.GA4.label}</span>
               <span className="text-2xl font-heading font-bold text-gray-900 dark:text-slate-100 tabular-nums">{stats.measurementCounts.GA4 || 0}</span>
-              <span className="text-[10px] text-gray-400 block mt-1">100% compliant</span>
+              <span className="text-[10px] text-gray-400 block mt-1">Padrão moderno</span>
             </div>
             <div className="p-4 rounded-xl bg-gray-50/80 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 text-center shadow-neu-raised">
-              <span className="text-[10px] font-medium uppercase text-gray-500 dark:text-slate-400 block">Universal (GA3)</span>
+              <span className="text-[10px] font-medium uppercase text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.GA3.label}</span>
               <span className="text-2xl font-heading font-bold text-gray-900 dark:text-slate-100 tabular-nums">{stats.measurementCounts.GA3 || 0}</span>
               <span className="text-[10px] text-gray-400 block mt-1">Legado</span>
             </div>
             <div className="p-4 rounded-xl bg-gray-50/80 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 text-center shadow-neu-raised">
-              <span className="text-[10px] font-medium uppercase text-gray-500 dark:text-slate-400 block">Híbrido</span>
+              <span className="text-[10px] font-medium uppercase text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.HIBRIDO.label}</span>
               <span className="text-2xl font-heading font-bold text-gray-900 dark:text-slate-100 tabular-nums">{stats.measurementCounts.HIBRIDO || 0}</span>
               <span className="text-[10px] text-gray-400 block mt-1">Transição</span>
             </div>
             <div className="p-4 rounded-xl bg-gray-50/80 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 text-center shadow-neu-raised">
-              <span className="text-[10px] font-medium uppercase text-gray-500 dark:text-slate-400 block">Não Classificado</span>
+              <span className="text-[10px] font-medium uppercase text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.NAO_CLASSIFICADO.label}</span>
               <span className="text-2xl font-heading font-bold text-gray-900 dark:text-slate-100 tabular-nums">{stats.measurementCounts.NAO_CLASSIFICADO || 0}</span>
-              <span className="text-[10px] text-gray-400 block mt-1">Docs / Outros</span>
+              <span className="text-[10px] text-gray-400 block mt-1">Sem evidência</span>
             </div>
           </div>
         </div>

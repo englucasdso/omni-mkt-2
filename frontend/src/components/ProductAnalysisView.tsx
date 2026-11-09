@@ -12,8 +12,11 @@ import {
   sortWithSearchPriority, 
   useDebouncedSearch 
 } from '../utils/contextualSearch';
-import { ContextualEmptyState } from './ContextualEmptyState';
+import { isMap } from '../domain/artifacts/artifactSelectors';
+import { resolveMeasurementClass, getMeasurementLabel } from '../domain/measurement/measurementResolver';
+import { MEASUREMENT_CONFIGS } from '../domain/measurement/measurementConfig';
 import { resolveArtifactTaxonomy } from '../utils/taxonomyResolver';
+import { ContextualEmptyState } from './ContextualEmptyState';
 
 interface ProductAnalysisViewProps {
   artifacts: Artifact[];
@@ -76,7 +79,7 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
     const globallySeenMapIds = new Set<string>();
 
     artifacts.forEach(art => {
-      if (art.artifact_type !== 'MAPA') return; // Apenas mapas reais entram na análise
+      if (!isMap(art)) return; // Apenas mapas reais entram na análise canônica
       const mapIdStr = String(art.id);
 
       // Contabilizar cada mapa exatamente uma vez
@@ -163,7 +166,7 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
       pEntry.screenStatusCounts.EXCLUIR += mMetrics.exclude;
       pEntry.screenStatusCounts.DESCONTINUAR += mMetrics.discontinue;
 
-      let mClass = art.measurement_class || 'NAO_CLASSIFICADO';
+      const mClass = resolveMeasurementClass(art);
       pEntry.measurementCounts[mClass] = (pEntry.measurementCounts[mClass] || 0) + 1;
 
       // Frequência de parâmetros
@@ -341,7 +344,7 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
       statusCounts.EXCLUIR += metrics.exclude;
       statusCounts.DESCONTINUAR += metrics.discontinue;
 
-      const mClass = art.measurement_class || (art.tipo_mapa?.toLowerCase().includes('ga4') ? 'GA4' : 'GA3');
+      const mClass = resolveMeasurementClass(art);
       measurementCounts[mClass] = (measurementCounts[mClass] || 0) + 1;
     });
 
@@ -590,19 +593,19 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
                 </h4>
                 <div className="grid grid-cols-4 gap-2">
                   <div className="p-3 bg-gray-50/80 dark:bg-slate-800/60 rounded-xl border border-gray-200 dark:border-slate-800 text-center">
-                    <span className="text-[11px] font-medium text-gray-500 dark:text-slate-400 block">GA4 Puro</span>
+                    <span className="text-[11px] font-medium text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.GA4.label}</span>
                     <span className="text-base font-heading font-bold text-gray-800 dark:text-slate-100">{selectedMetrics.measurementCounts.GA4 || 0}</span>
                   </div>
                   <div className="p-3 bg-gray-50/80 dark:bg-slate-800/60 rounded-xl border border-gray-200 dark:border-slate-800 text-center">
-                    <span className="text-[11px] font-medium text-gray-500 dark:text-slate-400 block">Universal/GA3</span>
+                    <span className="text-[11px] font-medium text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.GA3.label}</span>
                     <span className="text-base font-heading font-bold text-gray-800 dark:text-slate-100">{selectedMetrics.measurementCounts.GA3 || 0}</span>
                   </div>
                   <div className="p-3 bg-gray-50/80 dark:bg-slate-800/60 rounded-xl border border-gray-200 dark:border-slate-800 text-center">
-                    <span className="text-[11px] font-medium text-gray-500 dark:text-slate-400 block">Híbrido</span>
+                    <span className="text-[11px] font-medium text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.HIBRIDO.label}</span>
                     <span className="text-base font-heading font-bold text-gray-800 dark:text-slate-100">{selectedMetrics.measurementCounts.HIBRIDO || 0}</span>
                   </div>
                   <div className="p-3 bg-gray-50/80 dark:bg-slate-800/60 rounded-xl border border-gray-200 dark:border-slate-800 text-center">
-                    <span className="text-[11px] font-medium text-gray-500 dark:text-slate-400 block">Não Classif.</span>
+                    <span className="text-[11px] font-medium text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.NAO_CLASSIFICADO.label}</span>
                     <span className="text-base font-heading font-bold text-gray-800 dark:text-slate-100">{selectedMetrics.measurementCounts.NAO_CLASSIFICADO || 0}</span>
                   </div>
                 </div>

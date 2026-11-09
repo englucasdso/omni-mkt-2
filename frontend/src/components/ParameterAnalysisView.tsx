@@ -4,6 +4,7 @@ import {
   Sparkles, Database, FileText, Check
 } from 'lucide-react';
 import { Artifact, ParameterSummaryItem } from '../types';
+import { isMap } from '../domain/artifacts';
 import { PageHeader } from './PageHeader';
 import { 
   normalizeSearchText, 
@@ -49,7 +50,7 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
     }>();
 
     artifacts.forEach(art => {
-      if (art.artifact_type !== 'MAPA') return;
+      if (!isMap(art)) return;
       const artParams = art.parameter_summary || [];
       const prodName = art.produto || 'Sem Produto';
 
