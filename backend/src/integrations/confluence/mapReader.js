@@ -974,6 +974,7 @@ export class MapReader {
           screen_index: screenIndex,
           status_raw: resolvedStatus.status_raw || '',
           status: resolvedStatus.status,
+          screen_name: screenName || '',
           instruction: instruction || screenName || 'Instrução de disparo',
           image_name: imageName || '',
           additional_information: additionalInfo || '',
