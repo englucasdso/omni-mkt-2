@@ -51,7 +51,7 @@ const ProdutoNode = React.memo(({ data }: any) => {
         {data.hasChildren && (
           <ExpandButton isExpanded={data.isExpanded} onClick={data.onToggle} count={data.childrenCount} />
         )}
-        <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Produto</span>
+        <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 block mb-1">Produto</span>
         <h4 className="text-base font-heading font-bold text-gray-900 dark:text-slate-50 tracking-tight leading-tight line-clamp-2 group-hover:text-[#7B0209] transition-colors">{data.label}</h4>
       </div>
       <Handle type="source" position={Position.Right} className="!w-2.5 !h-2.5 !bg-[#7B0209] !border-2 !border-white dark:!border-slate-800" />
@@ -77,7 +77,7 @@ const SubprodutoNode = React.memo(({ data }: any) => {
         {data.hasChildren && (
           <ExpandButton isExpanded={data.isExpanded} onClick={data.onToggle} count={data.childrenCount} />
         )}
-        <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Subproduto</span>
+        <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 block mb-1">Subproduto</span>
         <h4 className="text-sm font-heading font-bold text-gray-800 dark:text-slate-100 tracking-tight line-clamp-2 group-hover:text-[#E30328] transition-colors">{data.label}</h4>
       </div>
       <Handle type="source" position={Position.Right} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
@@ -103,7 +103,7 @@ const CategoriaNode = React.memo(({ data }: any) => {
         {data.hasChildren && (
           <ExpandButton isExpanded={data.isExpanded} onClick={data.onToggle} count={data.childrenCount} />
         )}
-        <span className="text-[9px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Categoria</span>
+        <span className="text-[9px] font-ui font-semibold text-gray-400 dark:text-slate-500 block mb-1">Categoria</span>
         <h4 className="text-xs font-heading font-bold text-gray-800 dark:text-slate-100 tracking-tight line-clamp-2 transition-colors">{data.label}</h4>
       </div>
       <Handle type="source" position={Position.Right} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
@@ -136,7 +136,7 @@ const MapaNode = React.memo(({ data }: any) => {
           <ExpandButton isExpanded={data.isExpanded} onClick={data.onToggle} count={data.childrenCount} />
         )}
         <div className="flex items-center gap-2 mb-1">
-          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-red-100 text-[#7B0209] dark:bg-red-900/40 dark:text-red-400">
+          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-red-100 text-[#7B0209] dark:bg-red-900/40 dark:text-red-400">
             Mapa
           </span>
           <span className="text-[10px] text-gray-400 font-mono truncate">{data.item?.id || ''}</span>
@@ -179,7 +179,7 @@ const DocumentoNode = React.memo(({ data }: any) => {
           <ExpandButton isExpanded={data.isExpanded} onClick={data.onToggle} count={data.childrenCount} />
         )}
         <div className="flex items-center gap-2 mb-1">
-          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-[#64748B] dark:bg-slate-800/40 dark:text-slate-400">
+          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-slate-100 text-[#64748B] dark:bg-slate-800/40 dark:text-slate-400">
             Documento
           </span>
           <span className="text-[10px] text-gray-400 font-mono truncate">{data.item?.id || ''}</span>

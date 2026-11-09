@@ -119,11 +119,11 @@ const ScreenNode = React.memo(({ data, selected }: any) => {
             )}
           </div>
           
-          <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
-            isAi 
-              ? isAmbiguous ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-              : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-          }`}>
+          <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${
+ isAi 
+ ? isAmbiguous ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+ : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+ }`}>
             {isAi ? data.confidence : 'DOCUMENTAL'}
           </span>
         </div>
@@ -136,7 +136,7 @@ const ScreenNode = React.memo(({ data, selected }: any) => {
         {/* Bloco de Evento Principal */}
         <div className="bg-gray-50 dark:bg-slate-800/80 rounded-lg p-2.5 mb-2.5 border border-gray-100 dark:border-slate-800">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[9px] text-gray-400 dark:text-slate-400 font-bold uppercase tracking-wider">
+            <span className="text-[9px] text-gray-400 dark:text-slate-400 font-bold ">
               Evento Principal
             </span>
             {snippetCount > 1 && (
@@ -225,7 +225,7 @@ const DecisionNode = React.memo(({ data, selected }: any) => {
 
         {/* Conteúdo interno desrotacionado */}
         <div className="relative z-10 w-[80px] text-center flex flex-col items-center justify-center p-1">
-          <span className="text-[8px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 mb-0.5">
+          <span className="text-[8px] font-bold text-amber-800 dark:text-amber-300 mb-0.5">
             {data.confidence || 'DECISÃO'}
           </span>
           <p className="text-[9px] font-semibold text-gray-800 dark:text-slate-100 line-clamp-3 leading-tight">
@@ -627,10 +627,10 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({
           <BrainCircuit className="w-6 h-6" />
         </div>
         <p className="text-sm font-semibold text-gray-700 dark:text-slate-300">
-          Selecione um mapa para visualizar sua jornada.
+          Escolha um mapa para ver a jornada
         </p>
         <p className="text-xs text-gray-400 dark:text-slate-500 mt-1 max-w-sm">
-          Escolha um produto e subproduto nos filtros laterais para carregar as telas catalogadas.
+          Use Produto, Subproduto e Mapa na barra acima. As telas aparecem na ordem em que estão documentadas no Confluence.
         </p>
       </div>
     );

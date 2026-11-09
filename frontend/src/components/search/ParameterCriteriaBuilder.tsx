@@ -245,7 +245,7 @@ export const ParameterCriteriaBuilder: React.FC<ParameterCriteriaBuilderProps> =
                 {/* Suggestions Dropdown */}
                 {activeSuggestionIdx === idx && suggestions.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl bg-white dark:bg-slate-850 border border-gray-200 dark:border-slate-700 shadow-xl overflow-hidden max-h-48 overflow-y-auto">
-                    <div className="px-2.5 py-1 bg-gray-50 dark:bg-slate-800 text-[10px] uppercase font-bold text-gray-400">
+                    <div className="px-2.5 py-1 bg-gray-50 dark:bg-slate-800 text-[10px] font-bold text-gray-400">
                       Sugestões do inventário
                     </div>
                     {suggestions.map((sug, sIdx) => (

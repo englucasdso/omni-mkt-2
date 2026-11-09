@@ -17,7 +17,7 @@ export const ArtifactTypeBadge: React.FC<ArtifactTypeBadgeProps> = ({
 
   return (
     <span
-      className={`inline-flex items-center font-ui font-semibold rounded-md border tracking-wider uppercase ${config.badgeClasses} ${sizeClasses} ${className}`}
+      className={`inline-flex items-center font-ui font-semibold rounded-md border ${config.badgeClasses} ${sizeClasses} ${className}`}
       title={config.description}
     >
       {config.label}
