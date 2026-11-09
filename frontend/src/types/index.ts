@@ -66,6 +66,8 @@ export interface ScreenItem {
   screen_index: number;
   status_raw: string;
   status: ScreenStatus;
+  /** Nome da tela conforme o campo "Tela" do Confluence (quando houver). */
+  screen_name?: string;
   instruction: string;
   image_name?: string;
   additional_information?: string;

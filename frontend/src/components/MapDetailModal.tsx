@@ -36,6 +36,21 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
   const [highlightedSnippetKey, setHighlightedSnippetKey] = useState<string | null>(null);
   const modalBodyRef = useRef<HTMLDivElement>(null);
 
+  // Acessibilidade: Esc fecha o detalhe e o fundo não rola enquanto ele está aberto.
+  useEffect(() => {
+    if (!item) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [item, onClose]);
+
   // Reiniciar ou inicializar estado interno com foco em tela e snippet se fornecido
   useEffect(() => {
     if (!item) return;
@@ -178,7 +193,15 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
   ] as const;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm overflow-y-auto">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-omni-ink/55 backdrop-blur-[2px] overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-label={item?.titulo ? `Detalhes de ${item.titulo}` : 'Detalhes do artefato'}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <motion.div 
         initial={{ opacity: 0, scale: 0.98, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -385,8 +408,13 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                           <span className={`px-2 py-0.5 text-[10px] font-bold rounded border shrink-0 ${sBadge.bg} ${sBadge.text} ${sBadge.border}`}>
                             {sBadge.label}
                           </span>
-                          <span className="text-xs font-semibold text-gray-800 dark:text-slate-200 truncate">
-                            {screen.instruction || 'Tela sem instrução especificada'}
+                          <span className="min-w-0 flex flex-col">
+                            <span className="text-[13px] font-semibold text-omni-ink dark:text-slate-200 truncate">
+                              {screen.screen_name || screen.instruction || 'Tela sem instrução especificada'}
+                            </span>
+                            {screen.screen_name && screen.instruction && screen.instruction !== screen.screen_name && (
+                              <span className="text-[12px] text-gray-500 dark:text-slate-400 truncate">{screen.instruction}</span>
+                            )}
                           </span>
                         </div>
 

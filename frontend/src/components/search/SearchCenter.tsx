@@ -116,6 +116,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [aiErrorRetryable, setAiErrorRetryable] = useState(true);
   const [isFocused, setIsFocused] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -220,9 +221,9 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
       case 'conteudo':
         return 'Qual artefato você quer encontrar?';
       case 'parametros':
-        return 'Buscar por parâmetros ou trecho de código';
+        return 'Quais parâmetros ou código você procura?';
       case 'ia':
-        return 'O que você gostaria de perguntar à IA sobre os artefatos?';
+        return 'O que você quer perguntar à IA?';
     }
   };
 
@@ -409,9 +410,11 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(
+        const apiError: any = new Error(
           data.message || data.error || 'Serviço de IA temporariamente indisponível.'
         );
+        apiError.code = data.code;
+        throw apiError;
       }
 
       const rawResults = Array.isArray(data.results) ? data.results : [];
@@ -430,6 +433,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
     } catch (err: any) {
       if (err.name === 'AbortError') return;
       console.error('[SearchCenter] AI Search error:', err);
+      setAiErrorRetryable(err?.code !== 'AI_NOT_CONFIGURED');
       setAiError(
         err.message ||
           'Não foi possível consultar a IA no momento. Verifique a conexão ou tente novamente.'
@@ -860,6 +864,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                 <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
                 <span>{aiError}</span>
               </div>
+              {aiErrorRetryable && (
               <button
                 type="button"
                 onClick={() => executeAiSearch()}
@@ -868,6 +873,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                 <RefreshCw className="w-3 h-3" />
                 <span>Tentar novamente</span>
               </button>
+              )}
             </div>
           )}
 

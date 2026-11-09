@@ -11,12 +11,10 @@
  * devem morar no Backend. O frontend repassa ordens (api.ts) e obedece
  * os dados JSON que voltam da porta 3000.
  */
-import React, { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
 import { X, AlertTriangle, Target, Network, Filter, CheckCircle2, AlertCircle, Clock, User, Info, Shield, LogOut, Trash2, Plus, Settings, Landmark, LayoutList, RefreshCw, Check, Loader2, KeyRound, Activity, ArrowRight, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, Sparkles, FileText, Layers, Tag, Code2, Eye, ArrowUpDown, Calendar, RotateCcw, SlidersHorizontal } from "lucide-react";
-import { ConexoesCanvas } from "../components/ConexoesCanvas";
-import { JourneysCanvas } from "../components/JourneysCanvas";
 import { JourneysSidebarFilters } from "../components/JourneysSidebarFilters";
 import { getOperationalInsights } from "../utils/inventoryHelpers";
 import { fetchInventory, searchContent, fetchUsers, createUser, updateUser, deleteUser } from "../services/api";
@@ -35,12 +33,24 @@ import { MultiSelect } from "../components/MultiSelect";
 import { FilterField } from "../components/FilterField";
 import { TypewriterText } from "../components/TypewriterText";
 import { MapDetailModal } from "../components/MapDetailModal";
-import { ProductAnalysisView } from "../components/ProductAnalysisView";
-import { ParameterAnalysisView } from "../components/ParameterAnalysisView";
-import { CanonicalInsightsDashboard } from "../components/CanonicalInsightsDashboard";
 import { AppShell } from "../components/AppShell";
 import { ArtifactResultCard } from "../components/search/ArtifactResultCard";
 import { PageHeader } from "../components/PageHeader";
+import { AdminUsers } from "../features/admin/AdminUsers";
+import { SyncWidget } from "../features/sync/SyncWidget";
+
+// Telas pesadas (grafos, d3, painéis analíticos) carregadas sob demanda para reduzir o bundle inicial.
+const GraphView = lazy(() => import("../features/connections/GraphView"));
+const JourneysCanvas = lazy(() => import("../components/JourneysCanvas").then((m) => ({ default: m.JourneysCanvas })));
+const ProductAnalysisView = lazy(() => import("../components/ProductAnalysisView").then((m) => ({ default: m.ProductAnalysisView })));
+const ParameterAnalysisView = lazy(() => import("../components/ParameterAnalysisView").then((m) => ({ default: m.ParameterAnalysisView })));
+const CanonicalInsightsDashboard = lazy(() => import("../components/CanonicalInsightsDashboard").then((m) => ({ default: m.CanonicalInsightsDashboard })));
+
+const PageLoading = () => (
+  <div className="flex-1 flex items-center justify-center py-32 text-[13px] text-gray-500" role="status">
+    <Loader2 className="w-4 h-4 mr-2 animate-spin text-omni-bordo" /> Carregando…
+  </div>
+);
 import { SidebarContextualArea } from "../components/SidebarContextualArea";
 import { SearchCenter } from "../components/search/SearchCenter";
 import { isMap, isDocumentation, isNode, isRoot, isCataloged, getArtifactTypeLabel } from "../domain/artifacts";
@@ -68,361 +78,6 @@ const INITIAL_USERS: UserType[] = [
     createdAt: new Date().toISOString()
   }
 ];
-
-const GraphView = ({ 
-  data, 
-  isEmbedded = false, 
-  targetArtifactId,
-  onClearTargetArtifactId,
-  onClose, 
-  onOpenMap 
-}: { 
-  data: Artifact[], 
-  isEmbedded?: boolean, 
-  targetArtifactId?: string | null,
-  onClearTargetArtifactId?: () => void,
-  onClose?: () => void, 
-  onOpenMap?: (item: Artifact) => void 
-}) => {
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(targetArtifactId || null);
-
-  useEffect(() => {
-    if (targetArtifactId) {
-      setSelectedItemId(targetArtifactId);
-    }
-  }, [targetArtifactId]);
-
-  const handleSelectItem = useCallback((id: string | null) => {
-    setSelectedItemId(id);
-  }, []);
-
-  const handleOpenItem = useCallback((item: Artifact) => {
-    if (item && isCataloged(item)) {
-      onOpenMap?.(item);
-    }
-  }, [onOpenMap]);
-
-  const content = (
-    <div className="flex-1 rounded-[40px] overflow-hidden border border-gray-100 dark:border-slate-700/50 shadow-sm relative w-full h-[calc(100vh-250px)] min-h-[600px] flex">
-      <ConexoesCanvas 
-        data={data} 
-        selectedItemId={selectedItemId} 
-        targetArtifactId={targetArtifactId}
-        onClearTargetArtifactId={onClearTargetArtifactId}
-        onSelectItem={handleSelectItem} 
-        onOpenItem={handleOpenItem}
-      />
-    </div>
-  );
-
-  if (isEmbedded) {
-    return <div className="flex flex-col h-[800px] min-h-[800px]">{content}</div>;
-  }
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[80] bg-white dark:bg-slate-900 dark:border-slate-800 backdrop-blur-3xl p-12 flex flex-col"
-    >
-      <div className="flex justify-between items-center mb-12 px-4 max-w-7xl mx-auto w-full">
-         <div className="flex items-center gap-4">
-            <h1 className="brand-text text-2xl font-black tracking-tight text-gray-900 dark:text-slate-50 transition-colors">
-              Hub de Artefatos
-            </h1>
-         </div>
-         <button onClick={() => { if (onClose) onClose(); }} className="p-4 hover:bg-gray-100 dark:bg-slate-700 rounded-full transition-all hover:rotate-90">
-            <X className="w-6 h-6 text-gray-400 dark:text-slate-500" />
-         </button>
-      </div>
-      <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col">
-        {content}
-      </div>
-    </motion.div>
-  );
-};
-
-const AdminUsers = ({ users, onAddUser, onUpdateUser, onDeleteUser, onClose }: { 
-  users: UserType[], 
-  onAddUser: (u: Omit<UserType, 'id' | 'createdAt'>) => void,
-  onUpdateUser: (u: UserType) => void,
-  onDeleteUser: (id: string) => void,
-  onClose: () => void 
-}) => {
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingUser, setEditingUser] = useState<UserType | null>(null);
-  const [formData, setFormData] = useState({ name: '', nickname: '', email: '', role: 'gestor360' as UserRole, status: 'ativo' as UserStatus });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Validate corporate email if needed, but not strictly asked, just "if applicable". Simple check could be `@bradesco.com.br` but we can leave without it or add a quick logic
-    if (editingUser) {
-      onUpdateUser({ ...editingUser, ...formData });
-      setEditingUser(null);
-    } else {
-      onAddUser(formData);
-      setShowAddForm(false);
-    }
-    setFormData({ name: '', nickname: '', email: '', role: 'gestor360', status: 'ativo' });
-  };
-
-  const startEdit = (user: UserType) => {
-    setEditingUser(user);
-    setFormData({ name: user.name, nickname: user.nickname || '', email: user.email, role: user.role, status: user.status || 'ativo' });
-    setShowAddForm(true);
-  };
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[70] bg-white dark:bg-slate-900 dark:border-slate-800 backdrop-blur-xl p-8 flex flex-col"
-    >
-      <div className="max-w-5xl mx-auto w-full">
-        <div className="flex justify-between items-center mb-10">
-          <div>
-            <h2 className="text-3xl font-medium tracking-tight text-gray-900 dark:text-slate-50">Gestão de Usuários</h2>
-            <p className="text-gray-500 dark:text-slate-400">Controle de acesso e permissões da plataforma</p>
-          </div>
-          <div className="flex items-center gap-4">
-             {!showAddForm && (
-                <button 
-                  onClick={() => { setShowAddForm(true); setEditingUser(null); setFormData({ name: '', nickname: '', email: '', role: 'gestor360', status: 'ativo' }); }}
-                  className="flex items-center gap-2 px-6 py-3 text-white rounded-2xl font-bold text-xs hover:opacity-90 transition-all shadow-xl dark:shadow-none shadow-red-200"
-                   style={{ background: 'linear-gradient(90deg, #7D046D 0%, #cc092f 100%)' }}
-                >
-                  <Plus className="w-4 h-4" /> Novo Usuário
-                </button>
-             )}
-            <button onClick={onClose} className="p-4 hover:bg-gray-100 dark:bg-slate-700 rounded-full transition-colors">
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-        </div>
-
-        {showAddForm ? (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-10 rounded-[40px] max-w-lg mx-auto">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-slate-50 mb-6">{editingUser ? 'Editar Usuário' : 'Novo Usuário'}</h3>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 dark:text-slate-500 ml-4">Nome Completo</label>
-                <input 
-                  required
-                  type="text" 
-                  value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-6 py-4 bg-gray-50 dark:bg-slate-800 border border-transparent rounded-2xl focus:bg-white dark:bg-slate-900 dark:border-slate-800 focus:border-bradesco-red transition-all font-medium text-gray-800 dark:text-slate-200"
-                  placeholder="Nome do colaborador"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 dark:text-slate-500 ml-4">Apelido (Opcional)</label>
-                <input 
-                  type="text" 
-                  value={formData.nickname}
-                  onChange={e => setFormData({ ...formData, nickname: e.target.value })}
-                  className="w-full px-6 py-4 bg-gray-50 dark:bg-slate-800 border border-transparent rounded-2xl focus:bg-white dark:bg-slate-900 dark:border-slate-800 focus:border-bradesco-red transition-all font-medium text-gray-800 dark:text-slate-200"
-                  placeholder="Apelido/Nome de exibição"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 dark:text-slate-500 ml-4">E-mail Corporativo</label>
-                <input 
-                  required
-                  type="email" 
-                  value={formData.email}
-                  onChange={e => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-6 py-4 bg-gray-50 dark:bg-slate-800 border border-transparent rounded-2xl focus:bg-white dark:bg-slate-900 dark:border-slate-800 focus:border-bradesco-red transition-all font-medium text-gray-800 dark:text-slate-200"
-                  placeholder="email@bradesco.com.br"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 dark:text-slate-500 ml-4">Perfil de Acesso</label>
-                <select 
-                  value={formData.role}
-                  onChange={e => setFormData({ ...formData, role: e.target.value as UserRole })}
-                  className="w-full px-6 py-4 bg-gray-50 dark:bg-slate-800 border border-transparent rounded-2xl focus:bg-white dark:bg-slate-900 dark:border-slate-800 focus:border-bradesco-red transition-all font-medium text-gray-800 dark:text-slate-200 appearance-none"
-                >
-                  <option value="gestor360">GESTOR 360 (Acesso Completo)</option>
-                  <option value="estrategico">ESTRATÉGICO (Visão Estratégica)</option>
-                  <option value="artefatos">ARTEFATOS (Hub de Artefatos)</option>
-                  <option value="eventos">EVENTOS (Hub de Eventos)</option>
-                  <option value="admin">ADMIN (Gestão Total)</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 dark:text-slate-500 ml-4">Status</label>
-                <select 
-                  value={formData.status}
-                  onChange={e => setFormData({ ...formData, status: e.target.value as UserStatus })}
-                  className="w-full px-6 py-4 bg-gray-50 dark:bg-slate-800 border border-transparent rounded-2xl focus:bg-white dark:bg-slate-900 dark:border-slate-800 focus:border-bradesco-red transition-all font-medium text-gray-800 dark:text-slate-200 appearance-none"
-                >
-                  <option value="ativo">ATIVO</option>
-                  <option value="inativo">INATIVO</option>
-                </select>
-              </div>
-              <div className="flex gap-4 pt-4">
-                <button 
-                  type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="flex-1 px-8 py-4 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 rounded-2xl font-bold text-xs hover:bg-gray-200 dark:bg-slate-600 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 px-8 py-4 text-white rounded-2xl font-bold text-xs hover:opacity-90 transition-all shadow-xl dark:shadow-none shadow-red-200"
-                  style={{ background: 'linear-gradient(90deg, #7D046D 0%, #cc092f 100%)' }}
-                >
-                  {editingUser ? 'Salvar' : 'Cadastrar'}
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        ) : (
-          <div className="glass-card overflow-hidden rounded-[40px] border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900 dark:border-slate-800">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-gray-50 dark:bg-slate-800 border-b border-gray-100 dark:border-slate-700">
-                  <th className="p-6 text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest">NOME / APELIDO</th>
-                  <th className="p-6 text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest">E-MAIL</th>
-                  <th className="p-6 text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest">PERFIL</th>
-                  <th className="p-6 text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest">STATUS</th>
-                  <th className="p-6 text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest text-right">AÇÕES</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {users.map(u => (
-                  <tr key={u.id} className="hover:bg-gray-50 dark:bg-slate-800/50 transition-colors">
-                    <td className="p-6">
-                      <p className="text-sm font-bold text-gray-900 dark:text-slate-50">{u.name}</p>
-                      {u.nickname && <p className="text-xs text-gray-400 dark:text-slate-500 font-medium">({u.nickname})</p>}
-                    </td>
-                    <td className="p-6 text-sm text-gray-500 dark:text-slate-400">{u.email}</td>
-                    <td className="p-6">
-                      <span className={`px-3 py-1 rounded-full text-[9px] font-black ${u.role === 'admin' ? 'bg-purple-50 text-purple-600 border border-purple-100' : 'bg-gray-50 dark:bg-slate-800 text-gray-500 dark:text-slate-400 border border-gray-100 dark:border-slate-700'}`}>
-                        {u.role}
-                      </span>
-                    </td>
-                    <td className="p-6">
-                      <span className={`px-3 py-1 rounded-full text-[9px] font-black ${u.status === 'ativo' || u.status === 'active' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
-                        {u.status === 'ativo' || u.status === 'active' ? 'ATIVO' : 'INATIVO'}
-                      </span>
-                    </td>
-                    <td className="p-6 text-right space-x-2">
-                       <button onClick={() => startEdit(u)} className="p-2 text-gray-400 dark:text-slate-500 hover:text-bradesco-red transition-colors">Editar</button>
-                       {users.length > 1 && (
-                         <button onClick={() => onDeleteUser(u.id)} className="p-2 text-gray-400 dark:text-slate-500 hover:text-bradesco-red transition-colors"><Trash2 className="w-4 h-4" /></button>
-                       )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </motion.div>
-  );
-};
-
-const SyncWidget = ({ job, onCancel }: { job: any, onCancel: () => void }) => {
-  if (!job.active) return null;
-
-  const hasTotal = typeof job.total === "number" && job.total > 0;
-  const isSuccess = job.status === "success";
-  const isError = job.status === "error";
-  const isRunning = job.status === "running";
-  const isDeterminate = isSuccess || (isRunning && hasTotal);
-  const displayPercentage = isSuccess ? 100 : (hasTotal ? Math.max(0, Math.min(99, Number(job.percentage) || 0)) : null);
-  const currentMessage = job.message || "Validando sessão do Confluence...";
-
-  const cleanErrorMsg = isError
-    ? String(job.errorMsg || "Não foi possível concluir a sincronização.").split("\n")[0].trim()
-    : "";
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 50, scale: 0.9 }} 
-      animate={{ opacity: 1, y: 0, scale: 1 }} 
-      exit={{ opacity: 0, y: 50, scale: 0.9 }}
-      className="fixed bottom-6 right-6 z-[100] bg-white dark:bg-slate-900 dark:border-slate-800 rounded-2xl shadow-2xl dark:shadow-none border border-gray-100 dark:border-slate-700 p-4 w-80 flex flex-col gap-3 overflow-hidden"
-    >
-      <div className="absolute top-0 left-0 w-full h-1 bg-gray-100 dark:bg-slate-700 overflow-hidden">
-        {isDeterminate ? (
-          <div 
-            className={`h-full transition-all duration-300 ease-out ${isError ? 'bg-red-500' : isSuccess ? 'bg-green-500' : 'bg-bradesco-red'}`} 
-            style={{ width: `${displayPercentage ?? 0}%` }}
-          />
-        ) : isError ? (
-          <div className="h-full w-full bg-red-500" />
-        ) : (
-          <div className="h-full w-2/5 bg-bradesco-red animate-pulse rounded-full" />
-        )}
-      </div>
-      
-      <div className="flex items-start justify-between mt-1">
-        <div className="flex items-center gap-3 w-full">
-          <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-slate-800 flex items-center justify-center shrink-0">
-             {isRunning && <Loader2 className="w-5 h-5 text-bradesco-red animate-spin" />}
-             {isSuccess && <CheckCircle2 className="w-5 h-5 text-green-500" />}
-             {isError && <AlertTriangle className="w-5 h-5 text-red-500" />}
-          </div>
-          <div className="flex flex-col flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-bold text-gray-900 dark:text-slate-50 text-sm truncate">
-                {isRunning ? "Sincronizando..." : isSuccess ? "Sincronização concluída" : "Falha na Sincronização"}
-              </span>
-              {displayPercentage !== null && !isError && (
-                <span className="text-xs font-bold text-gray-700 dark:text-slate-200 tabular-nums shrink-0">
-                  {displayPercentage}%
-                </span>
-              )}
-            </div>
-
-            {isRunning && hasTotal && (
-              <span className="text-[11px] text-gray-700 dark:text-slate-300 font-semibold leading-tight mt-0.5 tabular-nums">
-                {job.processed} de {job.total} páginas
-              </span>
-            )}
-
-            {isSuccess && hasTotal && (
-              <span className="text-[11px] text-gray-700 dark:text-slate-300 font-semibold leading-tight mt-0.5 tabular-nums">
-                {job.total} páginas processadas
-              </span>
-            )}
-
-            <span className="text-[10px] text-gray-500 dark:text-slate-400 font-medium leading-tight mt-0.5">
-              {isError
-                ? "Não foi possível concluir"
-                : isSuccess
-                  ? ((job.failed > 0 || job.reused > 0)
-                      ? `${job.succeeded} lidas · ${job.reused} reutilizadas · ${job.failed} com falha`
-                      : currentMessage)
-                  : currentMessage}
-            </span>
-          </div>
-        </div>
-      </div>
-      
-      {isError && (
-        <div className="text-[10px] text-red-600 font-medium bg-red-50 p-2 rounded-lg mt-1">
-          {cleanErrorMsg}
-        </div>
-      )}
-      
-      {isRunning && (
-        <button 
-          onClick={onCancel}
-          className="text-[10px] font-bold text-gray-400 dark:text-slate-500 hover:text-red-500 transition-colors w-full text-left flex items-center gap-1.5 px-1 py-1 mt-1 "
-        >
-          <X className="w-3 h-3" /> Cancelar processo
-        </button>
-      )}
-    </motion.div>
-  );
-};
-
 
 export default function App() {
   useEffect(() => {
@@ -1853,6 +1508,7 @@ export default function App() {
         )
       }
     >
+      <Suspense fallback={<PageLoading />}>
       <div className="relative w-full flex-1 flex flex-col min-h-screen">
       <AnimatePresence>
         <SyncWidget job={syncJob} onCancel={cancelSyncJob} />
@@ -3030,6 +2686,7 @@ export default function App() {
       />
 
       </div>
+      </Suspense>
     </AppShell>
   );
 }
