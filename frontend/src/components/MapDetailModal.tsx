@@ -36,6 +36,21 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
   const [highlightedSnippetKey, setHighlightedSnippetKey] = useState<string | null>(null);
   const modalBodyRef = useRef<HTMLDivElement>(null);
 
+  // Acessibilidade: Esc fecha o detalhe e o fundo não rola enquanto ele está aberto.
+  useEffect(() => {
+    if (!item) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [item, onClose]);
+
   // Reiniciar ou inicializar estado interno com foco em tela e snippet se fornecido
   useEffect(() => {
     if (!item) return;
@@ -178,7 +193,15 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
   ] as const;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm overflow-y-auto">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-omni-ink/55 backdrop-blur-[2px] overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-label={item?.titulo ? `Detalhes de ${item.titulo}` : 'Detalhes do artefato'}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <motion.div 
         initial={{ opacity: 0, scale: 0.98, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -382,11 +405,16 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                           <span className="w-6 h-6 rounded-md bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 text-xs font-bold flex items-center justify-center shrink-0">
                             #{displayScreenNumber}
                           </span>
-                          <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded border shrink-0 ${sBadge.bg} ${sBadge.text} ${sBadge.border}`}>
+                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded border shrink-0 ${sBadge.bg} ${sBadge.text} ${sBadge.border}`}>
                             {sBadge.label}
                           </span>
-                          <span className="text-xs font-semibold text-gray-800 dark:text-slate-200 truncate">
-                            {screen.instruction || 'Tela sem instrução especificada'}
+                          <span className="min-w-0 flex flex-col">
+                            <span className="text-[13px] font-semibold text-omni-ink dark:text-slate-200 truncate">
+                              {screen.screen_name || screen.instruction || 'Tela sem instrução especificada'}
+                            </span>
+                            {screen.screen_name && screen.instruction && screen.instruction !== screen.screen_name && (
+                              <span className="text-[12px] text-gray-500 dark:text-slate-400 truncate">{screen.instruction}</span>
+                            )}
                           </span>
                         </div>
 
@@ -508,7 +536,7 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
               ) : (
                 <div className="border border-gray-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-900">
                   {/* Cabeçalho da Tabela */}
-                  <div className="grid grid-cols-12 gap-3 px-4 py-2.5 bg-gray-50 dark:bg-slate-800/60 border-b border-gray-200 dark:border-slate-800 text-[10px] font-ui font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
+                  <div className="grid grid-cols-12 gap-3 px-4 py-2.5 bg-gray-50 dark:bg-slate-800/60 border-b border-gray-200 dark:border-slate-800 text-[10px] font-ui font-bold text-gray-400 dark:text-slate-500">
                     <div className="col-span-6 sm:col-span-7">Parâmetro</div>
                     <div className="col-span-3 sm:col-span-2 text-center">Ocorrências</div>
                     <div className="col-span-2 sm:col-span-2 text-center">Telas</div>
@@ -545,7 +573,7 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                           {/* Conteúdo Expandido do Parâmetro (TODOS os valores distintos, sem slice) */}
                           {isExpanded && (
                             <div className="px-4 py-3 bg-gray-50/50 dark:bg-slate-800/20 border-t border-gray-100 dark:border-slate-800 space-y-2">
-                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
+                              <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500">
                                 Valores Distintos ({distinctValues.length}):
                               </p>
                               {distinctValues.length > 0 ? (
@@ -613,7 +641,7 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                         {/* Campos do padrão */}
                         {fields.length > 0 && (
                           <div className="space-y-1.5">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
+                            <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500">
                               Campos do padrão:
                             </p>
                             <div className="flex flex-wrap gap-1.5">
@@ -703,7 +731,7 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                     key={idx}
                     className="p-3.5 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900"
                   >
-                    <p className="text-[10px] font-bold uppercase text-gray-400 dark:text-slate-500 tracking-wider mb-1">
+                    <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 mb-1">
                       {row.label}
                     </p>
                     <div className="text-sm font-semibold text-gray-800 dark:text-slate-200 break-words">
@@ -715,12 +743,12 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
 
               {/* Seção Governança (Divergência de Status) */}
               <div className="pt-4 border-t border-gray-200 dark:border-slate-800 space-y-3">
-                <h4 className="text-xs font-bold font-ui uppercase tracking-wider text-gray-400 dark:text-slate-500">
+                <h4 className="text-xs font-bold font-ui text-gray-400 dark:text-slate-500">
                   Governança
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-3.5 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-                    <p className="text-[10px] font-bold uppercase text-gray-400 dark:text-slate-500 tracking-wider mb-1">
+                    <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 mb-1">
                       Status declarado no Confluence
                     </p>
                     <p className="text-sm font-semibold text-gray-800 dark:text-slate-200">
@@ -728,7 +756,7 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                     </p>
                   </div>
                   <div className="p-3.5 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-                    <p className="text-[10px] font-bold uppercase text-gray-400 dark:text-slate-500 tracking-wider mb-1">
+                    <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 mb-1">
                       Status apurado pelo Omni
                     </p>
                     <p className="text-sm font-semibold text-gray-800 dark:text-slate-200">
@@ -736,7 +764,7 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                     </p>
                   </div>
                   <div className="p-3.5 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-                    <p className="text-[10px] font-bold uppercase text-gray-400 dark:text-slate-500 tracking-wider mb-1">
+                    <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 mb-1">
                       Divergência identificada
                     </p>
                     <p className={`text-sm font-semibold ${item.status_divergent ? 'text-amber-600 dark:text-amber-400' : 'text-gray-800 dark:text-slate-200'}`}>
@@ -744,7 +772,7 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                     </p>
                   </div>
                   <div className="p-3.5 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-                    <p className="text-[10px] font-bold uppercase text-gray-400 dark:text-slate-500 tracking-wider mb-1">
+                    <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 mb-1">
                       Explicação da divergência
                     </p>
                     <p className="text-xs text-gray-600 dark:text-slate-400 leading-relaxed">

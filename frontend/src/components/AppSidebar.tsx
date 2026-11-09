@@ -1,17 +1,19 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { 
-  LayoutList, 
-  Landmark, 
-  Layers, 
-  Tag, 
-  Sparkles, 
-  Network, 
+import React, { useEffect } from 'react';
+import {
+  LayoutList,
+  Table2,
+  Layers,
+  Tag,
+  BarChart3,
+  Network,
+  Route,
   RefreshCw,
-  Plug,
+  Search,
   X,
-  Compass,
-  Route
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
+import { formatUltimaSincronizacao } from '../utils/helpers';
 
 export interface NavItem {
   id: string;
@@ -20,14 +22,33 @@ export interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-export const NAV_ITEMS: NavItem[] = [
-  { id: 'results', label: 'Cards', path: '/hub-de-artefatos/cards', icon: LayoutList },
-  { id: 'inventory_table', label: 'Inventário', path: '/hub-de-artefatos/inventario', icon: Landmark },
-  { id: 'produtos_analise', label: 'Por Produto', path: '/hub-de-artefatos/por-produto', icon: Layers },
-  { id: 'parametros_analise', label: 'Por Parâmetro', path: '/hub-de-artefatos/por-parametro', icon: Tag },
-  { id: 'insights', label: 'Insights', path: '/hub-de-artefatos/insights', icon: Sparkles },
-  { id: 'graph', label: 'Conexões', path: '/hub-de-artefatos/conexoes', icon: Network },
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+export const NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Explorar',
+    items: [
+      { id: 'results', label: 'Cards', path: '/hub-de-artefatos/cards', icon: LayoutList },
+      { id: 'inventory_table', label: 'Inventário', path: '/hub-de-artefatos/inventario', icon: Table2 },
+      { id: 'graph', label: 'Conexões', path: '/hub-de-artefatos/conexoes', icon: Network },
+      { id: 'journeys', label: 'Jornadas', path: '/hub-de-artefatos/jornadas', icon: Route },
+    ],
+  },
+  {
+    label: 'Analisar',
+    items: [
+      { id: 'produtos_analise', label: 'Por produto', path: '/hub-de-artefatos/por-produto', icon: Layers },
+      { id: 'parametros_analise', label: 'Por parâmetro', path: '/hub-de-artefatos/por-parametro', icon: Tag },
+      { id: 'insights', label: 'Insights', path: '/hub-de-artefatos/insights', icon: BarChart3 },
+    ],
+  },
 ];
+
+/** Lista plana mantida para compatibilidade com consumidores antigos. */
+export const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
 
 interface AppSidebarProps {
   currentRouteId: string;
@@ -37,8 +58,15 @@ interface AppSidebarProps {
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
   onSyncClick?: () => void;
+  lastSync?: string | null;
+  isCollapsed?: boolean;
+  onToggleCollapsed?: () => void;
+  /** @deprecated filtros agora ficam na própria página (AppShell). */
   contextualContent?: React.ReactNode;
 }
+
+export const SIDEBAR_WIDTH = 248;
+export const SIDEBAR_COLLAPSED_WIDTH = 72;
 
 export const AppSidebar: React.FC<AppSidebarProps> = ({
   currentRouteId,
@@ -48,321 +76,160 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   isMobileOpen = false,
   onCloseMobile,
   onSyncClick,
-  contextualContent,
+  lastSync,
+  isCollapsed = false,
+  onToggleCollapsed,
 }) => {
-  const [isHovered, setIsHovered] = useState(false);
-  const [isFocusedWithin, setIsFocusedWithin] = useState(false);
-  const [hoveredTooltip, setHoveredTooltip] = useState<{ id: string; top: number; label: string } | null>(null);
-
-  const sidebarRef = useRef<HTMLElement>(null);
-
-  const isExpanded = isHovered || isFocusedWithin;
-
-  // Handle outside click or escape key for mobile
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (onCloseMobile) onCloseMobile();
-        setHoveredTooltip(null);
-      }
+      if (e.key === 'Escape' && onCloseMobile) onCloseMobile();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onCloseMobile]);
 
+  // No mobile o menu sempre abre completo.
+  const compact = isCollapsed && !isMobileOpen;
+  const isSearchActive = currentRouteId === 'initial' || currentRouteId === 'home';
+
+  const handleNav = (item: NavItem) => {
+    onNavigate(item);
+    onCloseMobile?.();
+  };
+
   return (
     <>
-      {/* Mobile Backdrop */}
       {isMobileOpen && (
-        <div 
+        <div
           onClick={onCloseMobile}
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden transition-opacity duration-200"
+          className="fixed inset-0 bg-omni-ink/50 backdrop-blur-[2px] z-40 md:hidden"
           aria-hidden="true"
         />
       )}
 
-      {/* Main Sidebar */}
       <aside
-        ref={sidebarRef}
-        onMouseEnter={() => {
-          setIsHovered(true);
-          setHoveredTooltip(null);
-        }}
-        onMouseLeave={() => {
-          setIsHovered(false);
-          setHoveredTooltip(null);
-        }}
-        onFocus={() => setIsFocusedWithin(true)}
-        onBlur={(e) => {
-          if (!sidebarRef.current?.contains(e.relatedTarget as Node)) {
-            setIsFocusedWithin(false);
-          }
-        }}
-        className={`fixed top-0 left-0 h-screen z-40 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800 transition-all duration-200 ease-in-out flex flex-col select-none
-          ${isMobileOpen ? 'translate-x-0 w-[240px] shadow-2xl' : '-translate-x-full md:translate-x-0'}
-          ${isExpanded ? 'md:w-[240px] md:shadow-2xl' : 'md:w-16'}
-        `}
         aria-label="Navegação principal"
+        style={{ width: compact ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH }}
+        className={`omni-gradient fixed inset-y-0 left-0 z-50 flex flex-col text-white transition-[width,transform] duration-200 ease-out
+          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
       >
-        {/* 1. Top Header / Logo */}
-        <div className="shrink-0">
-          <div className="h-16 flex items-center px-3 border-b border-gray-100 dark:border-slate-800/80">
-            <button
-              onClick={() => {
-                onHomeClick();
-                if (onCloseMobile) onCloseMobile();
-              }}
-              className="relative flex items-center w-full h-11 rounded-xl text-left transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--omni-brand-primary)] overflow-hidden"
-              title="Ir para o início"
-              aria-label="Omni Marketing - Página inicial"
-            >
-              {/* Símbolo oficial reduzido (sidebar recolhida) */}
-              <div 
-                className={`w-10 h-10 flex items-center justify-center shrink-0 transition-opacity duration-200 ${
-                  isExpanded || isMobileOpen ? 'opacity-0 pointer-events-none absolute' : 'opacity-100'
-                }`}
-              >
-                <img
-                  src="/omni-logo-1-icone.png"
-                  alt="Omni"
-                  className="w-8 h-8 object-contain rounded-lg shadow-sm"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
+        {/* Textura sutil para dar profundidade ao degradê sem competir com o conteúdo */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          style={{ backgroundImage: 'radial-gradient(circle at 20% 0%, #fff 0, transparent 45%)' }}
+          aria-hidden="true"
+        />
 
-              {/* Logo oficial horizontal completo (sidebar expandida) */}
-              <div 
-                className={`flex items-center min-w-0 transition-all duration-200 ${
-                  isExpanded || isMobileOpen 
-                    ? 'opacity-100 translate-x-0 w-full pl-0.5' 
-                    : 'opacity-0 -translate-x-2 pointer-events-none absolute'
-                }`}
-              >
-                <img
-                  src="/omni-logo-2-horizontal-branco.png"
-                  alt="Omni Marketing"
-                  className="h-8 max-w-[190px] object-contain"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-            </button>
-
-            {/* Close button for mobile */}
-            {isMobileOpen && (
-              <button
-                onClick={onCloseMobile}
-                className="md:hidden p-2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 ml-auto"
-                aria-label="Fechar navegação"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        {/* Marca */}
+        <div className={`relative flex items-center h-16 shrink-0 ${compact ? 'justify-center px-0' : 'px-5 justify-between'}`}>
+          <button
+            onClick={() => { onHomeClick(); onCloseMobile?.(); }}
+            className="flex items-center gap-3 rounded-md cursor-pointer min-w-0"
+            aria-label="OMNI — página inicial"
+          >
+            <img
+              src="/omni-logo-1-icone.png"
+              alt=""
+              className="w-8 h-8 shrink-0 rounded-lg ring-1 ring-white/25 shadow-[0_2px_6px_rgba(0,0,0,0.25)]"
+            />
+            {!compact && (
+              <span className="flex flex-col items-start leading-none min-w-0">
+                <span className="font-heading font-bold text-[17px] tracking-[0.08em]">OMNI</span>
+                <span className="text-[11px] text-white/65 mt-1 truncate">Governança de mensuração</span>
+              </span>
             )}
-          </div>
+          </button>
+          {isMobileOpen && (
+            <button onClick={onCloseMobile} className="md:hidden p-2 rounded-md text-white/80 hover:bg-white/10" aria-label="Fechar navegação">
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
-        {/* 2. Navigation Links */}
-        <nav className="px-3 py-2 space-y-1 mt-3 shrink-0" aria-label="Seções do sistema">
-            {NAV_ITEMS.map((item) => {
-              const isActive = currentRouteId === item.id;
-              const Icon = item.icon;
-
-              return (
-                <div key={item.id} className="relative">
-                  <button
-                    onClick={() => {
-                      onNavigate(item);
-                      if (onCloseMobile) onCloseMobile();
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isExpanded && !isMobileOpen) {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setHoveredTooltip({
-                          id: item.id,
-                          top: rect.top + rect.height / 2,
-                          label: item.label,
-                        });
-                      }
-                    }}
-                    onMouseLeave={() => {
-                      setHoveredTooltip(null);
-                    }}
-                    aria-current={isActive ? 'page' : undefined}
-                    aria-label={item.label}
-                    className={`flex items-center w-full h-11 rounded-xl transition-all duration-150 cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-omni-brand-accent
-                      ${isActive
-                        ? 'bg-red-50/80 dark:bg-red-950/40 text-omni-brand-primary border border-red-200/70 dark:border-red-900/50 shadow-neu-raised font-semibold'
-                        : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100 hover:bg-gray-100/70 dark:hover:bg-slate-800/60 font-medium'
-                      }
-                    `}
-                  >
-                    {/* Ícone fixo no centro exato da sidebar recolhida (w-10 dentro dos 64px) */}
-                    <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                      <Icon className={`w-5 h-5 transition-transform duration-150 ${isActive ? 'text-omni-brand-primary scale-105' : 'text-gray-500 dark:text-slate-400'}`} />
-                    </div>
-
-                    {/* Rótulo visível apenas quando expandido */}
-                    <span 
-                      className={`text-xs font-ui whitespace-nowrap ml-2 transition-all duration-150 truncate ${
-                        isExpanded || isMobileOpen ? 'opacity-100' : 'opacity-0 md:w-0'
-                      }`}
-                    >
-                      {item.label}
-                    </span>
-                  </button>
-                </div>
-              );
-            })}
-            
-            <div className="relative mt-6">
-              <button
-                onClick={() => {
-                  if (onSyncClick) onSyncClick();
-                  if (onCloseMobile) onCloseMobile();
-                }}
-                onMouseEnter={(e) => {
-                  if (!isExpanded && !isMobileOpen) {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setHoveredTooltip({
-                      id: 'sync',
-                      top: rect.top + rect.height / 2,
-                      label: 'Sincronização',
-                    });
-                  }
-                }}
-                onMouseLeave={() => setHoveredTooltip(null)}
-                aria-label="Sincronização"
-                className="flex items-center w-full h-11 rounded-xl transition-all duration-150 cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-omni-brand-accent text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100 hover:bg-gray-100/70 dark:hover:bg-slate-800/60 font-medium"
-              >
-                <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                  <RefreshCw className="w-5 h-5 transition-transform duration-150 text-gray-500 dark:text-slate-400" />
-                </div>
-                <span className={`text-xs font-ui whitespace-nowrap ml-2 transition-all duration-150 truncate ${
-                  isExpanded || isMobileOpen ? 'opacity-100' : 'opacity-0 md:w-0'
-                }`}>
-                  Sincronização
-                </span>
-              </button>
-            </div>
-            
-            <div className="relative">
-              <button
-                onClick={() => {
-                  onNavigate({ id: 'journeys', label: 'Jornadas', path: '/hub-de-artefatos/jornadas', icon: Route });
-                  if (onCloseMobile) onCloseMobile();
-                }}
-                onMouseEnter={(e) => {
-                  if (!isExpanded && !isMobileOpen) {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setHoveredTooltip({
-                      id: 'journeys',
-                      top: rect.top + rect.height / 2,
-                      label: 'Jornadas',
-                    });
-                  }
-                }}
-                onMouseLeave={() => setHoveredTooltip(null)}
-                aria-current={currentRouteId === 'journeys' ? 'page' : undefined}
-                aria-label="Jornadas"
-                className={`flex items-center w-full h-11 rounded-xl transition-all duration-150 cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-omni-brand-accent
-                  ${currentRouteId === 'journeys'
-                    ? 'bg-red-50/80 dark:bg-red-950/40 text-omni-brand-primary border border-red-200/70 dark:border-red-900/50 shadow-neu-raised font-semibold'
-                    : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100 hover:bg-gray-100/70 dark:hover:bg-slate-800/60 font-medium'
-                  }
-                `}
-              >
-                <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                  <Route className={`w-5 h-5 transition-transform duration-150 ${currentRouteId === 'journeys' ? 'text-omni-brand-primary scale-105' : 'text-gray-500 dark:text-slate-400'}`} />
-                </div>
-                <span className={`text-xs font-ui whitespace-nowrap ml-2 transition-all duration-150 truncate ${
-                  isExpanded || isMobileOpen ? 'opacity-100' : 'opacity-0 md:w-0'
-                }`}>
-                  Jornadas
-                </span>
-              </button>
-            </div>
-
-            <div className="relative">
-              <button
-                disabled
-                aria-disabled="true"
-                onMouseEnter={(e) => {
-                  if (!isExpanded && !isMobileOpen) {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setHoveredTooltip({
-                      id: 'plugins',
-                      top: rect.top + rect.height / 2,
-                      label: 'Plugins',
-                    });
-                  }
-                }}
-                onMouseLeave={() => setHoveredTooltip(null)}
-                aria-label="Plugins"
-                className="flex items-center w-full h-11 rounded-xl transition-all duration-150 cursor-not-allowed text-left text-gray-400 dark:text-slate-600 opacity-60 font-medium"
-              >
-                <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                  <Plug className="w-5 h-5 transition-transform duration-150 text-gray-400 dark:text-slate-600" />
-                </div>
-                <span className={`text-xs font-ui whitespace-nowrap ml-2 transition-all duration-150 truncate ${
-                  isExpanded || isMobileOpen ? 'opacity-100' : 'opacity-0 md:w-0'
-                }`}>
-                  Plugins
-                </span>
-              </button>
-            </div>
-            
-          </nav>
-
-        {/* 3. Espaço flexível disponível */}
-        <div className="flex-1 min-h-0" />
-
-        {/* 4. Área contextual de busca e filtros (apenas no sidebar expandido ou mobile) */}
-        {(isExpanded || isMobileOpen) && contextualContent && (
-          <div className="shrink-0 max-h-[45vh] overflow-y-auto px-3 py-2.5 border-t border-gray-100 dark:border-slate-800/80 custom-scrollbar">
-            {contextualContent}
-          </div>
-        )}
-
-        {/* 5. Separador & 6. “Nova Busca” no rodapé */}
-        <div className="shrink-0 p-3 border-t border-gray-100 dark:border-slate-800/80">
+        {/* Ação principal */}
+        <div className={`relative shrink-0 ${compact ? 'px-3' : 'px-4'} pt-2 pb-4`}>
           <button
-            id="sidebar-nova-busca"
-            type="button"
-            onClick={() => {
-              if (onNewSearch) {
-                onNewSearch();
-              } else {
-                onHomeClick();
-              }
-              if (onCloseMobile) onCloseMobile();
-            }}
-            className="flex items-center w-full h-10 rounded-xl text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors cursor-pointer"
-            title="Buscar novo termo"
-            aria-label="Buscar novo termo"
-            >
-            <div className="w-10 h-10 flex items-center justify-center shrink-0">
-              <Compass className="w-4 h-4" />
-            </div>
-            <span 
-              className={`text-[11px] font-ui whitespace-nowrap ml-2 transition-all duration-150 truncate ${
-                isExpanded || isMobileOpen ? 'opacity-100' : 'opacity-0 md:w-0'
-              }`}
-            >
-              Nova Busca
-            </span>
+            onClick={() => { (onNewSearch || onHomeClick)(); onCloseMobile?.(); }}
+            title={compact ? 'Nova busca' : undefined}
+            aria-current={isSearchActive ? 'page' : undefined}
+            className={`w-full flex items-center gap-2.5 h-10 rounded-lg bg-white text-omni-bordo font-semibold text-[13px] shadow-[0_1px_2px_rgba(0,0,0,0.25)] hover:bg-white/95 transition-colors cursor-pointer
+              ${compact ? 'justify-center' : 'px-3.5'}`}
+          >
+            <Search className="w-4 h-4 shrink-0" />
+            {!compact && <span>Nova busca</span>}
+            {!compact && <kbd className="ml-auto text-[10px] font-medium text-omni-bordo/60 border border-omni-bordo/15 rounded px-1.5 py-0.5">/</kbd>}
           </button>
         </div>
-      </aside>
 
-      {/* Floating Tooltip when collapsed */}
-      {hoveredTooltip && !isExpanded && !isMobileOpen && (
-        <div 
-          className="fixed left-[72px] z-50 px-2.5 py-1.5 rounded-lg bg-gray-900 dark:bg-slate-100 text-white dark:text-gray-900 text-xs font-ui font-medium shadow-xl pointer-events-none -translate-y-1/2 transition-opacity duration-150 animate-fade-in"
-          style={{ top: `${hoveredTooltip.top}px` }}
-          role="tooltip"
-        >
-          {hoveredTooltip.label}
+        {/* Navegação */}
+        <nav className="relative flex-1 overflow-y-auto px-3 pb-4 space-y-5" aria-label="Seções do sistema">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label}>
+              {!compact ? (
+                <p className="px-2.5 mb-1.5 text-[11px] font-medium text-white/50">{group.label}</p>
+              ) : (
+                <div className="mx-3 mb-2 h-px bg-white/15" aria-hidden="true" />
+              )}
+              <ul className="space-y-0.5">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = currentRouteId === item.id;
+                  return (
+                    <li key={item.id}>
+                      <button
+                        onClick={() => handleNav(item)}
+                        aria-current={isActive ? 'page' : undefined}
+                        title={compact ? item.label : undefined}
+                        className={`relative w-full flex items-center gap-3 h-9 rounded-md text-[13.5px] transition-colors cursor-pointer
+                          ${compact ? 'justify-center' : 'px-2.5'}
+                          ${isActive
+                            ? 'bg-white/[0.14] text-white font-semibold'
+                            : 'text-white/75 hover:text-white hover:bg-white/[0.07] font-medium'}`}
+                      >
+                        {isActive && (
+                          <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-white" aria-hidden="true" />
+                        )}
+                        <Icon className="w-[18px] h-[18px] shrink-0" />
+                        {!compact && <span className="truncate">{item.label}</span>}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </nav>
+
+        {/* Sincronização + recolher */}
+        <div className="relative shrink-0 border-t border-white/10 p-3 space-y-1">
+          <button
+            onClick={() => { onSyncClick?.(); onCloseMobile?.(); }}
+            title={compact ? 'Atualizar do Confluence' : undefined}
+            className={`w-full flex items-center gap-3 rounded-md py-2 text-left text-white/85 hover:bg-white/[0.07] transition-colors cursor-pointer ${compact ? 'justify-center' : 'px-2.5'}`}
+          >
+            <RefreshCw className="w-[18px] h-[18px] shrink-0" />
+            {!compact && (
+              <span className="min-w-0">
+                <span className="block text-[13px] font-medium">Atualizar do Confluence</span>
+                <span className="block text-[11px] text-white/55 truncate">
+                  {lastSync ? `Última: ${formatUltimaSincronizacao(lastSync)}` : 'Nenhuma sincronização ainda'}
+                </span>
+              </span>
+            )}
+          </button>
+          {onToggleCollapsed && (
+            <button
+              onClick={onToggleCollapsed}
+              className={`hidden md:flex w-full items-center gap-3 rounded-md py-2 text-white/60 hover:text-white hover:bg-white/[0.07] transition-colors cursor-pointer text-[12.5px] ${compact ? 'justify-center' : 'px-2.5'}`}
+              aria-label={compact ? 'Expandir menu' : 'Recolher menu'}
+              title={compact ? 'Expandir menu' : undefined}
+            >
+              {compact ? <PanelLeftOpen className="w-[18px] h-[18px]" /> : <PanelLeftClose className="w-[18px] h-[18px]" />}
+              {!compact && <span>Recolher menu</span>}
+            </button>
+          )}
         </div>
-      )}
+      </aside>
     </>
   );
 };

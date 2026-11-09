@@ -1,5 +1,19 @@
 # Omni Marketing Platform
 
+> **Comandos de desenvolvimento (atualizado nov/2026)**
+>
+> | Comando | O que faz |
+> |---|---|
+> | `npm run dev` | Sobe Express + Vite em http://localhost:3000 |
+> | `npm run lint` | Checagem de tipos (`tsc --noEmit`) |
+> | `npm test` | Suíte de regressão do backend e do domínio (`tsx --test`) |
+> | `npm run build` | Build de produção com code splitting |
+> | `npx tsx backend/scripts/generateMockInventory.js` | Regenera `backend/data/inventario.json` com dados **fictícios**, passando pelo pipeline real de extração e classificação |
+>
+> O `inventario.json` versionado é um mock. Inventários reais do Confluence não devem ser commitados.
+> Regra de taxonomia vigente: níveis 1 e 2 da árvore (Produto e Subproduto) são sempre **Nó**.
+
+
 A Plataforma Omni Marketing é o portal centralizado do time de Martech, unindo gestão de artefatos de dados, inventário de propriedades digitais, visualização de conexões e geração de insights através de Inteligência Artificial Generativa (Google Gemini) e integração automatizada com Confluence e GA4.
 
 ---

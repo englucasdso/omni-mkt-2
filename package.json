@@ -1,5 +1,5 @@
 {
-  "name": "react-example",
+  "name": "omni-mkt",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -13,9 +13,11 @@
     "start": "tsx backend/src/index.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "tsx --test backend/tests/*.test.js"
   },
   "dependencies": {
+    "@fontsource-variable/rethink-sans": "^5.3.0",
     "@google/generative-ai": "0.24.1",
     "@types/d3": "^7.4.3",
     "@types/he": "^1.2.3",

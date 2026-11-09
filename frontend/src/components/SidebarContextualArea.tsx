@@ -322,7 +322,7 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
         >
           {/* Toggles Rápidos */}
           <div className="space-y-1.5">
-            <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider block">
+            <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 block">
               Exceções e Status
             </span>
             <div className="flex flex-wrap gap-1.5">

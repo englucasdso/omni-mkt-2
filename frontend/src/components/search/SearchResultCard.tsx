@@ -75,13 +75,13 @@ export const SearchResultCard: React.FC<SearchResultCardProps> = ({
 
             {aiConfidence && (
               <span
-                className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                  aiConfidence === 'ALTA'
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-                    : aiConfidence === 'MEDIA'
-                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
-                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                }`}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${
+ aiConfidence === 'ALTA'
+ ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+ : aiConfidence === 'MEDIA'
+ ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
+ : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+ }`}
               >
                 <Sparkles className="w-3 h-3" />
                 Confiança {aiConfidence}
@@ -140,7 +140,7 @@ export const SearchResultCard: React.FC<SearchResultCardProps> = ({
         <div className="my-2 p-2.5 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700/40 text-xs space-y-1">
           {matchedCriteria && matchedCriteria.length > 0 && (
             <div className="flex flex-wrap gap-1 items-center">
-              <span className="text-[10px] uppercase font-bold text-gray-500 dark:text-slate-400 mr-1">
+              <span className="text-[10px] font-bold text-gray-500 dark:text-slate-400 mr-1">
                 Critérios encontrados:
               </span>
               {matchedCriteria.map((crit, idx) => (
@@ -171,7 +171,7 @@ export const SearchResultCard: React.FC<SearchResultCardProps> = ({
 
       {mode === 'conteudo' && matchedFields && matchedFields.length > 0 && (
         <div className="my-2 flex flex-wrap items-center gap-1.5 text-[11px]">
-          <span className="text-gray-400 text-[10px] uppercase font-semibold">Correspondência em:</span>
+          <span className="text-gray-400 text-[10px] font-semibold">Correspondência em:</span>
           {matchedFields.map((f, idx) => (
             <span
               key={idx}

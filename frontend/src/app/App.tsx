@@ -11,12 +11,10 @@
  * devem morar no Backend. O frontend repassa ordens (api.ts) e obedece
  * os dados JSON que voltam da porta 3000.
  */
-import React, { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
 import { X, AlertTriangle, Target, Network, Filter, CheckCircle2, AlertCircle, Clock, User, Info, Shield, LogOut, Trash2, Plus, Settings, Landmark, LayoutList, RefreshCw, Check, Loader2, KeyRound, Activity, ArrowRight, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, Sparkles, FileText, Layers, Tag, Code2, Eye, ArrowUpDown, Calendar, RotateCcw, SlidersHorizontal } from "lucide-react";
-import { ConexoesCanvas } from "../components/ConexoesCanvas";
-import { JourneysCanvas } from "../components/JourneysCanvas";
 import { JourneysSidebarFilters } from "../components/JourneysSidebarFilters";
 import { getOperationalInsights } from "../utils/inventoryHelpers";
 import { fetchInventory, searchContent, fetchUsers, createUser, updateUser, deleteUser } from "../services/api";
@@ -35,11 +33,24 @@ import { MultiSelect } from "../components/MultiSelect";
 import { FilterField } from "../components/FilterField";
 import { TypewriterText } from "../components/TypewriterText";
 import { MapDetailModal } from "../components/MapDetailModal";
-import { ProductAnalysisView } from "../components/ProductAnalysisView";
-import { ParameterAnalysisView } from "../components/ParameterAnalysisView";
-import { CanonicalInsightsDashboard } from "../components/CanonicalInsightsDashboard";
 import { AppShell } from "../components/AppShell";
+import { ArtifactResultCard } from "../components/search/ArtifactResultCard";
 import { PageHeader } from "../components/PageHeader";
+import { AdminUsers } from "../features/admin/AdminUsers";
+import { SyncWidget } from "../features/sync/SyncWidget";
+
+// Telas pesadas (grafos, d3, painéis analíticos) carregadas sob demanda para reduzir o bundle inicial.
+const GraphView = lazy(() => import("../features/connections/GraphView"));
+const JourneysCanvas = lazy(() => import("../components/JourneysCanvas").then((m) => ({ default: m.JourneysCanvas })));
+const ProductAnalysisView = lazy(() => import("../components/ProductAnalysisView").then((m) => ({ default: m.ProductAnalysisView })));
+const ParameterAnalysisView = lazy(() => import("../components/ParameterAnalysisView").then((m) => ({ default: m.ParameterAnalysisView })));
+const CanonicalInsightsDashboard = lazy(() => import("../components/CanonicalInsightsDashboard").then((m) => ({ default: m.CanonicalInsightsDashboard })));
+
+const PageLoading = () => (
+  <div className="flex-1 flex items-center justify-center py-32 text-[13px] text-gray-500" role="status">
+    <Loader2 className="w-4 h-4 mr-2 animate-spin text-omni-bordo" /> Carregando…
+  </div>
+);
 import { SidebarContextualArea } from "../components/SidebarContextualArea";
 import { SearchCenter } from "../components/search/SearchCenter";
 import { isMap, isDocumentation, isNode, isRoot, isCataloged, getArtifactTypeLabel } from "../domain/artifacts";
@@ -67,361 +78,6 @@ const INITIAL_USERS: UserType[] = [
     createdAt: new Date().toISOString()
   }
 ];
-
-const GraphView = ({ 
-  data, 
-  isEmbedded = false, 
-  targetArtifactId,
-  onClearTargetArtifactId,
-  onClose, 
-  onOpenMap 
-}: { 
-  data: Artifact[], 
-  isEmbedded?: boolean, 
-  targetArtifactId?: string | null,
-  onClearTargetArtifactId?: () => void,
-  onClose?: () => void, 
-  onOpenMap?: (item: Artifact) => void 
-}) => {
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(targetArtifactId || null);
-
-  useEffect(() => {
-    if (targetArtifactId) {
-      setSelectedItemId(targetArtifactId);
-    }
-  }, [targetArtifactId]);
-
-  const handleSelectItem = useCallback((id: string | null) => {
-    setSelectedItemId(id);
-  }, []);
-
-  const handleOpenItem = useCallback((item: Artifact) => {
-    if (item && isCataloged(item)) {
-      onOpenMap?.(item);
-    }
-  }, [onOpenMap]);
-
-  const content = (
-    <div className="flex-1 rounded-[40px] overflow-hidden border border-gray-100 dark:border-slate-700/50 shadow-sm relative w-full h-[calc(100vh-250px)] min-h-[600px] flex">
-      <ConexoesCanvas 
-        data={data} 
-        selectedItemId={selectedItemId} 
-        targetArtifactId={targetArtifactId}
-        onClearTargetArtifactId={onClearTargetArtifactId}
-        onSelectItem={handleSelectItem} 
-        onOpenItem={handleOpenItem}
-      />
-    </div>
-  );
-
-  if (isEmbedded) {
-    return <div className="flex flex-col h-[800px] min-h-[800px]">{content}</div>;
-  }
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[80] bg-white dark:bg-slate-900 dark:border-slate-800 backdrop-blur-3xl p-12 flex flex-col"
-    >
-      <div className="flex justify-between items-center mb-12 px-4 max-w-7xl mx-auto w-full">
-         <div className="flex items-center gap-4">
-            <h1 className="brand-text text-2xl font-black tracking-tight text-gray-900 dark:text-slate-50 transition-colors">
-              Hub de Artefatos
-            </h1>
-         </div>
-         <button onClick={() => { if (onClose) onClose(); }} className="p-4 hover:bg-gray-100 dark:bg-slate-700 rounded-full transition-all hover:rotate-90">
-            <X className="w-6 h-6 text-gray-400 dark:text-slate-500" />
-         </button>
-      </div>
-      <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col">
-        {content}
-      </div>
-    </motion.div>
-  );
-};
-
-const AdminUsers = ({ users, onAddUser, onUpdateUser, onDeleteUser, onClose }: { 
-  users: UserType[], 
-  onAddUser: (u: Omit<UserType, 'id' | 'createdAt'>) => void,
-  onUpdateUser: (u: UserType) => void,
-  onDeleteUser: (id: string) => void,
-  onClose: () => void 
-}) => {
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingUser, setEditingUser] = useState<UserType | null>(null);
-  const [formData, setFormData] = useState({ name: '', nickname: '', email: '', role: 'gestor360' as UserRole, status: 'ativo' as UserStatus });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Validate corporate email if needed, but not strictly asked, just "if applicable". Simple check could be `@bradesco.com.br` but we can leave without it or add a quick logic
-    if (editingUser) {
-      onUpdateUser({ ...editingUser, ...formData });
-      setEditingUser(null);
-    } else {
-      onAddUser(formData);
-      setShowAddForm(false);
-    }
-    setFormData({ name: '', nickname: '', email: '', role: 'gestor360', status: 'ativo' });
-  };
-
-  const startEdit = (user: UserType) => {
-    setEditingUser(user);
-    setFormData({ name: user.name, nickname: user.nickname || '', email: user.email, role: user.role, status: user.status || 'ativo' });
-    setShowAddForm(true);
-  };
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[70] bg-white dark:bg-slate-900 dark:border-slate-800 backdrop-blur-xl p-8 flex flex-col"
-    >
-      <div className="max-w-5xl mx-auto w-full">
-        <div className="flex justify-between items-center mb-10">
-          <div>
-            <h2 className="text-3xl font-medium tracking-tight text-gray-900 dark:text-slate-50">Gestão de Usuários</h2>
-            <p className="text-gray-500 dark:text-slate-400">Controle de acesso e permissões da plataforma</p>
-          </div>
-          <div className="flex items-center gap-4">
-             {!showAddForm && (
-                <button 
-                  onClick={() => { setShowAddForm(true); setEditingUser(null); setFormData({ name: '', nickname: '', email: '', role: 'gestor360', status: 'ativo' }); }}
-                  className="flex items-center gap-2 px-6 py-3 text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:opacity-90 transition-all shadow-xl dark:shadow-none shadow-red-200"
-                   style={{ background: 'linear-gradient(90deg, #7D046D 0%, #cc092f 100%)' }}
-                >
-                  <Plus className="w-4 h-4" /> Novo Usuário
-                </button>
-             )}
-            <button onClick={onClose} className="p-4 hover:bg-gray-100 dark:bg-slate-700 rounded-full transition-colors">
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-        </div>
-
-        {showAddForm ? (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-10 rounded-[40px] max-w-lg mx-auto">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-slate-50 mb-6">{editingUser ? 'Editar Usuário' : 'Novo Usuário'}</h3>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest ml-4">Nome Completo</label>
-                <input 
-                  required
-                  type="text" 
-                  value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-6 py-4 bg-gray-50 dark:bg-slate-800 border border-transparent rounded-2xl focus:bg-white dark:bg-slate-900 dark:border-slate-800 focus:border-bradesco-red transition-all font-medium text-gray-800 dark:text-slate-200"
-                  placeholder="Nome do colaborador"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest ml-4">Apelido (Opcional)</label>
-                <input 
-                  type="text" 
-                  value={formData.nickname}
-                  onChange={e => setFormData({ ...formData, nickname: e.target.value })}
-                  className="w-full px-6 py-4 bg-gray-50 dark:bg-slate-800 border border-transparent rounded-2xl focus:bg-white dark:bg-slate-900 dark:border-slate-800 focus:border-bradesco-red transition-all font-medium text-gray-800 dark:text-slate-200"
-                  placeholder="Apelido/Nome de exibição"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest ml-4">E-mail Corporativo</label>
-                <input 
-                  required
-                  type="email" 
-                  value={formData.email}
-                  onChange={e => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-6 py-4 bg-gray-50 dark:bg-slate-800 border border-transparent rounded-2xl focus:bg-white dark:bg-slate-900 dark:border-slate-800 focus:border-bradesco-red transition-all font-medium text-gray-800 dark:text-slate-200"
-                  placeholder="email@bradesco.com.br"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest ml-4">Perfil de Acesso</label>
-                <select 
-                  value={formData.role}
-                  onChange={e => setFormData({ ...formData, role: e.target.value as UserRole })}
-                  className="w-full px-6 py-4 bg-gray-50 dark:bg-slate-800 border border-transparent rounded-2xl focus:bg-white dark:bg-slate-900 dark:border-slate-800 focus:border-bradesco-red transition-all font-medium text-gray-800 dark:text-slate-200 appearance-none"
-                >
-                  <option value="gestor360">GESTOR 360 (Acesso Completo)</option>
-                  <option value="estrategico">ESTRATÉGICO (Visão Estratégica)</option>
-                  <option value="artefatos">ARTEFATOS (Hub de Artefatos)</option>
-                  <option value="eventos">EVENTOS (Hub de Eventos)</option>
-                  <option value="admin">ADMIN (Gestão Total)</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest ml-4">Status</label>
-                <select 
-                  value={formData.status}
-                  onChange={e => setFormData({ ...formData, status: e.target.value as UserStatus })}
-                  className="w-full px-6 py-4 bg-gray-50 dark:bg-slate-800 border border-transparent rounded-2xl focus:bg-white dark:bg-slate-900 dark:border-slate-800 focus:border-bradesco-red transition-all font-medium text-gray-800 dark:text-slate-200 appearance-none"
-                >
-                  <option value="ativo">ATIVO</option>
-                  <option value="inativo">INATIVO</option>
-                </select>
-              </div>
-              <div className="flex gap-4 pt-4">
-                <button 
-                  type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="flex-1 px-8 py-4 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-gray-200 dark:bg-slate-600 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 px-8 py-4 text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:opacity-90 transition-all shadow-xl dark:shadow-none shadow-red-200"
-                  style={{ background: 'linear-gradient(90deg, #7D046D 0%, #cc092f 100%)' }}
-                >
-                  {editingUser ? 'Salvar' : 'Cadastrar'}
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        ) : (
-          <div className="glass-card overflow-hidden rounded-[40px] border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900 dark:border-slate-800">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-gray-50 dark:bg-slate-800 border-b border-gray-100 dark:border-slate-700">
-                  <th className="p-6 text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest">NOME / APELIDO</th>
-                  <th className="p-6 text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest">E-MAIL</th>
-                  <th className="p-6 text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest">PERFIL</th>
-                  <th className="p-6 text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest">STATUS</th>
-                  <th className="p-6 text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest text-right">AÇÕES</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {users.map(u => (
-                  <tr key={u.id} className="hover:bg-gray-50 dark:bg-slate-800/50 transition-colors">
-                    <td className="p-6">
-                      <p className="text-sm font-bold text-gray-900 dark:text-slate-50">{u.name}</p>
-                      {u.nickname && <p className="text-xs text-gray-400 dark:text-slate-500 font-medium">({u.nickname})</p>}
-                    </td>
-                    <td className="p-6 text-sm text-gray-500 dark:text-slate-400">{u.email}</td>
-                    <td className="p-6">
-                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${u.role === 'admin' ? 'bg-purple-50 text-purple-600 border border-purple-100' : 'bg-gray-50 dark:bg-slate-800 text-gray-500 dark:text-slate-400 border border-gray-100 dark:border-slate-700'}`}>
-                        {u.role}
-                      </span>
-                    </td>
-                    <td className="p-6">
-                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${u.status === 'ativo' || u.status === 'active' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
-                        {u.status === 'ativo' || u.status === 'active' ? 'ATIVO' : 'INATIVO'}
-                      </span>
-                    </td>
-                    <td className="p-6 text-right space-x-2">
-                       <button onClick={() => startEdit(u)} className="p-2 text-gray-400 dark:text-slate-500 hover:text-bradesco-red transition-colors">Editar</button>
-                       {users.length > 1 && (
-                         <button onClick={() => onDeleteUser(u.id)} className="p-2 text-gray-400 dark:text-slate-500 hover:text-bradesco-red transition-colors"><Trash2 className="w-4 h-4" /></button>
-                       )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </motion.div>
-  );
-};
-
-const SyncWidget = ({ job, onCancel }: { job: any, onCancel: () => void }) => {
-  if (!job.active) return null;
-
-  const hasTotal = typeof job.total === "number" && job.total > 0;
-  const isSuccess = job.status === "success";
-  const isError = job.status === "error";
-  const isRunning = job.status === "running";
-  const isDeterminate = isSuccess || (isRunning && hasTotal);
-  const displayPercentage = isSuccess ? 100 : (hasTotal ? Math.max(0, Math.min(99, Number(job.percentage) || 0)) : null);
-  const currentMessage = job.message || "Validando sessão do Confluence...";
-
-  const cleanErrorMsg = isError
-    ? String(job.errorMsg || "Não foi possível concluir a sincronização.").split("\n")[0].trim()
-    : "";
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 50, scale: 0.9 }} 
-      animate={{ opacity: 1, y: 0, scale: 1 }} 
-      exit={{ opacity: 0, y: 50, scale: 0.9 }}
-      className="fixed bottom-6 right-6 z-[100] bg-white dark:bg-slate-900 dark:border-slate-800 rounded-2xl shadow-2xl dark:shadow-none border border-gray-100 dark:border-slate-700 p-4 w-80 flex flex-col gap-3 overflow-hidden"
-    >
-      <div className="absolute top-0 left-0 w-full h-1 bg-gray-100 dark:bg-slate-700 overflow-hidden">
-        {isDeterminate ? (
-          <div 
-            className={`h-full transition-all duration-300 ease-out ${isError ? 'bg-red-500' : isSuccess ? 'bg-green-500' : 'bg-bradesco-red'}`} 
-            style={{ width: `${displayPercentage ?? 0}%` }}
-          />
-        ) : isError ? (
-          <div className="h-full w-full bg-red-500" />
-        ) : (
-          <div className="h-full w-2/5 bg-bradesco-red animate-pulse rounded-full" />
-        )}
-      </div>
-      
-      <div className="flex items-start justify-between mt-1">
-        <div className="flex items-center gap-3 w-full">
-          <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-slate-800 flex items-center justify-center shrink-0">
-             {isRunning && <Loader2 className="w-5 h-5 text-bradesco-red animate-spin" />}
-             {isSuccess && <CheckCircle2 className="w-5 h-5 text-green-500" />}
-             {isError && <AlertTriangle className="w-5 h-5 text-red-500" />}
-          </div>
-          <div className="flex flex-col flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-bold text-gray-900 dark:text-slate-50 text-sm truncate">
-                {isRunning ? "Sincronizando..." : isSuccess ? "Sincronização concluída" : "Falha na Sincronização"}
-              </span>
-              {displayPercentage !== null && !isError && (
-                <span className="text-xs font-bold text-gray-700 dark:text-slate-200 tabular-nums shrink-0">
-                  {displayPercentage}%
-                </span>
-              )}
-            </div>
-
-            {isRunning && hasTotal && (
-              <span className="text-[11px] text-gray-700 dark:text-slate-300 font-semibold leading-tight mt-0.5 tabular-nums">
-                {job.processed} de {job.total} páginas
-              </span>
-            )}
-
-            {isSuccess && hasTotal && (
-              <span className="text-[11px] text-gray-700 dark:text-slate-300 font-semibold leading-tight mt-0.5 tabular-nums">
-                {job.total} páginas processadas
-              </span>
-            )}
-
-            <span className="text-[10px] text-gray-500 dark:text-slate-400 font-medium leading-tight mt-0.5">
-              {isError
-                ? "Não foi possível concluir"
-                : isSuccess
-                  ? ((job.failed > 0 || job.reused > 0)
-                      ? `${job.succeeded} lidas · ${job.reused} reutilizadas · ${job.failed} com falha`
-                      : currentMessage)
-                  : currentMessage}
-            </span>
-          </div>
-        </div>
-      </div>
-      
-      {isError && (
-        <div className="text-[10px] text-red-600 font-medium bg-red-50 p-2 rounded-lg mt-1">
-          {cleanErrorMsg}
-        </div>
-      )}
-      
-      {isRunning && (
-        <button 
-          onClick={onCancel}
-          className="text-[10px] font-bold text-gray-400 dark:text-slate-500 hover:text-red-500 transition-colors w-full text-left flex items-center gap-1.5 px-1 py-1 mt-1 uppercase tracking-wider"
-        >
-          <X className="w-3 h-3" /> Cancelar processo
-        </button>
-      )}
-    </motion.div>
-  );
-};
-
 
 export default function App() {
   useEffect(() => {
@@ -576,16 +232,20 @@ export default function App() {
     }
   }, [appState, fullInventory.length, results.length]);
 
-  useEffect(() => {
-    const mainCatalogStates = ["inventory_table", "results", "produtos_analise", "parametros_analise", "insights", "graph"];
-    if (mainCatalogStates.includes(appState) && results.length === 0 && !loading && !isSearchingRef.current && (query === "" || query === "inventario")) {
-      executeSearch("inventario");
-    }
-  }, [appState, results.length, loading]);
 
   // Estado centralizado da busca ativa (ActiveSearch)
   const [activeSearch, setActiveSearch] = useState<ActiveSearch | null>(null);
   const [searchSessionId, setSearchSessionId] = useState(0);
+
+  useEffect(() => {
+    const mainCatalogStates = ["inventory_table", "results", "produtos_analise", "parametros_analise", "insights", "graph"];
+    // Só carrega a base completa quando NÃO há busca ativa. Uma busca que retornou
+    // zero resultados deve continuar mostrando zero (blueprint: nunca devolver tudo
+    // quando a consulta não encontrou nada).
+    if (mainCatalogStates.includes(appState) && results.length === 0 && !loading && !isSearchingRef.current && !activeSearch && (query === "" || query === "inventario")) {
+      executeSearch("inventario");
+    }
+  }, [appState, results.length, loading, activeSearch]);
 
   // Callback de transporte de resultados para a tela de Cards
   const handleApplyToCards = useCallback((
@@ -601,6 +261,7 @@ export default function App() {
       contentMatches?: Record<string, ContentMatchSummary>;
       matchedTerms?: string[];
       queryKind?: string;
+      partialMatchesCount?: number;
     }
   ) => {
     // 1. Receber filteredIds
@@ -642,6 +303,7 @@ export default function App() {
       contentMatches: meta?.contentMatches,
       matchedTerms: meta?.matchedTerms,
       queryKind: meta?.queryKind,
+      partialMatchesCount: meta?.partialMatchesCount,
     };
     setActiveSearch(newActiveSearch);
 
@@ -1758,6 +1420,7 @@ export default function App() {
       onNewSearch={resetSearchSession}
       lastSync={lastSync}
       onSyncClick={() => startBackgroundSync()}
+      hasFilters={['results', 'inventory_table', 'produtos_analise', 'parametros_analise', 'insights', 'journeys'].includes(appState)}
       contextualContent={
         appState === 'journeys' ? (
           <JourneysSidebarFilters
@@ -1845,6 +1508,7 @@ export default function App() {
         )
       }
     >
+      <Suspense fallback={<PageLoading />}>
       <div className="relative w-full flex-1 flex flex-col min-h-screen">
       <AnimatePresence>
         <SyncWidget job={syncJob} onCancel={cancelSyncJob} />
@@ -1870,14 +1534,14 @@ export default function App() {
             <h2 className="text-2xl font-bold text-gray-900 dark:text-slate-50 tracking-tight">Você não possui permissão para acessar esta área.</h2>
             <button
                onClick={() => setAppState('copilot')}
-               className="mt-8 px-6 py-3 bg-white dark:bg-slate-900 dark:border-slate-800 border border-gray-200 dark:border-slate-600 shadow-sm dark:shadow-none hover:border-gray-900 hover:text-gray-900 dark:text-slate-50 rounded-full font-bold transition-all text-xs uppercase tracking-widest text-gray-500 dark:text-slate-400"
+               className="mt-8 px-6 py-3 bg-white dark:bg-slate-900 dark:border-slate-800 border border-gray-200 dark:border-slate-600 shadow-sm dark:shadow-none hover:border-gray-900 hover:text-gray-900 dark:text-slate-50 rounded-full font-bold transition-all text-xs text-gray-500 dark:text-slate-400"
             >
                Voltar ao Início
             </button>
           </div>
         ) : (
           <>
-        <section className={`hero flex flex-col flex-1 w-full items-center justify-start pt-8 ${appState !== "initial" ? "hidden" : ""}`}>
+        <section className={`hero flex flex-col flex-1 w-full items-center justify-start pt-8 ${appState !== "initial" ? "!hidden" : ""}`}>
           <SearchCenter
             artifacts={fullInventory}
             activeSearch={activeSearch}
@@ -1944,7 +1608,7 @@ export default function App() {
                     <h3 className="font-bold text-gray-900 dark:text-slate-50">Evolução de Atualizações</h3>
                   </div>
                   <div className="flex gap-2">
-                    <span className="px-4 py-1.5 bg-gray-900 dark:bg-slate-50 text-white rounded-full text-[11px] font-bold uppercase tracking-wider">Histórico Real</span>
+                    <span className="px-4 py-1.5 bg-gray-900 dark:bg-slate-50 text-white rounded-full text-[11px] font-bold ">Histórico Real</span>
                   </div>
                 </div>
                 
@@ -1972,7 +1636,7 @@ export default function App() {
                               </span>
                             ))}
                             {bar.items.length > 3 && (
-                              <span className="text-gray-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider mt-1 px-3">
+                              <span className="text-gray-500 dark:text-slate-400 text-[10px] font-bold mt-1 px-3">
                                 + {bar.items.length - 3} itens alterados
                               </span>
                             )}
@@ -2015,10 +1679,10 @@ export default function App() {
         )}
 
         {/* Content Section */}
-        <section className={`content ${["initial", "catalog", "events_capture", "home", "operational_insights"].includes(appState) ? "hidden" : ""}`}>
+        <section className={`content ${["initial", "catalog", "events_capture", "home", "operational_insights"].includes(appState) ? "!hidden" : ""}`}>
           
           {/* Decision / Loading Area */}
-          <section className={`decision ${appState === "decision" || appState === "empty" ? "flex flex-col items-center justify-center text-center py-24" : "hidden"}`}>
+          <section className={`decision ${appState === "decision" || appState === "empty" ? "flex flex-col items-center justify-center text-center py-24" : "!hidden"}`}>
             <div className="mb-8 scale-150 transform transition-transform duration-500">
               <GradientSparkles className="w-12 h-12" animate={loading} />
             </div>
@@ -2141,7 +1805,7 @@ export default function App() {
                 <div className="flex items-center gap-4 bg-gray-50 dark:bg-slate-800/50 p-2 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-none overflow-x-auto max-w-full no-scrollbar">
                   <div className="flex items-center gap-2 px-3 py-1 border-r border-gray-200 dark:border-slate-600">
                     <Filter className="w-3.5 h-3.5 text-gray-400 dark:text-slate-500" />
-                    <span className="text-[10px] font-bold uppercase text-gray-500 dark:text-slate-400 whitespace-nowrap">Filtros</span>
+                    <span className="text-[10px] font-bold text-gray-500 dark:text-slate-400 whitespace-nowrap">Filtros</span>
                   </div>
                   
                   <select 
@@ -2185,9 +1849,9 @@ export default function App() {
                   <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600 mb-4 group-hover:scale-110 transition-transform">
                     <Target className="w-6 h-6" />
                   </div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1">Total Artefatos</p>
+                  <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 mb-1">Total Artefatos</p>
                   <p className="text-4xl font-extrabold text-gray-900 dark:text-slate-50 leading-none">{insights.total}</p>
-                  <p className="text-[10px] text-gray-400 dark:text-slate-500 font-bold mt-2 tracking-wider uppercase">
+                  <p className="text-[10px] text-gray-400 dark:text-slate-500 font-bold mt-2 ">
                     Mapas ({insights.mapas}) vs Docs ({insights.documentos})
                   </p>
                 </div>
@@ -2196,7 +1860,7 @@ export default function App() {
                   <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center text-green-600 mb-4 group-hover:scale-110 transition-transform">
                     <CheckCircle2 className="w-6 h-6" />
                   </div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1">GA4</p>
+                  <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 mb-1">GA4</p>
                   <p className="text-4xl font-extrabold text-gray-900 dark:text-slate-50 leading-none">{insights.ga4}</p>
                   <span className="absolute top-6 right-6 text-[10px] font-black text-green-600 bg-green-50 px-2 py-1 rounded-full">{insights.porcentagens.ga4}%</span>
                 </div>
@@ -2205,7 +1869,7 @@ export default function App() {
                   <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-bradesco-red mb-4 group-hover:scale-110 transition-transform">
                     <AlertCircle className="w-6 h-6" />
                   </div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1">Universal Analytics (GA3)</p>
+                  <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 mb-1">Universal Analytics (GA3)</p>
                   <p className="text-4xl font-extrabold text-gray-900 dark:text-slate-50 leading-none">{insights.universalAnalytics}</p>
                   <span className="absolute top-6 right-6 text-[10px] font-black text-bradesco-red bg-red-50 px-2 py-1 rounded-full">{insights.porcentagens.universalAnalytics}%</span>
                 </div>
@@ -2214,7 +1878,7 @@ export default function App() {
                   <div className="w-12 h-12 rounded-2xl bg-gray-50 dark:bg-slate-800 flex items-center justify-center text-gray-400 dark:text-slate-500 mb-4 group-hover:scale-110 transition-transform">
                     <FileText className="w-6 h-6" />
                   </div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1">Documentações</p>
+                  <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 mb-1">Documentações</p>
                   <p className="text-4xl font-extrabold text-gray-900 dark:text-slate-50 leading-none">{insights.documentos}</p>
                   <span className="absolute top-6 right-6 text-[10px] font-black text-gray-600 dark:text-slate-300 bg-gray-100 dark:bg-slate-700 px-2 py-1 rounded-full">{insights.porcentagens.documentos}%</span>
                 </div>
@@ -2225,28 +1889,28 @@ export default function App() {
                 <div className="lg:col-span-2 flex flex-col gap-8">
                   {/* Tempo de Atualização */}
                   <div className="glass-card p-10 rounded-[40px] border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-none relative overflow-hidden">
-                    <h4 className="text-xs font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+                    <h4 className="text-xs font-black text-gray-400 dark:text-slate-500 mb-6 flex items-center gap-2">
                        <Clock className="w-4 h-4 text-purple-500" />
                        Frescor da Base
                     </h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                       <div>
-                        <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase mb-1">Últimos 30 dias</p>
+                        <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 mb-1">Últimos 30 dias</p>
                         <p className="text-2xl font-bold text-gray-900 dark:text-slate-50">{insights.updates?.last30Days || 0}</p>
                         <p className="text-[11px] font-bold text-green-600">{insights.updates?.percentLast30Days || "0"}%</p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase mb-1">Últimos 60 dias</p>
+                        <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 mb-1">Últimos 60 dias</p>
                         <p className="text-2xl font-bold text-gray-900 dark:text-slate-50">{insights.updates?.last60Days || 0}</p>
                         <p className="text-[11px] font-bold text-green-500">{insights.updates?.percentLast60Days || "0"}%</p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase mb-1">Últimos 90 dias</p>
+                        <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 mb-1">Últimos 90 dias</p>
                         <p className="text-2xl font-bold text-gray-900 dark:text-slate-50">{insights.updates?.last90Days || 0}</p>
                         <p className="text-[11px] font-bold text-yellow-600">{insights.updates?.percentLast90Days || "0"}%</p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase mb-1">Defasados (+90 dias)</p>
+                        <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 mb-1">Defasados (+90 dias)</p>
                         <p className="text-2xl font-bold text-red-600">{insights.updates?.olderThan90Days || 0}</p>
                         <p className="text-[11px] font-bold text-red-500">{insights.updates?.percentOlderThan90Days || "0"}%</p>
                       </div>
@@ -2255,31 +1919,31 @@ export default function App() {
 
                   {/* Distribuição por Produto */}
                   <div className="glass-card p-10 rounded-[40px] border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-none relative overflow-hidden">
-                    <h4 className="text-xs font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+                    <h4 className="text-xs font-black text-gray-400 dark:text-slate-500 mb-6 flex items-center gap-2">
                        <Layers className="w-4 h-4 text-purple-500" />
                        Distribuição de Escopos
                     </h4>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="flex flex-col gap-4">
-                         <h5 className="text-[10px] font-black tracking-widest text-gray-400 dark:text-slate-500 uppercase">Produtos</h5>
+                         <h5 className="text-[10px] font-black text-gray-400 dark:text-slate-500 ">Produtos</h5>
                          {insights.distribProduto?.slice(0, 4).map((p, i) => (
                             <div key={i} className="flex justify-between items-center bg-gray-50 dark:bg-slate-800 p-4 rounded-2xl border border-gray-100 dark:border-slate-700">
                                <span className="text-sm font-bold text-gray-800 dark:text-slate-200">{p.name === "-" ? "N/A" : p.name}</span>
                                <div className="flex items-center gap-4">
-                                  <span className="text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase">{p.count} itens</span>
+                                  <span className="text-[10px] font-bold text-gray-500 dark:text-slate-400 ">{p.count} itens</span>
                                </div>
                             </div>
                          ))}
                       </div>
 
                       <div className="flex flex-col gap-4">
-                         <h5 className="text-[10px] font-black tracking-widest text-gray-400 dark:text-slate-500 uppercase">Subprodutos</h5>
+                         <h5 className="text-[10px] font-black text-gray-400 dark:text-slate-500 ">Subprodutos</h5>
                          {insights.distribSubproduto?.slice(0, 4).map((p, i) => (
                             <div key={i} className="flex justify-between items-center bg-gray-50 dark:bg-slate-800 p-4 rounded-2xl border border-gray-100 dark:border-slate-700">
                                <span className="text-sm font-bold text-gray-800 dark:text-slate-200">{p.name === "-" ? "N/A" : p.name}</span>
                                <div className="flex items-center gap-4">
-                                  <span className="text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase">{p.count} itens</span>
+                                  <span className="text-[10px] font-bold text-gray-500 dark:text-slate-400 ">{p.count} itens</span>
                                </div>
                             </div>
                          ))}
@@ -2291,7 +1955,7 @@ export default function App() {
                 <div className="lg:col-span-1 flex flex-col gap-8">
                   {/* Versionamento */}
                   <div className="p-8 rounded-[40px] border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900 dark:border-slate-800 shadow-sm dark:shadow-none flex flex-col items-center justify-center text-center">
-                    <h4 className="text-xs font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-4">
+                    <h4 className="text-xs font-black text-gray-400 dark:text-slate-500 mb-4">
                       Média de Versões
                     </h4>
                     <div className="w-20 h-20 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 mb-4">
@@ -2303,7 +1967,7 @@ export default function App() {
 
                   {/* Top Atualizados */}
                   <div className="p-8 rounded-[40px] border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900 dark:border-slate-800 shadow-sm dark:shadow-none flex-1">
-                    <h4 className="text-xs font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-4">
+                    <h4 className="text-xs font-black text-gray-400 dark:text-slate-500 mb-4">
                       Artefatos Mais Iterados
                     </h4>
                     <div className="flex flex-col gap-3 mt-4">
@@ -2341,8 +2005,8 @@ export default function App() {
                 className="graph-container pb-20 space-y-6"
               >
                 <PageHeader
-                  title="Conexões e Dependências"
-                  subtitle="Mapeamento relacional de produtos, subprodutos e artefatos de tagueamento."
+                  title="Conexões"
+                  subtitle="A árvore do Confluence como ela é: produtos, subprodutos e os mapas dentro de cada um. Clique no número de um nó para abrir os filhos."
                 />
                 <GraphView 
                   data={fullInventory && fullInventory.length > 0 ? fullInventory : results} 
@@ -2378,9 +2042,9 @@ export default function App() {
           </AnimatePresence>
 
           {/* Results Area (Tela de Cards) */}
-          <section className={`results space-y-6 ${appState === "results" && !loading ? "" : "hidden"}`}>
+          <section className={`results space-y-6 ${appState === "results" && !loading ? "" : "!hidden"}`}>
             <PageHeader
-              title="Cards de Artefatos"
+              title="Artefatos"
               subtitle={
                 activeSearch ? (
                   activeSearch.mode === 'conteudo' ? (
@@ -2395,7 +2059,7 @@ export default function App() {
                     `Busca por IA: ${totalCardsCount} ${totalCardsCount === 1 ? 'artefato encontrado' : 'artefatos encontrados'} para "${activeSearch.aiQuestion || activeSearch.query}"`
                   )
                 ) : (
-                  "Visualização em cards com metadados, status e histórico de cada especificação."
+                  "Todos os artefatos sincronizados. Use Nova busca para encontrar por nome, parâmetro ou pergunta."
                 )
               }
               actions={
@@ -2438,6 +2102,14 @@ export default function App() {
               <ContextualEmptyState
                 searchTerm={cardSearch}
                 hasActiveFilters={hasActiveCardFilters}
+                customTitle={activeSearch?.mode === 'parametros' && activeSearch.query && !cardSearch && !hasActiveCardFilters
+                  ? 'Nenhum artefato contém todos os parâmetros'
+                  : undefined}
+                customDescription={activeSearch?.mode === 'parametros' && activeSearch.query && !cardSearch && !hasActiveCardFilters
+                  ? (activeSearch.partialMatchesCount
+                      ? `Nenhum ${activeSearch.scope === 'SCREEN' ? 'tela' : 'snippet'} reúne todos os critérios de “${activeSearch.query}”. ${activeSearch.partialMatchesCount} ${activeSearch.partialMatchesCount === 1 ? 'artefato tem' : 'artefatos têm'} correspondência parcial. Para vê-los, troque o operador para OU em Editar busca.`
+                      : `Nenhum ${activeSearch.scope === 'SCREEN' ? 'tela' : 'snippet'} contém os critérios de “${activeSearch.query}”.`)
+                  : undefined}
                 onClearSearch={() => setCardSearch("")}
                 onClearFilters={clearOnlyCardFilters}
                 onClearAll={resetCardFilters}
@@ -2445,186 +2117,20 @@ export default function App() {
             )}
 
             {/* 5. Lista de Cards (Coluna única, máximo 20 por página) */}
-            <div className="space-y-6">
+            <div className="space-y-3">
               <AnimatePresence>
-                {paginatedCards.map((item, index) => {
-                const isDoc = isDocumentation(item);
-                const isMapArtifact = isMap(item);
-                const artifactLabel = getArtifactTypeLabel(item.artifact_type);
-
-                let homologationStatusLabel = '';
-                let statusColorClass = 'text-gray-800 dark:text-slate-200';
-                if (isMapArtifact) {
-                  const metrics = getMapStatusMetrics(item);
-                  if (metrics.homologationStatus === 'HOMOLOGADO') {
-                    homologationStatusLabel = 'Homologado';
-                    statusColorClass = 'text-emerald-600 dark:text-emerald-400';
-                  } else if (metrics.homologationStatus === 'PARCIAL') {
-                    homologationStatusLabel = 'Parcial';
-                    statusColorClass = 'text-amber-600 dark:text-amber-400';
-                  } else {
-                    homologationStatusLabel = 'Não homologado';
-                    statusColorClass = 'text-gray-500 dark:text-slate-400';
-                  }
-                }
-
-                return (
-                <motion.article 
-                  key={item.id} 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="flat-card border border-gray-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-neu-card group transition-all relative overflow-hidden"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {item.produto && <span className="red-badge font-ui">{item.produto}</span>}
-                      {item.subproduto && <span className="red-badge font-ui">{item.subproduto}</span>}
-                    </div>
-                    {activeSearch?.mode === 'conteudo' && activeSearch.contentMatches?.[item.id] && (() => {
-                      const matchInfo = activeSearch.contentMatches[item.id];
-                      const isExact = matchInfo.matchType === 'EXACT_ID' || matchInfo.matchType === 'EXACT_TITLE';
-                      const isTitle = matchInfo.matchType === 'TITLE_PREFIX' || matchInfo.matchType === 'TITLE_PHRASE' || matchInfo.matchType === 'ALL_TITLE_TOKENS';
-                      const badgeStyle = isExact
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
-                        : isTitle
-                        ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
-                        : 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
-                      return (
-                        <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-ui font-semibold border ${badgeStyle}`}>
-                          {matchInfo.label}
-                        </span>
-                      );
-                    })()}
-                  </div>
-
-                  <div className="mb-6">
-                    <a
-                      className="text-2xl sm:text-[28px] brand-title font-heading group-hover:opacity-80 transition-opacity inline-flex items-center gap-2 mb-2"
-                      href={item.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {item.titulo}
-                    </a>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6 p-4 rounded-xl bg-gray-50/50 dark:bg-slate-800/30 border border-gray-100 dark:border-slate-800">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] font-ui font-semibold uppercase text-gray-400 dark:text-slate-500 tracking-wider">Artefato</span>
-                      <span className="text-sm font-heading font-bold text-gray-800 dark:text-slate-200 tabular-nums">{artifactLabel}</span>
-                    </div>
-                    {isMapArtifact && (
-                      <>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-ui font-semibold uppercase text-gray-400 dark:text-slate-500 tracking-wider">Status</span>
-                          <span className={`text-sm font-heading font-bold tabular-nums ${statusColorClass}`}>{homologationStatusLabel}</span>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-ui font-semibold uppercase text-gray-400 dark:text-slate-500 tracking-wider">Responsável</span>
-                          <span className="text-sm font-ui font-semibold text-gray-800 dark:text-slate-200">{item.responsavel || "—"}</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Detalhe de correspondência de Parâmetro / Snippet (Engenharia Reversa) */}
-                  {activeSearch?.mode === 'parametros' && activeSearch.parameterGroups?.[item.id] && (() => {
-                    const group = activeSearch.parameterGroups[item.id];
-                    const firstOcc = group.occurrences?.[0];
-                    const isPartial = group.isPartial;
-
-                    let qualityBadgeClass = 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
-                    if (group.bestQuality === 'EXACT_SNIPPET') {
-                      qualityBadgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800';
-                    } else if (group.bestQuality === 'EXACT_CODE_SLICE') {
-                      qualityBadgeClass = 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800';
-                    } else if (group.bestQuality === 'COMPATIBLE_OBJECT') {
-                      qualityBadgeClass = 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800';
-                    } else if (group.bestQuality === 'SAME_PARAMETERS') {
-                      qualityBadgeClass = 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800';
-                    } else if (group.bestQuality === 'PARAM_NAME_DIFF_VAL') {
-                      qualityBadgeClass = 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800';
-                    } else if (group.bestQuality === 'PARAM_NAME_ONLY') {
-                      qualityBadgeClass = 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800';
-                    }
-
-                    return (
-                      <div className="mb-6 p-4 rounded-xl bg-gray-50/80 dark:bg-slate-800/60 border border-gray-200/80 dark:border-slate-700/80 flex flex-col gap-2.5">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${qualityBadgeClass}`}>
-                              {group.bestQualityLabel}
-                            </span>
-                            {isPartial && (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-                                Correspondência parcial
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[11px] font-ui text-gray-500 dark:text-slate-400">
-                            {group.totalOccurrences} {group.totalOccurrences === 1 ? 'ocorrência' : 'ocorrências'} em {group.uniqueScreensCount} {group.uniqueScreensCount === 1 ? 'tela' : 'telas'}
-                          </span>
-                        </div>
-
-                        {firstOcc && (
-                          <div className="flex flex-col gap-1.5 pt-1">
-                            <div className="flex items-center justify-between text-[11px] text-gray-600 dark:text-slate-300">
-                              <span className="font-medium truncate max-w-[280px]">
-                                {firstOcc.screenTitle ? `Tela: ${firstOcc.screenTitle}` : `Tela #${firstOcc.screenIndex + 1}`}
-                                {firstOcc.event ? ` (Evento: ${firstOcc.event})` : ''}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setDetailTarget({
-                                    screenId: firstOcc.screenId,
-                                    snippetIndex: firstOcc.snippetIndex,
-                                  });
-                                  setDetailModalItem(item);
-                                }}
-                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#7B0209] dark:text-red-400 hover:underline cursor-pointer"
-                              >
-                                <span>Ver no snippet do mapa</span>
-                                <ChevronRight className="w-3 h-3" />
-                              </button>
-                            </div>
-
-                            <pre className="p-3 rounded-lg bg-gray-900 text-gray-100 font-mono text-[11px] leading-relaxed overflow-x-auto max-h-36 custom-scrollbar border border-gray-800">
-                              <code>{firstOcc.rawCodePreview || firstOcc.rawCodeFull}</code>
-                            </pre>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  <div className="flex flex-wrap justify-between items-center gap-3 pt-3 border-t border-gray-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2">
-                      <button 
-                        className="px-2 py-1.5 font-ui text-sm text-gray-600 dark:text-slate-300 flex items-center gap-1 cursor-pointer hover:text-bradesco-red transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-bradesco-red rounded" 
-                        onClick={() => {
-                          setDetailTarget(null);
-                          setDetailModalItem(item);
-                        }}
-                      >
-                        Ver detalhes
-                        <ChevronRight className="w-4 h-4 ml-1" />
-                      </button>
-                      <button 
-                        type="button"
-                        className="px-2.5 py-1.5 font-ui text-sm text-gray-600 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer hover:text-[#7B0209] dark:hover:text-red-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7B0209] rounded"
-                        onClick={() => handleViewInTree(item.id)}
-                        title="Ver e destacar na árvore de conexões"
-                      >
-                        <Network className="w-4 h-4 text-gray-400 group-hover:text-[#7B0209]" />
-                        Ver na árvore
-                      </button>
-                    </div>
-                  </div>
-                </motion.article>
-                );
-              })}
+                {paginatedCards.map((item) => (
+                  <ArtifactResultCard
+                    key={item.id}
+                    item={item}
+                    activeSearch={activeSearch}
+                    onOpenDetails={(artifact, target) => {
+                      setDetailTarget(target ?? null);
+                      setDetailModalItem(artifact);
+                    }}
+                    onViewInTree={handleViewInTree}
+                  />
+                ))}
               </AnimatePresence>
             </div>
 
@@ -2714,8 +2220,8 @@ export default function App() {
             >
               {/* Header Padronizado com PageHeader */}
               <PageHeader
-                title="Inventário de Artefatos e Especificações"
-                subtitle="Visualização técnica de todos os mapas, especificações de tags e fluxos catalogados."
+                title="Inventário"
+                subtitle="A base completa em formato de tabela, com classificação, produto, responsável e data de atualização."
                 actions={
                   <button 
                     onClick={() => setShowExportModal(true)}
@@ -2759,48 +2265,48 @@ export default function App() {
                       <table className="w-full text-left border-collapse min-w-[1200px] excel-table">
                         <thead className="sticky top-0 z-20">
                           <tr className="bg-gray-50 dark:bg-slate-800/50 border-b border-gray-100 dark:border-slate-700">
-                            <th style={{ width: columnWidths['titulo'] }} className="text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest group transition-colors relative">
+                            <th style={{ width: columnWidths['titulo'] }} className="text-[12px] font-semibold text-gray-600 dark:text-slate-400 group transition-colors relative">
                               <div className="resizable-header min-w-[360px]">
                                 <span onClick={() => handleSort('titulo')} className="flex items-center gap-2 cursor-pointer hover:text-red-600 transition-colors w-max">
-                                  TÍTULO / ID
+                                  Título e ID
                                   {inventorySort.field === 'titulo' && (inventorySort.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
                                 </span>
                               </div>
                               <div className="column-resize-handle" onMouseDown={(e) => startResize(e, 'titulo')} />
                             </th>
-                            <th style={{ width: columnWidths['artifact_type'] }} className="text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest group transition-colors relative">
+                            <th style={{ width: columnWidths['artifact_type'] }} className="text-[12px] font-semibold text-gray-600 dark:text-slate-400 group transition-colors relative">
                               <div className="resizable-header min-w-[120px]">
-                                <span onClick={() => handleSort('artifact_type')} className="cursor-pointer hover:text-red-600 transition-colors">ARTEFATO</span>
+                                <span onClick={() => handleSort('artifact_type')} className="cursor-pointer hover:text-red-600 transition-colors">Tipo</span>
                               </div>
                               <div className="column-resize-handle" onMouseDown={(e) => startResize(e, 'artifact_type')} />
                             </th>
-                            <th style={{ width: columnWidths['measurement_class'] }} className="text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest group transition-colors relative">
+                            <th style={{ width: columnWidths['measurement_class'] }} className="text-[12px] font-semibold text-gray-600 dark:text-slate-400 group transition-colors relative">
                               <div className="resizable-header min-w-[130px]">
-                                <span onClick={() => handleSort('measurement_class')} className="cursor-pointer hover:text-red-600 transition-colors">CLASSIFICAÇÃO</span>
+                                <span onClick={() => handleSort('measurement_class')} className="cursor-pointer hover:text-red-600 transition-colors">Mensuração</span>
                               </div>
                               <div className="column-resize-handle" onMouseDown={(e) => startResize(e, 'measurement_class')} />
                             </th>
-                            <th style={{ width: columnWidths['produto'] }} className="text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest group transition-colors relative">
+                            <th style={{ width: columnWidths['produto'] }} className="text-[12px] font-semibold text-gray-600 dark:text-slate-400 group transition-colors relative">
                               <div className="resizable-header">
-                                <span onClick={() => handleSort('produto')} className="cursor-pointer hover:text-red-600 transition-colors">PRODUTO</span>
+                                <span onClick={() => handleSort('produto')} className="cursor-pointer hover:text-red-600 transition-colors">Produto</span>
                               </div>
                               <div className="column-resize-handle" onMouseDown={(e) => startResize(e, 'produto')} />
                             </th>
-                            <th style={{ width: columnWidths['subproduto'] }} className="text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest group transition-colors relative">
+                            <th style={{ width: columnWidths['subproduto'] }} className="text-[12px] font-semibold text-gray-600 dark:text-slate-400 group transition-colors relative">
                               <div className="resizable-header">
-                                <span onClick={() => handleSort('subproduto')} className="cursor-pointer hover:text-red-600 transition-colors">SUBPRODUTO</span>
+                                <span onClick={() => handleSort('subproduto')} className="cursor-pointer hover:text-red-600 transition-colors">Subproduto</span>
                               </div>
                               <div className="column-resize-handle" onMouseDown={(e) => startResize(e, 'subproduto')} />
                             </th>
-                            <th style={{ width: columnWidths['responsavel'] }} className="text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest group transition-colors relative">
+                            <th style={{ width: columnWidths['responsavel'] }} className="text-[12px] font-semibold text-gray-600 dark:text-slate-400 group transition-colors relative">
                               <div className="resizable-header">
-                                <span onClick={() => handleSort('responsavel')} className="cursor-pointer hover:text-red-600 transition-colors">RESPONSÁVEL</span>
+                                <span onClick={() => handleSort('responsavel')} className="cursor-pointer hover:text-red-600 transition-colors">Responsável</span>
                               </div>
                               <div className="column-resize-handle" onMouseDown={(e) => startResize(e, 'responsavel')} />
                             </th>
-                            <th style={{ width: columnWidths['ultima_atualizacao'] }} className="text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest group transition-colors relative">
+                            <th style={{ width: columnWidths['ultima_atualizacao'] }} className="text-[12px] font-semibold text-gray-600 dark:text-slate-400 group transition-colors relative">
                               <div className="resizable-header">
-                                <span onClick={() => handleSort('ultima_atualizacao')} className="cursor-pointer hover:text-red-600 transition-colors">ATUALIZADO</span>
+                                <span onClick={() => handleSort('ultima_atualizacao')} className="cursor-pointer hover:text-red-600 transition-colors">Atualizado em</span>
                               </div>
                               <div className="column-resize-handle" onMouseDown={(e) => startResize(e, 'ultima_atualizacao')} />
                             </th>
@@ -2859,13 +2365,13 @@ export default function App() {
                                   role="button"
                                   className="group transition-all hover:bg-gray-50/80 dark:hover:bg-slate-800/60 cursor-pointer focus:outline-none focus:bg-red-50/20 dark:focus:bg-slate-800"
                                 >
-                                  <td className="p-5">
+                                  <td className="px-4 py-3">
                                     <div className="flex flex-col items-start w-full overflow-hidden">
-                                      <span className="block text-sm font-bold text-gray-900 dark:text-slate-50 leading-snug truncate group-hover:text-red-600 transition-colors">
+                                      <span className="block text-[13.5px] font-semibold text-omni-ink dark:text-slate-50 leading-snug truncate group-hover:text-omni-bordo transition-colors">
                                         {highlightText(item.titulo, tableFilter)}
                                       </span>
                                       <div className="flex items-center gap-2 mt-1">
-                                        <span className="block text-[10px] font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider truncate">
+                                        <span className="block text-[11.5px] text-gray-500 dark:text-slate-500 truncate tabular-nums">
                                           {item.id}
                                         </span>
                                         {item.link && (
@@ -2883,8 +2389,8 @@ export default function App() {
                                       </div>
                                     </div>
                                   </td>
-                                  <td className="p-5">
-                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold tracking-tight ${
+                                  <td className="px-4 py-3">
+                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold ${
                                       isDoc 
                                         ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' 
                                         : isNode(item)
@@ -2894,25 +2400,25 @@ export default function App() {
                                       {artifactLabel}
                                     </span>
                                   </td>
-                                  <td className="p-5">
+                                  <td className="px-4 py-3">
                                     {classLabel === '—' ? (
                                       <span className="text-gray-400 dark:text-slate-500 text-xs font-semibold">—</span>
                                     ) : (
-                                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold tracking-tight ${classStyle}`}>
+                                      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold ${classStyle}`}>
                                         {classLabel}
                                       </span>
                                     )}
                                   </td>
-                                  <td className="p-5 text-xs font-bold text-gray-700 dark:text-slate-300 uppercase tracking-tighter">
+                                  <td className="px-4 py-3 text-[13px] text-omni-ink dark:text-slate-300">
                                     <div className="block truncate w-full">{highlightText(item.produto || "-", tableFilter)}</div>
                                   </td>
-                                  <td className="p-5 text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-tighter">
+                                  <td className="px-4 py-3 text-[13px] text-gray-600 dark:text-slate-400">
                                     <div className="block truncate w-full">{highlightText(item.subproduto || "-", tableFilter)}</div>
                                   </td>
-                                  <td className="p-5 text-xs font-bold text-gray-800 dark:text-slate-200 uppercase tracking-tighter">
+                                  <td className="px-4 py-3 text-[13px] text-gray-700 dark:text-slate-200">
                                     <div className="block truncate w-full">{highlightText(item.responsavel || "-", tableFilter)}</div>
                                   </td>
-                                  <td className="p-5 text-[10px] font-black text-gray-400 dark:text-slate-500">
+                                  <td className="px-4 py-3 text-[12.5px] text-gray-500 dark:text-slate-400 tabular-nums">
                                     {formatDataBR(item.ultima_atualizacao)}
                                   </td>
                                 </tr>
@@ -2947,12 +2453,12 @@ export default function App() {
                        <div className={`p-8 rounded-[32px] border bg-white dark:bg-slate-900 dark:border-slate-800 shadow-sm dark:shadow-none flex flex-col items-center text-center
                          ${currentInventoryInsights.problemas.nivelRisco === 'alto' ? 'border-red-200' : 'border-gray-100 dark:border-slate-700'}
                        `}>
-                          <h4 className="text-[9px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-6">Volume na Categoria</h4>
+                          <h4 className="text-[9px] font-black text-gray-400 dark:text-slate-500 mb-6">Volume na Categoria</h4>
                           <div className="text-4xl font-black text-gray-900 dark:text-slate-50 mb-2">{currentInventoryInsights.total}</div>
-                          <p className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-6">Artefatos Selecionados</p>
-                          <div className={`text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-full text-white w-full
-                            ${currentInventoryInsights.problemas.nivelRisco === 'alto' ? 'bg-bradesco-gradient shadow-lg dark:shadow-none shadow-red-100' : 'bg-green-600 shadow-lg dark:shadow-none shadow-green-100'}
-                          `}>
+                          <p className="text-[10px] font-black text-gray-400 dark:text-slate-500 mb-6">Artefatos Selecionados</p>
+                          <div className={`text-[9px] font-black px-4 py-2 rounded-full text-white w-full
+ ${currentInventoryInsights.problemas.nivelRisco === 'alto' ? 'bg-bradesco-gradient shadow-lg dark:shadow-none shadow-red-100' : 'bg-green-600 shadow-lg dark:shadow-none shadow-green-100'}
+ `}>
                             Risco {currentInventoryInsights.problemas.nivelRisco}
                           </div>
                        </div>
@@ -2964,7 +2470,7 @@ export default function App() {
                             { l: 'Sem Subp.', v: currentInventoryInsights.problemas.semSubproduto },
                             { l: 'Probs. Tagueamento', v: currentInventoryInsights.problemas.foraPadraoGA4 }
                           ].map((s, i) => (
-                            <div key={i} className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
+                            <div key={i} className="flex justify-between items-center text-[10px] font-bold ">
                                <span className="text-gray-400 dark:text-slate-500">{s.l}</span>
                                <span className={s.v > 0 ? 'text-red-600 font-black' : 'text-gray-900 dark:text-slate-50'}>{s.v}</span>
                             </div>
@@ -2977,7 +2483,7 @@ export default function App() {
                        <div className="p-10 rounded-[32px] border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900 dark:border-slate-800 shadow-sm dark:shadow-none relative overflow-hidden h-full">
                           
                           <div className="relative z-10">
-                            <h4 className="text-[9px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-4">Visão Estrutural: Detalhamento do Grupo</h4>
+                            <h4 className="text-[9px] font-black text-gray-400 dark:text-slate-500 mb-4">Visão Estrutural: Detalhamento do Grupo</h4>
                             <p className="text-xl font-medium tracking-tight text-gray-800 dark:text-slate-200 leading-tight mb-10 font-sans whitespace-pre-wrap">
                                Análise automática baseada nos {currentInventoryInsights.total} artefatos listados, destacando a distribuição técnica e o volume de atualizações recentes.
                             </p>
@@ -2985,28 +2491,28 @@ export default function App() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                <div className="space-y-6">
                                   <div>
-                                    <h5 className="text-[9px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-6">Padrão de Tagueamento</h5>
+                                    <h5 className="text-[9px] font-black text-gray-400 dark:text-slate-500 mb-6">Padrão de Tagueamento</h5>
                                     <div className="space-y-4">
                                        {currentInventoryInsights.distribTipos?.slice(0, 4).map((tipo, i) => (
                                          <div key={i} className="flex justify-between items-center text-[11px] font-bold border-b border-gray-50 dark:border-slate-800 pb-2 last:border-0">
-                                            <span className="text-gray-700 dark:text-slate-300 uppercase pr-4">{tipo.name}</span>
+                                            <span className="text-gray-700 dark:text-slate-300 pr-4">{tipo.name}</span>
                                             <span className="text-purple-600 font-black px-2 bg-purple-50 rounded-lg">{tipo.count}</span>
                                          </div>
                                        ))}
                                     </div>
                                   </div>
                                   <div>
-                                    <h5 className="text-[9px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-4">Média de Versões</h5>
+                                    <h5 className="text-[9px] font-black text-gray-400 dark:text-slate-500 mb-4">Média de Versões</h5>
                                     <div className="text-3xl font-black text-purple-600">v{currentInventoryInsights.versioning?.averageVersions || "1"}</div>
                                   </div>
                                </div>
                                <div className="bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-3xl p-8">
-                                  <h5 className="text-[9px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-6">Distribuição Operacional (Subprodutos)</h5>
+                                  <h5 className="text-[9px] font-black text-gray-400 dark:text-slate-500 mb-6">Distribuição Operacional (Subprodutos)</h5>
                                   <div className="space-y-4">
                                      {currentInventoryInsights.distribSubproduto?.slice(0, 4).map((item, i) => (
                                        <div key={i} className="space-y-2">
                                           <div className="flex justify-between items-center text-[9px] font-black">
-                                             <span className="text-gray-700 dark:text-slate-300 uppercase truncate pr-4">{item.name === "-" ? "Sem Subproduto" : item.name}</span>
+                                             <span className="text-gray-700 dark:text-slate-300 truncate pr-4">{item.name === "-" ? "Sem Subproduto" : item.name}</span>
                                              <span className="text-gray-400 dark:text-slate-500">{item.percent}%</span>
                                           </div>
                                           <div className="h-1 bg-white dark:bg-slate-900 dark:border-slate-800 rounded-full overflow-hidden">
@@ -3023,10 +2529,10 @@ export default function App() {
                           </div>
                           
                           <div className="mt-10 pt-10 border-t border-gray-50 dark:border-slate-800 flex gap-4">
-                            <button className="px-6 py-2 bg-gray-900 dark:bg-slate-50 transition-all hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg dark:shadow-none shadow-gray-200" onClick={() => setShowGraph(true)}>
+                            <button className="px-6 py-2 bg-gray-900 dark:bg-slate-50 transition-all hover:bg-black text-white rounded-xl text-[10px] font-black flex items-center gap-2 shadow-lg dark:shadow-none shadow-gray-200" onClick={() => setShowGraph(true)}>
                                <Network className="w-4 h-4" /> Conexões Map
                             </button>
-                            <button className="px-6 py-2 bg-white dark:bg-slate-900 dark:border-slate-800 border border-gray-200 dark:border-slate-600 hover:border-red-200 transition-all text-gray-400 dark:text-slate-500 hover:text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2" onClick={() => setShowExportModal(true)}>
+                            <button className="px-6 py-2 bg-white dark:bg-slate-900 dark:border-slate-800 border border-gray-200 dark:border-slate-600 hover:border-red-200 transition-all text-gray-400 dark:text-slate-500 hover:text-red-600 rounded-xl text-[10px] font-black flex items-center gap-2" onClick={() => setShowExportModal(true)}>
                                <Download className="w-4 h-4" /> Exportar Planilha
                             </button>
                           </div>
@@ -3082,14 +2588,14 @@ export default function App() {
                   className="flex flex-col items-center gap-3 p-6 rounded-3xl bg-gray-50 dark:bg-slate-800 hover:bg-red-50 border border-gray-100 dark:border-slate-700 hover:border-red-200 transition-all group"
                 >
                   <span className="text-xl font-black text-gray-400 dark:text-slate-500 group-hover:text-red-600">CSV</span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400 group-hover:text-red-500">Planilha</span>
+                  <span className="text-[10px] font-bold text-gray-500 dark:text-slate-400 group-hover:text-red-500">Planilha</span>
                 </button>
                 <button 
                   onClick={() => handleExport("json")}
                   className="flex flex-col items-center gap-3 p-6 rounded-3xl bg-gray-50 dark:bg-slate-800 hover:bg-red-50 border border-gray-100 dark:border-slate-700 hover:border-red-200 transition-all group"
                 >
                   <span className="text-xl font-black text-gray-400 dark:text-slate-500 group-hover:text-red-600">JSON</span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400 group-hover:text-red-500">Dados</span>
+                  <span className="text-[10px] font-bold text-gray-500 dark:text-slate-400 group-hover:text-red-500">Dados</span>
                 </button>
               </div>
             </motion.div>
@@ -3180,6 +2686,7 @@ export default function App() {
       />
 
       </div>
+      </Suspense>
     </AppShell>
   );
 }

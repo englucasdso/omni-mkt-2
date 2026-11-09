@@ -37,7 +37,7 @@ const ProdutoNode = React.memo(({ data }: any) => {
   const isSelected = data.isSelected;
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800 opacity-0" />
+      <Handle type="target" position={Position.Left} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800 opacity-0" />
       <div
         role="button"
         tabIndex={0}
@@ -51,10 +51,10 @@ const ProdutoNode = React.memo(({ data }: any) => {
         {data.hasChildren && (
           <ExpandButton isExpanded={data.isExpanded} onClick={data.onToggle} count={data.childrenCount} />
         )}
-        <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Produto</span>
+        <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 block mb-1">Produto</span>
         <h4 className="text-base font-heading font-bold text-gray-900 dark:text-slate-50 tracking-tight leading-tight line-clamp-2 group-hover:text-[#7B0209] transition-colors">{data.label}</h4>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-[#7B0209] !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="source" position={Position.Right} className="!w-2.5 !h-2.5 !bg-[#7B0209] !border-2 !border-white dark:!border-slate-800" />
     </>
   );
 });
@@ -63,7 +63,7 @@ const SubprodutoNode = React.memo(({ data }: any) => {
   const isSelected = data.isSelected;
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="target" position={Position.Left} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
       <div
         role="button"
         tabIndex={0}
@@ -77,10 +77,10 @@ const SubprodutoNode = React.memo(({ data }: any) => {
         {data.hasChildren && (
           <ExpandButton isExpanded={data.isExpanded} onClick={data.onToggle} count={data.childrenCount} />
         )}
-        <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Subproduto</span>
+        <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 block mb-1">Subproduto</span>
         <h4 className="text-sm font-heading font-bold text-gray-800 dark:text-slate-100 tracking-tight line-clamp-2 group-hover:text-[#E30328] transition-colors">{data.label}</h4>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="source" position={Position.Right} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
     </>
   );
 });
@@ -89,7 +89,7 @@ const CategoriaNode = React.memo(({ data }: any) => {
   const isSelected = data.isSelected;
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="target" position={Position.Left} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
       <div
         role="button"
         tabIndex={0}
@@ -103,10 +103,10 @@ const CategoriaNode = React.memo(({ data }: any) => {
         {data.hasChildren && (
           <ExpandButton isExpanded={data.isExpanded} onClick={data.onToggle} count={data.childrenCount} />
         )}
-        <span className="text-[9px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Categoria</span>
+        <span className="text-[9px] font-ui font-semibold text-gray-400 dark:text-slate-500 block mb-1">Categoria</span>
         <h4 className="text-xs font-heading font-bold text-gray-800 dark:text-slate-100 tracking-tight line-clamp-2 transition-colors">{data.label}</h4>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="source" position={Position.Right} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
     </>
   );
 });
@@ -115,7 +115,7 @@ const MapaNode = React.memo(({ data }: any) => {
   const isSelected = data.isSelected;
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="target" position={Position.Left} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
       <div 
         role="button"
         tabIndex={0}
@@ -136,7 +136,7 @@ const MapaNode = React.memo(({ data }: any) => {
           <ExpandButton isExpanded={data.isExpanded} onClick={data.onToggle} count={data.childrenCount} />
         )}
         <div className="flex items-center gap-2 mb-1">
-          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-red-100 text-[#7B0209] dark:bg-red-900/40 dark:text-red-400">
+          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-red-100 text-[#7B0209] dark:bg-red-900/40 dark:text-red-400">
             Mapa
           </span>
           <span className="text-[10px] text-gray-400 font-mono truncate">{data.item?.id || ''}</span>
@@ -147,7 +147,7 @@ const MapaNode = React.memo(({ data }: any) => {
       </div>
       <Handle 
         type="source" 
-        position={Position.Bottom} 
+        position={Position.Right} 
         className={`!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800 ${data.hasChildren ? '' : 'opacity-0'}`} 
       />
     </>
@@ -158,7 +158,7 @@ const DocumentoNode = React.memo(({ data }: any) => {
   const isSelected = data.isSelected;
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="target" position={Position.Left} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
       <div 
         role="button"
         tabIndex={0}
@@ -179,7 +179,7 @@ const DocumentoNode = React.memo(({ data }: any) => {
           <ExpandButton isExpanded={data.isExpanded} onClick={data.onToggle} count={data.childrenCount} />
         )}
         <div className="flex items-center gap-2 mb-1">
-          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-[#64748B] dark:bg-slate-800/40 dark:text-slate-400">
+          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-slate-100 text-[#64748B] dark:bg-slate-800/40 dark:text-slate-400">
             Documento
           </span>
           <span className="text-[10px] text-gray-400 font-mono truncate">{data.item?.id || ''}</span>
@@ -190,7 +190,7 @@ const DocumentoNode = React.memo(({ data }: any) => {
       </div>
       <Handle 
         type="source" 
-        position={Position.Bottom} 
+        position={Position.Right} 
         className={`!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800 ${data.hasChildren ? '' : 'opacity-0'}`} 
       />
     </>
@@ -218,9 +218,11 @@ const getDagreLayout = (
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
   dagreGraph.setGraph({ 
-    rankdir: 'TB', 
-    nodesep: 70, 
-    ranksep: 110, 
+    // Árvore da esquerda para a direita: Produto → Subproduto → Mapas.
+    // Mantém os produtos empilhados e legíveis em vez de uma linha horizontal minúscula.
+    rankdir: 'LR',
+    nodesep: 18,
+    ranksep: 96,
     marginx: 40, 
     marginy: 40 
   });
@@ -348,6 +350,11 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
 
     return { roots: topLevel, byParent: mapByParent, byId: mapById };
   }, [data]);
+
+  const selectedItemIdRef = useRef(selectedItemId);
+  useEffect(() => {
+    selectedItemIdRef.current = selectedItemId;
+  }, [selectedItemId]);
 
   const onSelectItemRef = useRef(onSelectItem);
   useEffect(() => {
@@ -490,10 +497,15 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
     if (newNodes.length === 0) return;
 
     const currentReactFlowNodes = reactFlowInstance.getNodes();
-    const layouted = getDagreLayout(newNodes, newEdges, lastClickedNode, currentReactFlowNodes);
-    
+    const selectedId = selectedItemIdRef.current;
+    // Reaplica a seleção após cada novo layout (o layout recria os nós com isSelected = false).
+    const layouted = getDagreLayout(newNodes, newEdges, lastClickedNode, currentReactFlowNodes)
+      .map((n) => (n.id === selectedId ? { ...n, data: { ...n.data, isSelected: true } } : n));
+
     setNodes(layouted);
-    setEdges(newEdges);
+    setEdges(newEdges.map((e) => (e.target === selectedId
+      ? { ...e, style: { ...e.style, stroke: '#7B0209', strokeWidth: 3 } }
+      : e)));
     
     if (pendingCenterNodeId) {
       const targetNode = layouted.find(n => n.id === pendingCenterNodeId);
@@ -508,13 +520,18 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
           );
         }, 80);
       }
-    } else if (isFirstRender) {
+    } else if (isFirstRender && !targetArtifactId) {
       setTimeout(() => {
-        reactFlowInstance.fitView({ padding: 0.3, duration: 800, minZoom: 0.1, maxZoom: 1 });
+        reactFlowInstance.fitView({ padding: 0.12, minZoom: 0.6, maxZoom: 1 });
+        // Se a árvore não cabe inteira em zoom legível, ancorar no topo em vez de cortar o início.
+        const vp = reactFlowInstance.getViewport();
+        if (vp.zoom <= 0.61) {
+          reactFlowInstance.setViewport({ x: 40, y: 32, zoom: 0.6 });
+        }
       }, 50);
       setIsFirstRender(false);
     }
-  }, [newNodes, newEdges, reactFlowInstance, isFirstRender, pendingCenterNodeId]);
+  }, [newNodes, newEdges, reactFlowInstance, isFirstRender, pendingCenterNodeId, targetArtifactId]);
 
 
   // Update selection without triggering layout recalculation

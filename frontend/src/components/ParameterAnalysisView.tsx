@@ -206,8 +206,8 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader 
-        title="Análise por Parâmetro"
-        subtitle="Frequência, mapeamento de tipos e valores distintos utilizados no disparo de eventos."
+        title="Por parâmetro"
+        subtitle="Onde cada parâmetro aparece, com quais valores e em quantos mapas."
       />
 
       {filteredCatalog.length === 0 ? (
@@ -261,7 +261,7 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
           {activeParam ? (
             <div className="flat-card rounded-2xl border border-gray-200 dark:border-slate-800 p-6 md:p-8 space-y-6 shadow-neu-card">
               <div className="pb-6 border-b border-gray-100 dark:border-slate-800">
-                <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
+                <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 ">
                   Detalhes do Parâmetro
                 </span>
                 <div className="flex items-center gap-3 mt-1">
@@ -274,22 +274,22 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
               {/* Metrics Grid */}
               <div className="grid grid-cols-3 gap-3 text-center font-ui">
                 <div className="p-3 bg-gray-50/80 dark:bg-slate-800/80 rounded-xl border border-gray-200 dark:border-slate-700">
-                  <span className="text-[10px] font-medium text-gray-400 uppercase block">Ocorrências</span>
+                  <span className="text-[10px] font-medium text-gray-400 block">Ocorrências</span>
                   <span className="text-xl font-heading font-bold text-gray-900 dark:text-slate-100 tabular-nums">{activeParam.occurrences}</span>
                 </div>
                 <div className="p-3 bg-gray-50/80 dark:bg-slate-800/80 rounded-xl border border-gray-200 dark:border-slate-700">
-                  <span className="text-[10px] font-medium text-gray-400 uppercase block">Telas com Campo</span>
+                  <span className="text-[10px] font-medium text-gray-400 block">Telas com Campo</span>
                   <span className="text-xl font-heading font-bold text-gray-900 dark:text-slate-100 tabular-nums">{activeParam.screensCount}</span>
                 </div>
                 <div className="p-3 bg-gray-50/80 dark:bg-slate-800/80 rounded-xl border border-gray-200 dark:border-slate-700">
-                  <span className="text-[10px] font-medium text-gray-400 uppercase block">Mapas Vinculados</span>
+                  <span className="text-[10px] font-medium text-gray-400 block">Mapas Vinculados</span>
                   <span className="text-xl font-heading font-bold text-gray-900 dark:text-slate-100 tabular-nums">{activeParam.mapsCount}</span>
                 </div>
               </div>
 
               {/* Distinct Values Sample */}
               <div>
-                <h4 className="text-xs font-ui font-semibold uppercase text-gray-500 dark:text-slate-400 tracking-wider mb-2">
+                <h4 className="text-xs font-ui font-semibold text-gray-500 dark:text-slate-400 mb-2">
                   Valores Distintos Identificados ({activeParam.distinctValuesList.length})
                 </h4>
                 <div className={`flex flex-wrap gap-1.5 p-3 bg-gray-50/80 dark:bg-slate-800/60 rounded-2xl border border-gray-200 dark:border-slate-700 ${isDistinctValuesExpanded ? 'max-h-[320px] overflow-y-auto custom-scrollbar' : ''}`}>
@@ -327,7 +327,7 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
               {/* Associated Maps */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-xs font-ui font-semibold uppercase text-gray-500 dark:text-slate-400 tracking-wider">
+                  <h4 className="text-xs font-ui font-semibold text-gray-500 dark:text-slate-400 ">
                     {selectedDistinctValue 
                       ? 'Mapas com o valor selecionado' 
                       : 'Mapas onde o parâmetro está presente'}

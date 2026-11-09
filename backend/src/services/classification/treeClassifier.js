@@ -101,6 +101,23 @@ export function resolveCanonicalTaxonomy(row, rowMap = new Map(), rootPageId = '
     subproduto_id = row.subproduto_id ? String(row.subproduto_id) : (subproduto ? subproduto : null);
     descendant_path_ids = Array.isArray(row.descendant_path_ids) ? row.descendant_path_ids.map(String) : [];
     descendant_path_titles = Array.isArray(row.descendant_path_titles) ? row.descendant_path_titles.map(String) : [];
+
+    // A raiz nunca pode aparecer como produto, mesmo em campos legados.
+    const rootTitles = new Set();
+    for (const candidate of rowMap.values()) {
+      const isRootRow = candidate?.artifact_type === 'RAIZ' || Number(candidate?.depth) === 0 ||
+        (rootStr && String(candidate?.id) === rootStr);
+      const title = String(candidate?.titulo || candidate?.title || '').trim().toLowerCase();
+      if (isRootRow && title) rootTitles.add(title);
+    }
+    if (produto && rootTitles.has(produto.toLowerCase())) {
+      produto = '';
+      produto_id = null;
+      subproduto = '';
+      subproduto_id = null;
+      descendant_path_ids = [];
+      descendant_path_titles = [];
+    }
   }
 
   return {

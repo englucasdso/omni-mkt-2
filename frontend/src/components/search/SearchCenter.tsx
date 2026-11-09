@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Search,
   X,
@@ -45,6 +45,7 @@ export interface SearchCenterProps {
       contentMatches?: Record<string, ContentMatchSummary>;
       matchedTerms?: string[];
       queryKind?: string;
+      partialMatchesCount?: number;
     }
   ) => void;
   onNavigateToOperationalInsights?: () => void;
@@ -115,6 +116,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [aiErrorRetryable, setAiErrorRetryable] = useState(true);
   const [isFocused, setIsFocused] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -202,14 +204,26 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
   }, [resetSignal, resetInternalSearch]);
 
   // Titles per mode
+  const baseStats = useMemo(() => {
+    let maps = 0;
+    let screens = 0;
+    for (const a of artifacts || []) {
+      if (a?.artifact_type === 'MAPA') {
+        maps++;
+        screens += Array.isArray(a.screens) ? a.screens.length : Number(a.total_screens || 0);
+      }
+    }
+    return { total: (artifacts || []).filter((a) => a?.artifact_type !== 'RAIZ').length, maps, screens };
+  }, [artifacts]);
+
   const getModeTitle = () => {
     switch (mode) {
       case 'conteudo':
         return 'Qual artefato você quer encontrar?';
       case 'parametros':
-        return 'Buscar por parâmetros ou trecho de código';
+        return 'Quais parâmetros ou código você procura?';
       case 'ia':
-        return 'O que você gostaria de perguntar à IA sobre os artefatos?';
+        return 'O que você quer perguntar à IA?';
     }
   };
 
@@ -350,6 +364,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
         parameterGroups: groupMap,
         matchedTerms,
         queryKind: res.queryKind,
+        partialMatchesCount: criteriaCombination === 'AND' ? res.partialGroups.length : 0,
       });
     } catch (err) {
       console.error('[SearchCenter] Parameter search error:', err);
@@ -395,9 +410,11 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(
+        const apiError: any = new Error(
           data.message || data.error || 'Serviço de IA temporariamente indisponível.'
         );
+        apiError.code = data.code;
+        throw apiError;
       }
 
       const rawResults = Array.isArray(data.results) ? data.results : [];
@@ -416,6 +433,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
     } catch (err: any) {
       if (err.name === 'AbortError') return;
       console.error('[SearchCenter] AI Search error:', err);
+      setAiErrorRetryable(err?.code !== 'AI_NOT_CONFIGURED');
       setAiError(
         err.message ||
           'Não foi possível consultar a IA no momento. Verifique a conexão ou tente novamente.'
@@ -455,22 +473,27 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.18 }}
-            className="text-3xl sm:text-4xl font-normal text-gray-900 dark:text-slate-50 tracking-tight leading-tight"
+            className="text-[32px] sm:text-[40px] font-heading font-bold text-omni-ink dark:text-slate-50 tracking-[-0.025em] leading-[1.1]"
           >
             {getModeTitle()}
           </motion.h2>
         </AnimatePresence>
+        {baseStats.total > 0 && (
+          <p className="text-[14px] text-gray-600 dark:text-slate-400 tabular-nums">
+            {baseStats.total.toLocaleString('pt-BR')} artefatos sincronizados do Confluence, dos quais {baseStats.maps.toLocaleString('pt-BR')} são mapas com {baseStats.screens.toLocaleString('pt-BR')} telas documentadas.
+          </p>
+        )}
       </div>
 
       {/* Mode Selector Segmented Control */}
-      <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-gray-100/90 dark:bg-slate-800/90 border border-gray-200/80 dark:border-slate-700/80 shadow-inner mb-6">
+      <div role="tablist" aria-label="Modo de busca" className="flex items-center gap-1 p-1 rounded-xl bg-white dark:bg-slate-900 border border-omni-line dark:border-slate-700 shadow-neu-raised mb-5">
         <button
           type="button"
           onClick={() => setMode('conteudo')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 h-9 rounded-lg text-[13px] font-semibold transition-colors duration-150 cursor-pointer ${
             mode === 'conteudo'
-              ? 'bg-[#7B0209] text-white shadow-sm'
-              : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200'
+              ? 'bg-omni-bordo text-white shadow-sm'
+              : 'text-gray-600 dark:text-slate-400 hover:text-omni-ink hover:bg-omni-mist dark:hover:text-slate-200'
           }`}
         >
           <FileText className="w-3.5 h-3.5" />
@@ -480,10 +503,10 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
         <button
           type="button"
           onClick={() => setMode('parametros')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 h-9 rounded-lg text-[13px] font-semibold transition-colors duration-150 cursor-pointer ${
             mode === 'parametros'
-              ? 'bg-[#7B0209] text-white shadow-sm'
-              : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200'
+              ? 'bg-omni-bordo text-white shadow-sm'
+              : 'text-gray-600 dark:text-slate-400 hover:text-omni-ink hover:bg-omni-mist dark:hover:text-slate-200'
           }`}
         >
           <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -493,10 +516,10 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
         <button
           type="button"
           onClick={() => setMode('ia')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 h-9 rounded-lg text-[13px] font-semibold transition-colors duration-150 cursor-pointer ${
             mode === 'ia'
-              ? 'bg-[#7B0209] text-white shadow-sm'
-              : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200'
+              ? 'bg-omni-bordo text-white shadow-sm'
+              : 'text-gray-600 dark:text-slate-400 hover:text-omni-ink hover:bg-omni-mist dark:hover:text-slate-200'
           }`}
         >
           <Sparkles className="w-3.5 h-3.5" />
@@ -506,14 +529,12 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
 
       {/* Central Unified Search Bar */}
       <div className="w-full relative mb-3">
-        <div className="animated-border">
+        <div className={`animated-border ${isFocused ? 'is-focused' : ''}`}>
           <div
-            className={`inner-container glass-card px-5 transition-all duration-300 ${
+            className={`inner-container px-5 transition-all duration-200 ${
               mode === 'parametros' ? 'py-3.5 flex items-start gap-3.5' : 'py-3.5 flex items-center gap-3.5'
             } ${
-              isFocused
-                ? 'bg-white dark:bg-slate-900 border-[#7B0209]/40 shadow-md ring-2 ring-[#7B0209]/20'
-                : 'border-gray-200 dark:border-slate-800'
+              isFocused ? 'bg-white dark:bg-slate-900' : ''
             }`}
           >
             <div className={`shrink-0 ${mode === 'parametros' ? 'pt-1 text-[#7B0209]' : 'text-gray-400 dark:text-slate-500'}`}>
@@ -587,7 +608,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
               type="button"
               onClick={handleExecuteSearch}
               disabled={isSearching || aiLoading}
-              className={`px-5 py-2.5 rounded-xl bg-[#7B0209] hover:bg-[#630207] text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50 ${
+              className={`btn-primary px-5 h-10 text-[13px] shrink-0 cursor-pointer ${
                 mode === 'parametros' ? 'mt-0.5' : ''
               }`}
             >
@@ -619,7 +640,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                 setContentQuery('Abertura de Contas');
                 executeContentSearch('Abertura de Contas');
               }}
-              className="text-xs font-medium text-gray-500 dark:text-slate-400 hover:text-[#7B0209] dark:hover:text-red-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-slate-800/80 border border-gray-200/60 dark:border-slate-700/60 cursor-pointer"
+              className="text-[12.5px] text-gray-600 dark:text-slate-400 hover:text-omni-bordo hover:border-omni-bordo/30 transition-colors flex items-center gap-1.5 px-3 h-8 rounded-md bg-white dark:bg-slate-800/80 border border-omni-line dark:border-slate-700/60 cursor-pointer"
             >
               <Search className="w-3 h-3 text-gray-400" />
               <span>Abertura de contas PF e PJ</span>
@@ -631,7 +652,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                 setContentQuery('Cartões');
                 executeContentSearch('Cartões');
               }}
-              className="text-xs font-medium text-gray-500 dark:text-slate-400 hover:text-[#7B0209] dark:hover:text-red-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-slate-800/80 border border-gray-200/60 dark:border-slate-700/60 cursor-pointer"
+              className="text-[12.5px] text-gray-600 dark:text-slate-400 hover:text-omni-bordo hover:border-omni-bordo/30 transition-colors flex items-center gap-1.5 px-3 h-8 rounded-md bg-white dark:bg-slate-800/80 border border-omni-line dark:border-slate-700/60 cursor-pointer"
             >
               <Search className="w-3 h-3 text-gray-400" />
               <span>Cartões de crédito ou BIA</span>
@@ -643,7 +664,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                 setContentQuery('inventario');
                 executeContentSearch('inventario');
               }}
-              className="text-xs font-medium text-gray-500 dark:text-slate-400 hover:text-[#7B0209] dark:hover:text-red-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-slate-800/80 border border-gray-200/60 dark:border-slate-700/60 cursor-pointer"
+              className="text-[12.5px] text-gray-600 dark:text-slate-400 hover:text-omni-bordo hover:border-omni-bordo/30 transition-colors flex items-center gap-1.5 px-3 h-8 rounded-md bg-white dark:bg-slate-800/80 border border-omni-line dark:border-slate-700/60 cursor-pointer"
             >
               <Search className="w-3 h-3 text-gray-400" />
               <span>Digite "inventário" para ver toda a base</span>
@@ -668,7 +689,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
         <div className="w-full flex flex-col gap-3 px-1 mt-1">
           {/* Clickable Quick Examples */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider mr-1">
+            <span className="text-[11px] font-semibold text-gray-400 dark:text-slate-500 mr-1">
               Exemplos rápidos:
             </span>
             {PARAM_EXAMPLES.map((ex, i) => (
@@ -732,7 +753,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                 <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 flex flex-wrap gap-6 items-center">
                   {/* Escopo */}
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
+                    <span className="text-[11px] font-bold text-gray-400 dark:text-slate-500">
                       Escopo da correspondência
                     </span>
                     <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-lg border border-gray-200 dark:border-slate-700 text-xs font-semibold">
@@ -763,7 +784,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
 
                   {/* Combinação */}
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
+                    <span className="text-[11px] font-bold text-gray-400 dark:text-slate-500">
                       Combinação de parâmetros
                     </span>
                     <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-lg border border-gray-200 dark:border-slate-700 text-xs font-semibold">
@@ -794,7 +815,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
 
                   {/* Sensibilidade / Normalização */}
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
+                    <span className="text-[11px] font-bold text-gray-400 dark:text-slate-500">
                       Normalização de sintaxe
                     </span>
                     <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-slate-300 pt-1">
@@ -843,6 +864,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                 <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
                 <span>{aiError}</span>
               </div>
+              {aiErrorRetryable && (
               <button
                 type="button"
                 onClick={() => executeAiSearch()}
@@ -851,12 +873,13 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                 <RefreshCw className="w-3 h-3" />
                 <span>Tentar novamente</span>
               </button>
+              )}
             </div>
           )}
 
           {/* Example AI questions */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-semibold text-gray-400 dark:text-slate-500 ">
               Exemplos:
             </span>
             <button

@@ -372,8 +372,8 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
-        title="Análise por Produto e Subproduto"
-        subtitle="Visão consolidada da esteira analítica dividida por canais, jornadas e serviços."
+        title="Por produto"
+        subtitle="Maturidade da mensuração de cada produto e subproduto: telas, homologação e padrão GA4."
       />
 
       {/* Quando não houver produtos encontrados */}
@@ -449,7 +449,7 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
             <div className="flat-card rounded-2xl border border-gray-200 dark:border-slate-800 p-6 md:p-8 space-y-6 sticky top-6 shadow-neu-card">
               <div className="flex items-start justify-between gap-4 pb-6 border-b border-gray-100 dark:border-slate-800">
                 <div>
-                  <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
+                  <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 ">
                     Detalhamento do Produto
                   </span>
                   <h3 className="text-2xl brand-title font-heading tracking-tight mt-1">
@@ -510,7 +510,7 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
               {/* Distribuição de status das telas (5 status oficiais) */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-xs font-ui font-semibold uppercase text-gray-500 dark:text-slate-400 tracking-wider">
+                  <h4 className="text-xs font-ui font-semibold text-gray-500 dark:text-slate-400 ">
                     Distribuição de status das telas
                   </h4>
                   <span className="text-xs font-medium text-gray-500 dark:text-slate-400">
@@ -521,27 +521,27 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
                   {/* VALIDADO: verde */}
                   <div className="p-3 rounded-xl border text-center text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800">
                     <span className="text-lg font-heading font-bold block tabular-nums">{selectedMetrics.statusCounts.VALIDADO}</span>
-                    <span className="text-[10px] font-medium uppercase tracking-wider">Validado</span>
+                    <span className="text-[10px] font-medium ">Validado</span>
                   </div>
                   {/* CORREÇÃO: vermelho */}
                   <div className="p-3 rounded-xl border text-center text-rose-700 dark:text-rose-400 bg-rose-50/70 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800">
                     <span className="text-lg font-heading font-bold block tabular-nums">{selectedMetrics.statusCounts['CORREÇÃO']}</span>
-                    <span className="text-[10px] font-medium uppercase tracking-wider">Correção</span>
+                    <span className="text-[10px] font-medium ">Correção</span>
                   </div>
                   {/* NOVO: amarelo */}
                   <div className="p-3 rounded-xl border text-center text-amber-800 dark:text-amber-300 bg-amber-50/70 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800">
                     <span className="text-lg font-heading font-bold block tabular-nums">{selectedMetrics.statusCounts.NOVO}</span>
-                    <span className="text-[10px] font-medium uppercase tracking-wider">Novo</span>
+                    <span className="text-[10px] font-medium ">Novo</span>
                   </div>
                   {/* EXCLUIR: cinza */}
                   <div className="p-3 rounded-xl border text-center text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/80 border-slate-300 dark:border-slate-700">
                     <span className="text-lg font-heading font-bold block tabular-nums">{selectedMetrics.statusCounts.EXCLUIR}</span>
-                    <span className="text-[10px] font-medium uppercase tracking-wider">Excluir</span>
+                    <span className="text-[10px] font-medium ">Excluir</span>
                   </div>
                   {/* DESCONTINUAR: azul */}
                   <div className="p-3 rounded-xl border text-center text-blue-700 dark:text-blue-400 bg-blue-50/70 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800">
                     <span className="text-lg font-heading font-bold block tabular-nums">{selectedMetrics.statusCounts.DESCONTINUAR}</span>
-                    <span className="text-[10px] font-medium uppercase tracking-wider">Descontinuar</span>
+                    <span className="text-[10px] font-medium ">Descontinuar</span>
                   </div>
                 </div>
 
@@ -560,7 +560,7 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
               {/* Métrica de Homologação dos Mapas */}
               <div className="p-4 bg-gray-50/80 dark:bg-slate-800/50 rounded-2xl border border-gray-200 dark:border-slate-800 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-ui font-semibold uppercase text-gray-500 dark:text-slate-400 tracking-wider">
+                  <span className="text-xs font-ui font-semibold text-gray-500 dark:text-slate-400 ">
                     Mapas Homologados
                   </span>
                   <span className="text-base font-heading font-bold text-emerald-600 dark:text-emerald-400">
@@ -588,7 +588,7 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
 
               {/* Measurement breakdown */}
               <div>
-                <h4 className="text-xs font-ui font-semibold uppercase text-gray-500 dark:text-slate-400 tracking-wider mb-3">
+                <h4 className="text-xs font-ui font-semibold text-gray-500 dark:text-slate-400 mb-3">
                   Classificação de Mensuração
                 </h4>
                 <div className="grid grid-cols-4 gap-2">
@@ -613,7 +613,7 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
 
               {/* Most used parameters in this product */}
               <div>
-                <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider mb-3">
+                <h4 className="text-xs font-black text-gray-400 mb-3">
                   Parâmetros Mais Recorrentes neste Produto
                 </h4>
                 {activeProduct.topParameters.length === 0 ? (
@@ -635,7 +635,7 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
 
               {/* Map items list */}
               <div>
-                <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider mb-3">
+                <h4 className="text-xs font-black text-gray-400 mb-3">
                   Mapas Vinculados ({selectedMaps.length})
                 </h4>
                 <div className="space-y-2.5 max-h-[520px] max-h-[55vh] overflow-y-auto custom-scrollbar pr-1">

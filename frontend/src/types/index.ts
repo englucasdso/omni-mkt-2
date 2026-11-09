@@ -66,6 +66,8 @@ export interface ScreenItem {
   screen_index: number;
   status_raw: string;
   status: ScreenStatus;
+  /** Nome da tela conforme o campo "Tela" do Confluence (quando houver). */
+  screen_name?: string;
   instruction: string;
   image_name?: string;
   additional_information?: string;
@@ -327,6 +329,8 @@ export interface ActiveSearch {
   contentMatches?: Record<string, ContentMatchSummary>;
   matchedTerms?: string[];
   queryKind?: string;
+  /** Artefatos com correspondência parcial que NÃO entram nos resultados (modo AND). */
+  partialMatchesCount?: number;
 }
 
 

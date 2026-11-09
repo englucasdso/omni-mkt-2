@@ -185,8 +185,8 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
   return (
     <div className="space-y-6 animate-fade-in w-full min-w-0 max-w-full overflow-x-hidden">
       <PageHeader
-        title="Indicadores e Governança Analítica"
-        subtitle="Métricas canônicas da esteira de tagueamento, telas mapeadas e conformidade técnica."
+        title="Insights"
+        subtitle="Quanto da mensuração está homologada, o que ainda é Universal Analytics e quais parâmetros se repetem."
       />
 
       {/* Top 4 Primary KPI Cards */}
@@ -196,7 +196,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
           <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 border border-gray-200 dark:border-slate-700 shadow-neu-raised flex items-center justify-center mb-3">
             <Target className="w-5 h-5" />
           </div>
-          <p className="text-[10px] font-ui font-semibold uppercase text-gray-400 tracking-wider">Artefatos Catalogados</p>
+          <p className="text-[10px] font-ui font-semibold text-gray-400 ">Artefatos Catalogados</p>
           <div className="flex items-baseline gap-2 mt-1">
             <p className="kpi-number text-3xl font-bold text-gray-900 dark:text-slate-50 tabular-nums">{stats.totalArtifacts}</p>
             <span className="text-xs font-ui text-gray-400">
@@ -215,7 +215,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
           <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 border border-gray-200 dark:border-slate-700 shadow-neu-raised flex items-center justify-center mb-3">
             <Layers className="w-5 h-5" />
           </div>
-          <p className="text-[10px] font-ui font-semibold uppercase text-gray-400 tracking-wider">Telas & Snippets</p>
+          <p className="text-[10px] font-ui font-semibold text-gray-400 ">Telas & Snippets</p>
           <div className="flex items-baseline gap-2 mt-1">
             <p className="kpi-number text-3xl font-bold text-gray-900 dark:text-slate-50 tabular-nums">{stats.totalScreens}</p>
             <span className="text-xs font-ui font-medium text-gray-600 dark:text-slate-300">
@@ -232,7 +232,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
           <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 shadow-neu-raised flex items-center justify-center mb-3">
             <ShieldCheck className="w-5 h-5" />
           </div>
-          <p className="text-[10px] font-ui font-semibold uppercase text-gray-400 tracking-wider">Taxa de Homologação</p>
+          <p className="text-[10px] font-ui font-semibold text-gray-400 ">Taxa de Homologação</p>
           <div className="flex items-baseline gap-2 mt-1">
             <p className="kpi-number text-3xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{stats.taxaHomologacao}%</p>
             <span className="text-xs font-ui text-gray-400">
@@ -249,7 +249,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
           <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 border border-gray-200 dark:border-slate-700 shadow-neu-raised flex items-center justify-center mb-3">
             <Tag className="w-5 h-5" />
           </div>
-          <p className="text-[10px] font-ui font-semibold uppercase text-gray-400 tracking-wider">Parâmetros Mapeados</p>
+          <p className="text-[10px] font-ui font-semibold text-gray-400 ">Parâmetros Mapeados</p>
           <div className="flex items-baseline gap-2 mt-1">
             <p className="kpi-number text-3xl font-bold text-gray-900 dark:text-slate-50 tabular-nums">{stats.totalParamsCount}</p>
             <span className="text-xs font-ui text-gray-400">distintos</span>
@@ -265,7 +265,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
         {/* Status Reais breakdown */}
         <div className="lg:col-span-7 flat-card p-6 md:p-8 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-neu-card space-y-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-heading font-bold text-gray-900 dark:text-slate-50 uppercase tracking-wider">
+            <h3 className="text-sm font-heading font-bold text-gray-900 dark:text-slate-50 ">
               Distribuição de Status das Telas
             </h3>
             <span className="text-xs font-ui text-gray-400">Apurados tela a tela</span>
@@ -298,7 +298,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
         {/* Mensuração breakdown */}
         <div className="lg:col-span-5 flat-card p-6 md:p-8 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-neu-card space-y-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-heading font-bold text-gray-900 dark:text-slate-50 uppercase tracking-wider">
+            <h3 className="text-sm font-heading font-bold text-gray-900 dark:text-slate-50 ">
               Maturidade da Mensuração
             </h3>
             <span className="text-xs font-ui text-gray-400">GA4 vs GA3</span>
@@ -306,22 +306,22 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
 
           <div className="grid grid-cols-2 gap-3 pt-2 font-ui">
             <div className="p-4 rounded-xl bg-gray-50/80 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 text-center shadow-neu-raised">
-              <span className="text-[10px] font-medium uppercase text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.GA4.label}</span>
+              <span className="text-[10px] font-medium text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.GA4.label}</span>
               <span className="text-2xl font-heading font-bold text-gray-900 dark:text-slate-100 tabular-nums">{stats.measurementCounts.GA4 || 0}</span>
               <span className="text-[10px] text-gray-400 block mt-1">Padrão moderno</span>
             </div>
             <div className="p-4 rounded-xl bg-gray-50/80 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 text-center shadow-neu-raised">
-              <span className="text-[10px] font-medium uppercase text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.GA3.label}</span>
+              <span className="text-[10px] font-medium text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.GA3.label}</span>
               <span className="text-2xl font-heading font-bold text-gray-900 dark:text-slate-100 tabular-nums">{stats.measurementCounts.GA3 || 0}</span>
               <span className="text-[10px] text-gray-400 block mt-1">Legado</span>
             </div>
             <div className="p-4 rounded-xl bg-gray-50/80 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 text-center shadow-neu-raised">
-              <span className="text-[10px] font-medium uppercase text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.HIBRIDO.label}</span>
+              <span className="text-[10px] font-medium text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.HIBRIDO.label}</span>
               <span className="text-2xl font-heading font-bold text-gray-900 dark:text-slate-100 tabular-nums">{stats.measurementCounts.HIBRIDO || 0}</span>
               <span className="text-[10px] text-gray-400 block mt-1">Transição</span>
             </div>
             <div className="p-4 rounded-xl bg-gray-50/80 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 text-center shadow-neu-raised">
-              <span className="text-[10px] font-medium uppercase text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.NAO_CLASSIFICADO.label}</span>
+              <span className="text-[10px] font-medium text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.NAO_CLASSIFICADO.label}</span>
               <span className="text-2xl font-heading font-bold text-gray-900 dark:text-slate-100 tabular-nums">{stats.measurementCounts.NAO_CLASSIFICADO || 0}</span>
               <span className="text-[10px] text-gray-400 block mt-1">Sem evidência</span>
             </div>
@@ -334,7 +334,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
         {/* Top 10 Parâmetros */}
         <div className="lg:col-span-7 flat-card p-6 md:p-8 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-neu-card space-y-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-heading font-bold text-gray-900 dark:text-slate-50 uppercase tracking-wider flex items-center gap-2">
+            <h3 className="text-sm font-heading font-bold text-gray-900 dark:text-slate-50 flex items-center gap-2">
               <Tag className="w-4 h-4 text-gray-500 dark:text-slate-400" />
               Top 10 Parâmetros Mais Utilizados
             </h3>
@@ -365,7 +365,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
         {/* Top 5 Padrões de Eventos */}
         <div className="lg:col-span-5 flat-card p-6 md:p-8 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-neu-card space-y-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-heading font-bold text-gray-900 dark:text-slate-50 uppercase tracking-wider flex items-center gap-2">
+            <h3 className="text-sm font-heading font-bold text-gray-900 dark:text-slate-50 flex items-center gap-2">
               <Code2 className="w-4 h-4 text-gray-500 dark:text-slate-400" />
               Padrões de Eventos Recorrentes
             </h3>
@@ -407,7 +407,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
       {/* Row 4: Ranking de Produtos por Mapas e por Telas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="flat-card min-w-0 p-6 md:p-8 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-neu-card space-y-4">
-          <h3 className="text-sm font-heading font-bold text-gray-900 dark:text-slate-50 uppercase tracking-wider">
+          <h3 className="text-sm font-heading font-bold text-gray-900 dark:text-slate-50 ">
             Ranking de Produtos por Quantidade de Mapas
           </h3>
           <div className="space-y-2">
@@ -431,7 +431,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
         </div>
 
         <div className="flat-card min-w-0 p-6 md:p-8 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-neu-card space-y-4">
-          <h3 className="text-sm font-heading font-bold text-gray-900 dark:text-slate-50 uppercase tracking-wider">
+          <h3 className="text-sm font-heading font-bold text-gray-900 dark:text-slate-50 ">
             Ranking de Produtos por Quantidade de Telas
           </h3>
           <div className="space-y-2">

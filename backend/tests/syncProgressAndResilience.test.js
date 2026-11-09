@@ -362,8 +362,11 @@ describe('Sincronização do Confluence: Assinatura ESM, Progresso Real e Resili
 
   // 10. Frontend usa o percentual recebido do backend e remove a regra artificial ((job.step + 1) / 5) * 100
   it('10. Frontend (App.tsx) deve utilizar job.percentage real do backend e não conter cálculo artificial por step', () => {
-    const appTsxPath = path.resolve('frontend/src/app/App.tsx');
-    const content = fs.readFileSync(appTsxPath, 'utf-8');
+    // O SyncWidget foi extraído de App.tsx para features/sync; a verificação cobre os dois arquivos.
+    const content = [
+      'frontend/src/app/App.tsx',
+      'frontend/src/features/sync/SyncWidget.tsx',
+    ].map((f) => fs.readFileSync(path.resolve(f), 'utf-8')).join('\n');
 
     assert.ok(
       !content.includes('((job.step + 1) / 5) * 100'),

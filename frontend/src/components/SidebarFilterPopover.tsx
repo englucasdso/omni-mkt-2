@@ -217,7 +217,7 @@ export function FilterSegmentedRow<T extends string>({
 }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider block">
+      <label className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 block">
         {label}
       </label>
       <div className="flex flex-wrap gap-1.5">
@@ -271,7 +271,7 @@ export function FilterSearchableSingle({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <label className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
+        <label className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 ">
           {label}
         </label>
         {!isDefaultSelected && (
@@ -403,7 +403,7 @@ export function FilterMultiSelectSearchable({
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <label className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
+          <label className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 ">
             {label}
           </label>
           {activeSelected.length > 0 && (
