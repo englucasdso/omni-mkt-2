@@ -81,10 +81,14 @@ export class ConfluenceOrchestrator {
     throw lastError;
   }
 
-  async run(rootPageId, maxRows = null) {
+  async run(rootPageId, maxRows = null, options = {}) {
     if (this.isCollecting) {
       throw new Error('A sincronização já está em andamento. Aguarde...');
     }
+
+    const isFullMode = Boolean(
+      options && (options.mode === 'full' || options.forceRefresh === true)
+    );
 
     this.isCollecting = true;
     this.isCancelled = false;
@@ -212,7 +216,7 @@ export class ConfluenceOrchestrator {
           let totalScreens = 0;
 
           if (nodeDepth >= 3) {
-            const canReuseCache = Boolean(
+            const canReuseCache = !isFullMode && Boolean(
               cached &&
               String(cached.id) === idStr &&
               String(cached.versao) === currentVersion &&
@@ -312,6 +316,12 @@ export class ConfluenceOrchestrator {
                   occurred_at: new Date().toISOString()
                 };
 
+                // Em sincronização completa (isFullMode), falha persistente não deve usar reused_on_error
+                // nem misturar dados antigos/novos nem salvar parcialmente; deve interromper a sincronização completa
+                if (isFullMode) {
+                  throw new Error(`Falha na leitura detalhada de "${node.title || idStr}" após tentativas: ${readErr.message || readErr}`);
+                }
+
                 // Se existir versão anterior válida no inventario.json, preservar os dados completos anteriores
                 if (this.hasValidCachedVersion(cached)) {
                   cabecalho = {
@@ -367,7 +377,7 @@ export class ConfluenceOrchestrator {
             artifact_type = nodeDepth === 0 ? 'RAIZ' : 'NO';
             tipo_mapa = 'Nó';
             measurement_class = 'NAO_CLASSIFICADO';
-            if (cached && String(cached.versao) === currentVersion && String(cached.ultima_atualizacao) === currentUpdated) {
+            if (!isFullMode && cached && String(cached.versao) === currentVersion && String(cached.ultima_atualizacao) === currentUpdated) {
               pageOutcome = 'reused';
             } else {
               pageOutcome = 'succeeded';
@@ -478,7 +488,9 @@ export class ConfluenceOrchestrator {
         active: false,
         phase: 'completed',
         step: 4,
-        message: 'Sincronização concluída.',
+        message: isFullMode
+          ? `Sincronização completa concluída. ${finalSnapshot.total} páginas consultadas no Confluence.`
+          : 'Sincronização concluída.',
         processed: finalSnapshot.processed,
         total: finalSnapshot.total,
         percentage: 100,

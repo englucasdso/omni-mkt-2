@@ -104,14 +104,18 @@ router.get("/sync-status", (_req, res) => {
  * lendo diretamente do sistema Confluence.
  */
 router.post("/update-inventory", async (req, res) => {
-  const { rootId, maxRows } = req.body || {};
+  const { rootId, maxRows, mode, forceRefresh } = req.body || {};
 
   if (!rootId) {
     return res.status(400).json({ error: "ID root da página é obrigatório" });
   }
 
   try {
-    const data = await runCollection(rootId, maxRows || null);
+    const isFull = mode === "full" || forceRefresh === true;
+    const data = await runCollection(rootId, maxRows || null, {
+      mode: isFull ? "full" : (mode || "incremental"),
+      forceRefresh: Boolean(isFull)
+    });
     res.json({ success: true, count: data.length, status: getSyncStatus() });
   } catch (error: any) {
     res.status(500).json({ error: error.message, status: getSyncStatus() });

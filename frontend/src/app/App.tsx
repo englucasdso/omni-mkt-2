@@ -962,7 +962,7 @@ export default function App() {
       const res = await fetch("/api/update-inventory", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rootId: "1542391004", maxRows: null })
+        body: JSON.stringify({ rootId: "1542391004", maxRows: null, mode: "full", forceRefresh: true })
       });
       
       const data = await res.json();
@@ -980,7 +980,7 @@ export default function App() {
         step: 4,
         phase: "completed",
         status: "success",
-        message: "Sincronização concluída.",
+        message: finalStatus.message || "Sincronização concluída.",
         processed: typeof finalStatus.processed === "number" ? finalStatus.processed : finalTotal,
         total: finalTotal || s.total,
         percentage: 100,

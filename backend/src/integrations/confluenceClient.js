@@ -15,19 +15,25 @@ async function abortCollection() {
   });
 }
 
-async function runCollection(rootPageId, maxRows) {
+async function runCollection(rootPageId, maxRows, options = {}) {
   if (orchestratorInstance && orchestratorInstance.isCollecting) {
     throw new Error('A sincronização já está em andamento. Aguarde...');
   }
 
   orchestratorInstance = new ConfluenceOrchestrator();
   try {
-    const result = await orchestratorInstance.run(rootPageId, maxRows);
+    const result = await orchestratorInstance.run(rootPageId, maxRows, options);
+    const syncStatus = getSyncSessionStatus();
+    const isFullMode = Boolean(options && (options.mode === 'full' || options.forceRefresh === true));
+    const completionMessage = (syncStatus && syncStatus.message) || (isFullMode
+      ? `Sincronização completa concluída. ${result.length} páginas consultadas no Confluence.`
+      : 'Sincronização concluída.');
+
     setSyncSessionStatus({
       active: false,
       phase: 'completed',
       step: 4,
-      message: 'Sincronização concluída.',
+      message: completionMessage,
       error: null
     });
     return result;
