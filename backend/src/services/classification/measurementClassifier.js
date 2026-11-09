@@ -89,6 +89,9 @@ export class MeasurementClassifier {
     let artifact_type = 'NAO_CLASSIFICADO';
     if (screens.length > 0 || totalSnippets > 0 || context.hasTrackingScreens) {
       artifact_type = 'MAPA';
+    } else if (context.isAmbiguous) {
+      // Evidência insuficiente: não adivinhar uma classificação.
+      artifact_type = 'NAO_CLASSIFICADO';
     } else {
       artifact_type = 'DOCUMENTACAO';
     }
