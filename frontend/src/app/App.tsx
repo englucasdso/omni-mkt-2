@@ -12,6 +12,7 @@
  * os dados JSON que voltam da porta 3000.
  */
 import React, { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue } from "react";
+import { ExportDialog } from "../components/export/ExportDialog";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
 import { X, AlertTriangle, Target, Network, Filter, CheckCircle2, AlertCircle, Clock, User, Info, Shield, LogOut, Trash2, Plus, Settings, Landmark, LayoutList, RefreshCw, Check, Loader2, KeyRound, Activity, ArrowRight, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, Sparkles, FileText, Layers, Tag, Code2, Eye, ArrowUpDown, Calendar, RotateCcw, SlidersHorizontal } from "lucide-react";
@@ -538,6 +539,7 @@ export default function App() {
   const [tableFilter, setTableFilter] = useState("");
   const [lastSync, setLastSync] = useState<string | null>(localStorage.getItem('last_sync'));
   const [showExportModal, setShowExportModal] = useState(false);
+  const [exportSource, setExportSource] = useState<'cards' | 'inventario'>('cards');
 
 
   const [fullInventory, setFullInventory] = useState<Artifact[]>([]);
@@ -1599,38 +1601,6 @@ export default function App() {
 
   const resetSearch = resetSearchSession;
 
-  const downloadFile = (data: string, filename: string, type: string) => {
-    const blob = new Blob([data], { type });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleExport = async (format: "csv" | "json") => {
-    try {
-      const items = filteredInventory;
-
-      if (format === "json") {
-        downloadFile(JSON.stringify(items, null, 2), "inventario_hub_filtrado.json", "application/json");
-      } else {
-        const headers = Object.keys(items[0]).join(",");
-        const rows = items.map((item: any) => 
-          Object.values(item).map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")
-        );
-        const csv = [headers, ...rows].join("\n");
-        downloadFile(csv, "inventario_hub_filtrado.csv", "text/csv");
-      }
-      setShowExportModal(false);
-    } catch (error) {
-      console.error("Export failed", error);
-    }
-  };
-
   const GradientSparkles = ({ className, animate = false }: { className?: string; animate?: boolean }) => (
     <motion.div
       animate={animate ? { scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] } : {}}
@@ -1956,7 +1926,7 @@ export default function App() {
                     <span>Editar busca</span>
                   </button>
                   <button 
-                    onClick={() => setShowExportModal(true)}
+                    onClick={() => { setExportSource('cards'); setShowExportModal(true); }}
                     className="btn-neu flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-ui font-semibold text-bradesco-red hover:text-bradesco-red-hover h-10 cursor-pointer"
                   >
                     <Download className="w-4 h-4 text-bradesco-red" />
@@ -2099,7 +2069,7 @@ export default function App() {
                 subtitle="A base completa em formato de tabela, com classificação, produto, responsável e data de atualização."
                 actions={
                   <button 
-                    onClick={() => setShowExportModal(true)}
+                    onClick={() => { setExportSource('inventario'); setShowExportModal(true); }}
                     className="btn-neu flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium text-omni-bordo hover:text-omni-rubi hover:bg-red-50/50 h-8 cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
@@ -2313,57 +2283,14 @@ export default function App() {
         )}
       </div>
 
-      {/* Export Modal */}
-      <AnimatePresence>
-        {showExportModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowExportModal(false)}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative bg-white dark:bg-slate-900 dark:border-slate-800 rounded-[40px] p-10 shadow-2xl dark:shadow-none border border-gray-100 dark:border-slate-700 max-w-sm w-full text-center"
-            >
-              <button 
-                onClick={() => setShowExportModal(false)}
-                className="absolute top-6 right-6 text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:text-slate-300"
-              >
-                <X className="w-6 h-6" />
-              </button>
-              <div className="mb-8 flex justify-center">
-                <div className="w-16 h-16 rounded-3xl bg-red-50 flex items-center justify-center text-red-600">
-                  <Download className="w-8 h-8" />
-                </div>
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-slate-50 mb-2">Extrair Base</h3>
-              <p className="text-gray-500 dark:text-slate-400 text-sm mb-8">Escolha o formato desejado para exportar todos os artefatos do inventário.</p>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <button 
-                  onClick={() => handleExport("csv")}
-                  className="flex flex-col items-center gap-3 p-6 rounded-3xl bg-gray-50 dark:bg-slate-800 hover:bg-red-50 border border-gray-100 dark:border-slate-700 hover:border-red-200 transition-all group"
-                >
-                  <span className="text-xl font-black text-gray-400 dark:text-slate-500 group-hover:text-red-600">CSV</span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400 group-hover:text-red-500">Planilha</span>
-                </button>
-                <button 
-                  onClick={() => handleExport("json")}
-                  className="flex flex-col items-center gap-3 p-6 rounded-3xl bg-gray-50 dark:bg-slate-800 hover:bg-red-50 border border-gray-100 dark:border-slate-700 hover:border-red-200 transition-all group"
-                >
-                  <span className="text-xl font-black text-gray-400 dark:text-slate-500 group-hover:text-red-600">JSON</span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400 group-hover:text-red-500">Dados</span>
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {/* Extrair dados: relatórios configuráveis (domain/export) */}
+        <ExportDialog
+          open={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          currentItems={exportSource === 'cards' ? filteredAndSortedCards : filteredInventory}
+          allItems={fullInventory.length > 0 ? fullInventory : results}
+          sourceLabel={exportSource === 'cards' ? 'Cards exibidos' : 'Inventário filtrado'}
+        />
 
       {/* Modal de Detalhes Canônico de Telas e Snippets */}
       <MapDetailModal 
