@@ -5,41 +5,12 @@
  * e decide qual função do service deve ser acionada.
  */
 import { Router } from "express";
-import { getInventoryData, calculateInsights, searchArtifacts } from "../services/inventory.service.js";
+import { getInventoryData, searchArtifacts } from "../services/inventory.service.js";
 import { runCollection, abortCollection, getSyncStatus } from "../integrations/confluenceClient.js";
-// ai.service.ts import and route have been moved to frontend
-
-import { generateInsightsAnalysis } from "../services/ai.service.js";
-import { generateExecutiveSummary } from "../services/executiveSummary.service.js";
 import { analyzeJourneyWithAI, buildDocumentarySequence } from "../services/journeyAnalysis.service.js";
 import { searchSemantic } from "../services/semanticSearch.service.js";
 
 const router = Router();
-
-router.post("/insights/executive-summary", async (req, res) => {
-  try {
-    const { artifacts, term, context } = req.body;
-    if (!artifacts) {
-      return res.status(400).json({ error: "No artifacts sent" });
-    }
-    const summary = await generateExecutiveSummary(artifacts, { term, context });
-    res.json(summary);
-  } catch (error: any) {
-    console.error(`[API] Erro no Resumo Executivo:`, error);
-    res.status(500).json({ error: error.message || "Erro ao gerar resumo executivo" });
-  }
-});
-
-router.post("/insights/artifacts", async (req, res) => {
-  try {
-    const artifacts = req.body || [];
-    const analysis = await generateInsightsAnalysis(artifacts);
-    res.json(analysis);
-  } catch (error: any) {
-    console.error("[API] Erro ao gerar insights:", error);
-    res.status(500).json({ error: "Erro ao gerar insights com IA." });
-  }
-});
 
 router.post("/insights/journeys/analyze", async (req, res) => {
   const { artifact } = req.body || {};
@@ -79,15 +50,14 @@ router.post("/cancel-inventory", async (req, res) => {
 
 /**
  * ROTA: GET /api/inventario
- * Traz todos os artefatos disponíveis de forma bruta, montando os insights gerais.
+ * Traz todos os artefatos disponíveis. Indicadores são calculados no frontend (domain/).
  */
 router.get("/inventario", (req, res) => {
   try {
     const inventory = getInventoryData();
     res.json({
       total: inventory.length,
-      resultados: inventory,
-      insights: calculateInsights(inventory) // Os insights são gerados em tempo real com base na base total
+      resultados: inventory
     });
   } catch (error) {
     res.status(500).json({ error: "Erro ao carregar inventário" });
@@ -133,8 +103,7 @@ router.get("/search", (req, res) => {
     const results = searchArtifacts(query);
     res.json({
       total: results.length,
-      resultados: results,
-      insights: calculateInsights(results)
+      resultados: results
     });
   } catch (error) {
     res.status(500).json({ error: "Erro ao processar busca" });

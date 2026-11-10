@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { HomologationBadge } from '../badges/HomologationBadge';
 import { ExternalLink, ChevronRight, Network, Eye } from 'lucide-react';
 import { Artifact } from '../../types';
 import { isMap, isDocumentation, getArtifactTypeLabel } from '../../domain/artifacts';
@@ -153,31 +154,14 @@ export const ArtifactResultCard: React.FC<ArtifactResultCardProps> = ({
 
         {/* Barra de Homologação para Mapas */}
         {isMapArtifact && metrics && (
-          <div className="inline-flex items-center gap-2">
+          <span className="inline-flex items-center gap-2">
             <span className="text-omni-muted text-xs">•</span>
-            <div 
-              className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden shrink-0" 
-              title={`${metrics.homologationPercentage || 0}% homologado`}
-            >
-              <div
-                className={`h-full rounded-full transition-all ${
-                  metrics.homologationStatus === 'HOMOLOGADO'
-                    ? 'bg-emerald-500'
-                    : metrics.homologationStatus === 'PARCIAL'
-                    ? 'bg-amber-500'
-                    : 'bg-gray-400'
-                }`}
-                style={{ width: `${Math.max(4, metrics.homologationPercentage || 0)}%` }}
-              />
-            </div>
-            <span className="text-xs font-medium text-omni-ink-secondary">
-              {metrics.homologationStatus === 'HOMOLOGADO'
-                ? 'Homologado'
-                : metrics.homologationStatus === 'PARCIAL'
-                ? `Parcial ${metrics.homologationPercentage}%`
-                : 'Não homologado'}
-            </span>
-          </div>
+            <HomologationBadge
+              variant="bar"
+              status={metrics.homologationStatus}
+              percentage={metrics.homologationPercentage}
+            />
+          </span>
         )}
 
         {/* Quantidade de Telas */}

@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { StatusBadge } from './badges/StatusBadge';
+import { HomologationBadge } from './badges/HomologationBadge';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, ExternalLink, FileText, AlertTriangle, Layers, Tag, Code2, Copy, Check, 
@@ -138,27 +140,6 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
   const discontinueScreens = metrics.discontinue;
   const homologationPercentage = metrics.homologationPercentage ?? 0;
 
-  // Badge de Homologação do Mapa (3 estados canônicos, nunca "Validado")
-  let homologationBadge = null;
-  if (isMap && metrics.hasScreens) {
-    if (metrics.homologationStatus === 'HOMOLOGADO') {
-      homologationBadge = {
-        label: `Homologado · ${homologationPercentage}%`,
-        bg: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-      };
-    } else if (metrics.homologationStatus === 'PARCIAL') {
-      homologationBadge = {
-        label: `Parcial · ${homologationPercentage}%`,
-        bg: 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-      };
-    } else {
-      homologationBadge = {
-        label: `Não homologado · ${homologationPercentage}%`,
-        bg: 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 border-gray-200 dark:border-slate-700'
-      };
-    }
-  }
-
   const copyCode = (code: string, id: string) => {
     navigator.clipboard.writeText(code);
     setCopiedSnippetId(id);
@@ -174,19 +155,6 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
   };
 
   // Status individual de cada tela
-  const getIndividualScreenBadge = (status?: string | null) => {
-    const norm = normalizarStatus(status);
-    if (norm) {
-      return getStatusStyle(norm);
-    }
-    return {
-      bg: 'bg-slate-100 dark:bg-slate-800',
-      text: 'text-slate-600 dark:text-slate-400',
-      border: 'border-slate-200 dark:border-slate-700',
-      label: status || 'Não Classificado'
-    };
-  };
-
   // Link do Figma / XD
   const figmaRaw = header.figma_xd?.value || item.figma_xd;
   const isFigmaLink = figmaRaw && figmaRaw !== '-' && figmaRaw.trim() !== '' && (figmaRaw.startsWith('http://') || figmaRaw.startsWith('https://'));
@@ -228,10 +196,8 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                       {measurementLabel}
                     </span>
                   )}
-                  {homologationBadge && (
-                    <span className={`px-2.5 py-1 text-[11px] font-ui font-semibold rounded-lg border ${homologationBadge.bg}`}>
-                      {homologationBadge.label}
-                    </span>
+                  {isMap && metrics.hasScreens && (
+                    <HomologationBadge status={metrics.homologationStatus} percentage={metrics.homologationPercentage} />
                   )}
                 </>
               )}
@@ -385,7 +351,6 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                 </div>
               ) : (
                 screens.map((screen, sIdx) => {
-                  const sBadge = getIndividualScreenBadge(screen.status);
                   const screenKey = screen.screen_id || `screen-${sIdx}`;
                   const isExpanded = !!expandedScreens[screenKey];
                   const screenSnippets = screen.snippets || [];
@@ -410,9 +375,7 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                           <span className="w-6 h-6 rounded-md bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 text-xs font-bold flex items-center justify-center shrink-0">
                             #{displayScreenNumber}
                           </span>
-                          <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded border shrink-0 ${sBadge.bg} ${sBadge.text} ${sBadge.border}`}>
-                            {sBadge.label}
-                          </span>
+                          <StatusBadge status={screen.status} />
                           <span className="text-xs font-semibold text-gray-800 dark:text-slate-200 truncate">
                             {screen.instruction || 'Tela sem instrução especificada'}
                           </span>

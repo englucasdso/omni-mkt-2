@@ -11,6 +11,9 @@ import { normalizarStatus, OfficialStatus } from '../utils/statusUtils';
 import { isMap, isDocumentation } from '../domain/artifacts/artifactSelectors';
 import { resolveMeasurementClass, getMeasurementLabel } from '../domain/measurement/measurementResolver';
 import { MEASUREMENT_CONFIGS } from '../domain/measurement/measurementConfig';
+import { OFFICIAL_STATUSES, STATUS_CONFIGS } from '../domain/status';
+import { getDocumentationFreshness } from '../domain/metrics/documentationFreshness';
+import { formatDataBR } from '../utils/helpers';
 
 interface CanonicalInsightsDashboardProps {
   artifacts: Artifact[];
@@ -178,6 +181,8 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
     };
   }, [filteredArtifacts]);
 
+  const freshness = useMemo(() => getDocumentationFreshness(filteredArtifacts), [filteredArtifacts]);
+
   const uniqueProducts = useMemo(() => {
     return Array.from(new Set(artifacts.map(a => a.produto).filter(Boolean))).sort() as string[];
   }, [artifacts]);
@@ -272,13 +277,11 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
           </div>
 
           <div className="space-y-3 font-ui">
-            {[
-              { label: 'VALIDADO', count: stats.screenStatusCounts.VALIDADO || 0, color: 'bg-emerald-500', text: 'text-emerald-700' },
-              { label: 'CORREÇÃO', count: stats.screenStatusCounts['CORREÇÃO'] || 0, color: 'bg-rose-500', text: 'text-rose-700' },
-              { label: 'NOVO', count: stats.screenStatusCounts.NOVO || 0, color: 'bg-amber-500', text: 'text-amber-800' },
-              { label: 'EXCLUIR', count: stats.screenStatusCounts.EXCLUIR || 0, color: 'bg-slate-400', text: 'text-slate-600' },
-              { label: 'DESCONTINUAR', count: stats.screenStatusCounts.DESCONTINUAR || 0, color: 'bg-blue-500', text: 'text-blue-700' },
-            ].map(st => {
+            {OFFICIAL_STATUSES.map((status) => ({
+              label: STATUS_CONFIGS[status].label,
+              count: stats.screenStatusCounts[status] || 0,
+              color: STATUS_CONFIGS[status].badgeBg,
+            })).map(st => {
               const pct = stats.totalScreens > 0 ? Math.round((st.count / stats.totalScreens) * 100) : 0;
               return (
                 <div key={st.label} className="space-y-1">
@@ -452,6 +455,60 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* Row 5: Atualização da documentação (unificado a partir dos antigos "Insights operacionais") */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-5 panel p-6 md:p-8 space-y-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-heading font-bold text-omni-ink">Idade da documentação</h3>
+            <span className="text-xs font-ui text-omni-muted tabular-nums">{freshness.total} mapas e documentações</span>
+          </div>
+          <div className="flex h-2.5 w-full rounded-full overflow-hidden bg-gray-100" aria-hidden="true">
+            {freshness.buckets.map((b) => (
+              <div key={b.id} className={b.colorClass} style={{ width: `${b.percent}%` }} />
+            ))}
+          </div>
+          <div className="space-y-2.5 font-ui">
+            {freshness.buckets.map((b) => (
+              <div key={b.id} className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-2 text-omni-ink-secondary">
+                  <span className={`w-2.5 h-2.5 rounded-full ${b.colorClass}`} aria-hidden="true" />
+                  {b.label}
+                </span>
+                <span className="text-omni-muted tabular-nums">{b.count} ({b.percent}%)</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="lg:col-span-7 panel p-6 md:p-8 space-y-4">
+          <h3 className="text-base font-heading font-bold text-omni-ink">Atualizados recentemente</h3>
+          {freshness.recent.length === 0 ? (
+            <p className="text-xs text-omni-muted">Nenhum artefato com data de atualização para os filtros atuais.</p>
+          ) : (
+            <ul className="divide-y divide-omni-line">
+              {freshness.recent.map(({ artifact }) => (
+                <li key={artifact.id}>
+                  <button
+                    type="button"
+                    onClick={() => onOpenMap(artifact)}
+                    className="w-full flex items-center justify-between gap-4 py-2.5 text-left hover:text-omni-bordo cursor-pointer"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-[13px] font-semibold text-omni-ink truncate">{artifact.titulo}</span>
+                      <span className="block text-[11.5px] text-omni-muted truncate">
+                        {[artifact.produto, artifact.subproduto].filter(Boolean).join(' › ') || 'Sem produto'}
+                        {artifact.responsavel ? ` | ${artifact.responsavel}` : ''}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-[11.5px] text-omni-muted tabular-nums">{formatDataBR(artifact.ultima_atualizacao)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>

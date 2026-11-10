@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
+import { HomologationBadge } from './badges/HomologationBadge';
 import { 
   ChevronRight, ArrowUpRight, Filter, AlertTriangle
 } from 'lucide-react';
 import { Artifact, ResolvedArtifactTaxonomy } from '../types';
 import { PageHeader } from './PageHeader';
-import { normalizarStatus, OfficialStatus, MapStatusMetrics, getMapStatusMetrics } from '../utils/statusUtils';
+import { normalizarStatus, OfficialStatus, getMapStatusMetrics, ScreenStatusMetrics as MapStatusMetrics } from '../domain/status';
 import { 
   normalizeSearchText, 
   getQueryTokens, 
@@ -426,15 +427,15 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
 
                 <div className="grid grid-cols-3 gap-2 text-center pt-3 border-t border-gray-100 dark:border-slate-800 text-[10px] font-ui">
                   <div>
-                    <span className="text-gray-400 block font-medium">TELAS</span>
+                    <span className="text-gray-500 block font-medium">Telas</span>
                     <span className="font-heading font-bold text-gray-800 dark:text-slate-200 tabular-nums">{prod.totalTelas}</span>
                   </div>
                   <div>
-                    <span className="text-gray-400 block font-medium">HOMOLOGADOS</span>
+                    <span className="text-gray-500 block font-medium">Homologados</span>
                     <span className="font-heading font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{prod.taxaHomologacao}%</span>
                   </div>
                   <div>
-                    <span className="text-gray-400 block font-medium">GA4</span>
+                    <span className="text-gray-500 block font-medium">GA4</span>
                     <span className="font-heading font-bold text-gray-800 dark:text-slate-200 tabular-nums">{prod.measurementCounts.GA4 || 0}</span>
                   </div>
                 </div>
@@ -689,19 +690,7 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
                                 </span>
 
                                 {/* Percentual homologado das telas */}
-                                {metrics.recognizedScreens > 0 ? (
-                                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border tabular-nums ${
-                                    metrics.homologationPercentage === 100
-                                      ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                                      : 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                                  }`}>
-                                    {metrics.homologationPercentage}% homologado
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                                    Não calculável
-                                  </span>
-                                )}
+                                <HomologationBadge status={metrics.homologationStatus} percentage={metrics.homologationPercentage} />
 
                                 {/* Indicador discreto em caso de status não reconhecido */}
                                 {metrics.unrecognized > 0 && (
