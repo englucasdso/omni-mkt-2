@@ -190,32 +190,3 @@ export function extractQueryParams(rawQuery: string): ParsedQueryParam[] {
 
   return results;
 }
-
-/**
- * Splits code into highlighted and non-highlighted segments given search terms.
- */
-export function highlightCodeSegments(
-  code: string,
-  terms: string[]
-): Array<{ text: string; highlight: boolean }> {
-  if (!code) return [];
-  const validTerms = terms
-    .map((t) => t.trim())
-    .filter((t) => t.length >= 2)
-    .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-
-  if (validTerms.length === 0) {
-    return [{ text: code, highlight: false }];
-  }
-
-  try {
-    const regex = new RegExp(`(${validTerms.join('|')})`, 'gi');
-    const parts = code.split(regex);
-    return parts.map((part) => ({
-      text: part,
-      highlight: regex.test(part),
-    }));
-  } catch {
-    return [{ text: code, highlight: false }];
-  }
-}

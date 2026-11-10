@@ -12,9 +12,6 @@ import {
 export {
   decodeHtmlEntities,
   repairMojibakeIfNeeded,
-  countMojibakeMarkers,
-  extractCodeFromHtmlBlock,
-  extractCodeFromSyntaxHighlighterLine,
   detectReplacementCharDiagnostic
 };
 
