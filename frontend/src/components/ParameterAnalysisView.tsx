@@ -206,8 +206,8 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader 
-        title="Análise por Parâmetro"
-        subtitle="Frequência, mapeamento de tipos e valores distintos utilizados no disparo de eventos."
+        title="Por parâmetro"
+        subtitle="Onde cada parâmetro aparece, com quais valores e em quantos mapas."
       />
 
       {filteredCatalog.length === 0 ? (
@@ -259,13 +259,13 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
         {/* Right side: Parameter Details */}
         <div className="lg:col-span-7">
           {activeParam ? (
-            <div className="flat-card rounded-2xl border border-gray-200 dark:border-slate-800 p-6 md:p-8 space-y-6 shadow-neu-card">
-              <div className="pb-6 border-b border-gray-100 dark:border-slate-800">
-                <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
-                  Detalhes do Parâmetro
+            <div className="panel p-6 md:p-8 space-y-6">
+              <div className="pb-6 border-b border-omni-line">
+                <span className="text-xs font-ui font-medium text-omni-muted">
+                  Detalhes do parâmetro
                 </span>
                 <div className="flex items-center gap-3 mt-1">
-                  <h3 className="text-2xl font-mono font-bold text-gray-900 dark:text-slate-50 tracking-tight">
+                  <h3 className="text-2xl font-mono font-bold text-omni-ink tracking-tight">
                     {activeParam.name}
                   </h3>
                 </div>
@@ -273,26 +273,26 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
 
               {/* Metrics Grid */}
               <div className="grid grid-cols-3 gap-3 text-center font-ui">
-                <div className="p-3 bg-gray-50/80 dark:bg-slate-800/80 rounded-xl border border-gray-200 dark:border-slate-700">
-                  <span className="text-[10px] font-medium text-gray-400 uppercase block">Ocorrências</span>
-                  <span className="text-xl font-heading font-bold text-gray-900 dark:text-slate-100 tabular-nums">{activeParam.occurrences}</span>
+                <div className="p-3 bg-gray-50/80 rounded-xl border border-omni-line">
+                  <span className="text-xs font-medium text-omni-muted block">Ocorrências</span>
+                  <span className="text-xl font-heading font-bold text-omni-ink tabular-nums">{activeParam.occurrences}</span>
                 </div>
-                <div className="p-3 bg-gray-50/80 dark:bg-slate-800/80 rounded-xl border border-gray-200 dark:border-slate-700">
-                  <span className="text-[10px] font-medium text-gray-400 uppercase block">Telas com Campo</span>
-                  <span className="text-xl font-heading font-bold text-gray-900 dark:text-slate-100 tabular-nums">{activeParam.screensCount}</span>
+                <div className="p-3 bg-gray-50/80 rounded-xl border border-omni-line">
+                  <span className="text-xs font-medium text-omni-muted block">Telas com campo</span>
+                  <span className="text-xl font-heading font-bold text-omni-ink tabular-nums">{activeParam.screensCount}</span>
                 </div>
-                <div className="p-3 bg-gray-50/80 dark:bg-slate-800/80 rounded-xl border border-gray-200 dark:border-slate-700">
-                  <span className="text-[10px] font-medium text-gray-400 uppercase block">Mapas Vinculados</span>
-                  <span className="text-xl font-heading font-bold text-gray-900 dark:text-slate-100 tabular-nums">{activeParam.mapsCount}</span>
+                <div className="p-3 bg-gray-50/80 rounded-xl border border-omni-line">
+                  <span className="text-xs font-medium text-omni-muted block">Mapas vinculados</span>
+                  <span className="text-xl font-heading font-bold text-omni-ink tabular-nums">{activeParam.mapsCount}</span>
                 </div>
               </div>
 
               {/* Distinct Values Sample */}
               <div>
-                <h4 className="text-xs font-ui font-semibold uppercase text-gray-500 dark:text-slate-400 tracking-wider mb-2">
-                  Valores Distintos Identificados ({activeParam.distinctValuesList.length})
+                <h4 className="text-xs font-ui font-semibold text-omni-ink-secondary mb-2">
+                  Valores distintos identificados ({activeParam.distinctValuesList.length})
                 </h4>
-                <div className={`flex flex-wrap gap-1.5 p-3 bg-gray-50/80 dark:bg-slate-800/60 rounded-2xl border border-gray-200 dark:border-slate-700 ${isDistinctValuesExpanded ? 'max-h-[320px] overflow-y-auto custom-scrollbar' : ''}`}>
+                <div className={`flex flex-wrap gap-1.5 p-3 bg-gray-50/80 rounded-2xl border border-omni-line ${isDistinctValuesExpanded ? 'max-h-[320px] overflow-y-auto custom-scrollbar' : ''}`}>
                   {displayedDistinctValues.map((val, idx) => {
                     const isSelected = selectedDistinctValue === val;
                     return (
@@ -301,8 +301,8 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
                         onClick={() => handleSelectDistinctValue(val)}
                         className={`px-3 py-1.5 border rounded-lg text-xs font-mono transition-all outline-none focus:ring-2 focus:ring-bradesco-red/20 text-left ${
                           isSelected 
-                            ? 'bg-bradesco-red text-white border-bradesco-red shadow-md' 
-                            : 'bg-white dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-800 dark:text-slate-200 hover:border-gray-300 dark:hover:border-slate-500 hover:bg-gray-50 dark:hover:bg-slate-600 cursor-pointer'
+                            ? 'bg-bradesco-red text-white border-bradesco-red shadow-sm' 
+                            : 'bg-white border-omni-line text-omni-ink hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
                         }`}
                       >
                         {highlightText(val, effectiveSearchTerm)}
@@ -315,7 +315,7 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
                   <div className="flex justify-end mt-2">
                     <button
                       onClick={() => setIsDistinctValuesExpanded(!isDistinctValuesExpanded)}
-                      className="flex items-center gap-1 text-[11px] font-ui text-gray-500 hover:text-bradesco-red transition-colors px-2 py-1 rounded cursor-pointer"
+                      className="flex items-center gap-1 text-[11px] font-ui text-omni-muted hover:text-omni-bordo transition-colors px-2 py-1 rounded cursor-pointer"
                     >
                       {isDistinctValuesExpanded ? 'Recolher valores' : `Ver todos os valores (${activeParam.distinctValuesList.length})`}
                       <ChevronDown className={`w-3 h-3 transition-transform ${isDistinctValuesExpanded ? 'rotate-180' : ''}`} />
@@ -327,13 +327,13 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
               {/* Associated Maps */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-xs font-ui font-semibold uppercase text-gray-500 dark:text-slate-400 tracking-wider">
+                  <h4 className="text-xs font-ui font-semibold text-omni-ink-secondary">
                     {selectedDistinctValue 
                       ? 'Mapas com o valor selecionado' 
                       : 'Mapas onde o parâmetro está presente'}
                   </h4>
                   {selectedDistinctValue && (
-                    <span className="text-[10px] font-medium bg-red-100 text-bradesco-red dark:bg-red-900/30 px-2 py-0.5 rounded-full border border-red-200 dark:border-red-900/50">
+                    <span className="text-[10px] font-medium bg-red-100 text-bradesco-red px-2 py-0.5 rounded-full border border-red-200">
                       {activeParamFilteredMaps.length} encontrados
                     </span>
                   )}

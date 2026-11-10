@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Search,
   X,
@@ -207,11 +207,28 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
       case 'conteudo':
         return 'Qual artefato você quer encontrar?';
       case 'parametros':
-        return 'Buscar por parâmetros ou trecho de código';
+        return 'Quais parâmetros ou código você procura?';
       case 'ia':
-        return 'O que você gostaria de perguntar à IA sobre os artefatos?';
+        return 'O que você quer perguntar à IA?';
     }
   };
+
+  // Subtitle stats calculated from synchronized artifacts (excluding RAIZ)
+  const stats = useMemo(() => {
+    const validArtifacts = (artifacts || []).filter((a) => a.artifact_type !== 'RAIZ');
+    const total = validArtifacts.length;
+    let mapas = 0;
+    let telas = 0;
+    for (const a of validArtifacts) {
+      if (a.artifact_type === 'MAPA' || (!a.artifact_type && Array.isArray(a.screens) && a.screens.length > 0)) {
+        mapas++;
+        if (Array.isArray(a.screens)) {
+          telas += a.screens.length;
+        }
+      }
+    }
+    return { total, mapas, telas };
+  }, [artifacts]);
 
   // Placeholders per mode
   const getModePlaceholder = () => {
@@ -446,8 +463,8 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
 
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-start">
-      {/* Dynamic Animated Title */}
-      <div className="flex flex-col items-center text-center justify-center mb-6 w-full gap-2 min-h-[60px]">
+      {/* Dynamic Animated Title and Subtitle */}
+      <div className="flex flex-col items-center text-center justify-center mb-6 w-full min-h-[70px]">
         <AnimatePresence mode="wait">
           <motion.h2
             key={mode}
@@ -455,22 +472,25 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.18 }}
-            className="text-3xl sm:text-4xl font-normal text-gray-900 dark:text-slate-50 tracking-tight leading-tight"
+            className="text-3xl sm:text-[38px] font-heading font-bold text-omni-ink tracking-[-0.025em] leading-tight"
           >
             {getModeTitle()}
           </motion.h2>
         </AnimatePresence>
+        <p className="text-sm text-omni-ink-secondary text-center max-w-xl font-sans mt-2">
+          {stats.total} artefatos sincronizados do Confluence, dos quais {stats.mapas} são mapas com {stats.telas} telas documentadas.
+        </p>
       </div>
 
       {/* Mode Selector Segmented Control */}
-      <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-gray-100/90 dark:bg-slate-800/90 border border-gray-200/80 dark:border-slate-700/80 shadow-inner mb-6">
+      <div className="flex items-center gap-1 p-1 rounded-[12px] bg-white border border-omni-line shadow-neu-card mb-6">
         <button
           type="button"
           onClick={() => setMode('conteudo')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
+          className={`h-9 flex items-center gap-2 px-4 rounded-[8px] text-[13px] font-medium transition-all duration-200 cursor-pointer ${
             mode === 'conteudo'
-              ? 'bg-[#7B0209] text-white shadow-sm'
-              : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200'
+              ? 'bg-omni-bordo text-white shadow-sm'
+              : 'text-omni-ink-secondary hover:text-omni-ink'
           }`}
         >
           <FileText className="w-3.5 h-3.5" />
@@ -480,10 +500,10 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
         <button
           type="button"
           onClick={() => setMode('parametros')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
+          className={`h-9 flex items-center gap-2 px-4 rounded-[8px] text-[13px] font-medium transition-all duration-200 cursor-pointer ${
             mode === 'parametros'
-              ? 'bg-[#7B0209] text-white shadow-sm'
-              : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200'
+              ? 'bg-omni-bordo text-white shadow-sm'
+              : 'text-omni-ink-secondary hover:text-omni-ink'
           }`}
         >
           <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -493,10 +513,10 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
         <button
           type="button"
           onClick={() => setMode('ia')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
+          className={`h-9 flex items-center gap-2 px-4 rounded-[8px] text-[13px] font-medium transition-all duration-200 cursor-pointer ${
             mode === 'ia'
-              ? 'bg-[#7B0209] text-white shadow-sm'
-              : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200'
+              ? 'bg-omni-bordo text-white shadow-sm'
+              : 'text-omni-ink-secondary hover:text-omni-ink'
           }`}
         >
           <Sparkles className="w-3.5 h-3.5" />
@@ -506,104 +526,101 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
 
       {/* Central Unified Search Bar */}
       <div className="w-full relative mb-3">
-        <div className="animated-border">
-          <div
-            className={`inner-container glass-card px-5 transition-all duration-300 ${
-              mode === 'parametros' ? 'py-3.5 flex items-start gap-3.5' : 'py-3.5 flex items-center gap-3.5'
-            } ${
-              isFocused
-                ? 'bg-white dark:bg-slate-900 border-[#7B0209]/40 shadow-md ring-2 ring-[#7B0209]/20'
-                : 'border-gray-200 dark:border-slate-800'
-            }`}
-          >
-            <div className={`shrink-0 ${mode === 'parametros' ? 'pt-1 text-[#7B0209]' : 'text-gray-400 dark:text-slate-500'}`}>
-              {mode === 'parametros' ? (
-                <Code2 className="w-5 h-5 text-[#7B0209]" />
-              ) : (
-                <Search className="w-5 h-5" />
-              )}
-            </div>
-
+        <div
+          className={`w-full bg-white rounded-[14px] border transition-all duration-200 px-5 shadow-neu-card ${
+            mode === 'parametros' ? 'py-3.5 flex items-start gap-3.5' : 'min-h-[54px] flex items-center gap-3.5'
+          } ${
+            isFocused
+              ? 'border-omni-bordo/40 ring-2 ring-omni-rubi/30 shadow-[0_10px_30px_rgba(123,2,9,0.12)]'
+              : 'border-omni-line hover:border-gray-300'
+          }`}
+        >
+          <div className={`shrink-0 ${mode === 'parametros' ? 'pt-1 text-omni-bordo' : 'text-omni-muted'}`}>
             {mode === 'parametros' ? (
-              <textarea
-                ref={textareaRef}
-                value={paramInput}
-                onChange={(e) => {
-                  setParamInput(e.target.value);
-                  adjustTextareaHeight();
-                }}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    // Enter without shift on single line, or Ctrl/Cmd+Enter on multiline triggers search
-                    if (e.ctrlKey || e.metaKey || (!e.shiftKey && !paramInput.includes('\n'))) {
-                      e.preventDefault();
-                      executeParamSearch(paramInput);
-                    }
-                  }
-                }}
-                placeholder={getModePlaceholder()}
-                rows={1}
-                className="w-full bg-transparent border-none outline-none font-mono text-xs sm:text-sm text-gray-900 dark:text-slate-50 placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-0 resize-none overflow-y-auto custom-scrollbar max-h-64 leading-relaxed"
-                style={{ minHeight: '44px' }}
-              />
+              <Code2 className="w-5 h-5 text-omni-bordo" />
             ) : (
-              <input
-                ref={inputRef}
-                type="text"
-                value={mode === 'conteudo' ? contentQuery : aiQuestion}
-                onChange={(e) => handleInputChange(e.target.value)}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                onKeyDown={handleKeyDown}
-                placeholder={getModePlaceholder()}
-                className="w-full bg-transparent border-none outline-none text-base sm:text-lg text-gray-900 dark:text-slate-50 placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-0"
-              />
+              <Search className="w-5 h-5" />
             )}
+          </div>
 
-            {/* Clear button */}
-            {currentInputValue && !isSearching && !aiLoading && (
-              <button
-                type="button"
-                onClick={handleClearInput}
-                className={`p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 transition-colors shrink-0 ${
-                  mode === 'parametros' ? 'mt-1' : ''
-                }`}
-                title="Limpar campo"
-                aria-label="Limpar campo"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+          {mode === 'parametros' ? (
+            <textarea
+              ref={textareaRef}
+              value={paramInput}
+              onChange={(e) => {
+                setParamInput(e.target.value);
+                adjustTextareaHeight();
+              }}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  if (e.ctrlKey || e.metaKey || (!e.shiftKey && !paramInput.includes('\n'))) {
+                    e.preventDefault();
+                    executeParamSearch(paramInput);
+                  }
+                }
+              }}
+              placeholder={getModePlaceholder()}
+              rows={1}
+              className="w-full bg-transparent border-none outline-none font-mono text-xs sm:text-sm text-omni-ink placeholder:text-omni-muted focus:outline-none focus:ring-0 resize-none overflow-y-auto custom-scrollbar max-h-64 leading-relaxed"
+              style={{ minHeight: '44px' }}
+            />
+          ) : (
+            <input
+              ref={inputRef}
+              type="text"
+              value={mode === 'conteudo' ? contentQuery : aiQuestion}
+              onChange={(e) => handleInputChange(e.target.value)}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              onKeyDown={handleKeyDown}
+              placeholder={getModePlaceholder()}
+              className="w-full bg-transparent border-none outline-none text-base text-omni-ink placeholder:text-omni-muted focus:outline-none focus:ring-0 font-sans"
+            />
+          )}
 
-            {/* Spinner indicator if searching */}
-            {(isSearching || aiLoading) && (
-              <Loader2 className={`w-4 h-4 animate-spin text-[#7B0209] shrink-0 ${mode === 'parametros' ? 'mt-2' : ''}`} />
-            )}
-
-            {/* Submit Action Button */}
+          {/* Clear button */}
+          {currentInputValue && !isSearching && !aiLoading && (
             <button
               type="button"
-              onClick={handleExecuteSearch}
-              disabled={isSearching || aiLoading}
-              className={`px-5 py-2.5 rounded-xl bg-[#7B0209] hover:bg-[#630207] text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50 ${
-                mode === 'parametros' ? 'mt-0.5' : ''
+              onClick={handleClearInput}
+              className={`p-1 rounded-lg text-omni-muted hover:text-omni-ink transition-colors shrink-0 ${
+                mode === 'parametros' ? 'mt-1' : ''
               }`}
+              title="Limpar campo"
+              aria-label="Limpar campo"
             >
-              {mode === 'ia' ? (
-                <>
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Perguntar</span>
-                </>
-              ) : (
-                <>
-                  <Search className="w-3.5 h-3.5" />
-                  <span>Buscar</span>
-                </>
-              )}
+              <X className="w-4 h-4" />
             </button>
-          </div>
+          )}
+
+          {/* Spinner indicator if searching */}
+          {(isSearching || aiLoading) && (
+            <Loader2 className={`w-4 h-4 animate-spin text-omni-bordo shrink-0 ${mode === 'parametros' ? 'mt-2' : ''}`} />
+          )}
+
+          {/* Submit Action Button */}
+          <button
+            type="button"
+            onClick={handleExecuteSearch}
+            disabled={isSearching || aiLoading}
+            className={`btn-primary h-10 px-5 text-xs font-semibold rounded-[8px] flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50 ${
+              mode === 'parametros' ? 'mt-0.5' : ''
+            }`}
+          >
+            {mode === 'ia' ? (
+              <>
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Perguntar</span>
+              </>
+            ) : (
+              <>
+                <Search className="w-3.5 h-3.5" />
+                <span>Buscar</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
 
@@ -619,9 +636,9 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                 setContentQuery('Abertura de Contas');
                 executeContentSearch('Abertura de Contas');
               }}
-              className="text-xs font-medium text-gray-500 dark:text-slate-400 hover:text-[#7B0209] dark:hover:text-red-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-slate-800/80 border border-gray-200/60 dark:border-slate-700/60 cursor-pointer"
+              className="h-8 text-[12.5px] font-sans text-omni-ink-secondary hover:text-omni-ink transition-colors flex items-center gap-1.5 px-3 rounded-lg bg-white border border-omni-line hover:bg-omni-mist hover:border-omni-bordo/30 shadow-neu-card cursor-pointer"
             >
-              <Search className="w-3 h-3 text-gray-400" />
+              <Search className="w-3 h-3 text-omni-muted" />
               <span>Abertura de contas PF e PJ</span>
             </button>
 
@@ -631,9 +648,9 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                 setContentQuery('Cartões');
                 executeContentSearch('Cartões');
               }}
-              className="text-xs font-medium text-gray-500 dark:text-slate-400 hover:text-[#7B0209] dark:hover:text-red-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-slate-800/80 border border-gray-200/60 dark:border-slate-700/60 cursor-pointer"
+              className="h-8 text-[12.5px] font-sans text-omni-ink-secondary hover:text-omni-ink transition-colors flex items-center gap-1.5 px-3 rounded-lg bg-white border border-omni-line hover:bg-omni-mist hover:border-omni-bordo/30 shadow-neu-card cursor-pointer"
             >
-              <Search className="w-3 h-3 text-gray-400" />
+              <Search className="w-3 h-3 text-omni-muted" />
               <span>Cartões de crédito ou BIA</span>
             </button>
 
@@ -643,9 +660,9 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                 setContentQuery('inventario');
                 executeContentSearch('inventario');
               }}
-              className="text-xs font-medium text-gray-500 dark:text-slate-400 hover:text-[#7B0209] dark:hover:text-red-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-slate-800/80 border border-gray-200/60 dark:border-slate-700/60 cursor-pointer"
+              className="h-8 text-[12.5px] font-sans text-omni-ink-secondary hover:text-omni-ink transition-colors flex items-center gap-1.5 px-3 rounded-lg bg-white border border-omni-line hover:bg-omni-mist hover:border-omni-bordo/30 shadow-neu-card cursor-pointer"
             >
-              <Search className="w-3 h-3 text-gray-400" />
+              <Search className="w-3 h-3 text-omni-muted" />
               <span>Digite "inventário" para ver toda a base</span>
             </button>
 
@@ -653,9 +670,9 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
               <button
                 type="button"
                 onClick={onNavigateToOperationalInsights}
-                className="text-xs font-semibold text-gray-600 dark:text-slate-300 hover:text-[#7B0209] transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50/50 dark:bg-red-950/20 border border-red-200/60 dark:border-red-900/30 cursor-pointer ml-auto"
+                className="h-8 text-[12.5px] font-medium text-omni-bordo hover:text-omni-rubi transition-colors flex items-center gap-1.5 px-3 rounded-lg bg-red-50/50 border border-omni-bordo/20 cursor-pointer ml-auto"
               >
-                <Activity className="w-3.5 h-3.5 text-[#7B0209]" />
+                <Activity className="w-3.5 h-3.5" />
                 <span>Ver insights</span>
               </button>
             )}
@@ -668,7 +685,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
         <div className="w-full flex flex-col gap-3 px-1 mt-1">
           {/* Clickable Quick Examples */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider mr-1">
+            <span className="text-xs font-medium text-omni-muted mr-1">
               Exemplos rápidos:
             </span>
             {PARAM_EXAMPLES.map((ex, i) => (
@@ -676,13 +693,13 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                 key={i}
                 type="button"
                 onClick={() => handleSelectParamExample(ex.code)}
-                className="group text-xs font-mono text-gray-600 dark:text-slate-300 hover:text-[#7B0209] dark:hover:text-red-400 transition-all flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-slate-800/80 hover:bg-red-50/50 dark:hover:bg-slate-800 border border-gray-200/70 dark:border-slate-700/70 hover:border-red-200 dark:hover:border-red-900/50 cursor-pointer shadow-sm"
+                className="h-8 text-[12.5px] font-mono text-omni-ink-secondary hover:text-omni-bordo transition-all flex items-center gap-1.5 px-3 rounded-lg bg-white hover:bg-omni-mist border border-omni-line hover:border-omni-bordo/30 cursor-pointer shadow-neu-card"
                 title={ex.description}
               >
-                <span className="text-[10px] font-sans font-medium text-gray-400 dark:text-slate-500 group-hover:text-[#7B0209]">
+                <span className="text-[11px] font-sans text-omni-muted">
                   {ex.title}:
                 </span>
-                <span className="font-semibold text-gray-800 dark:text-slate-200 group-hover:text-[#7B0209]">
+                <span className="font-semibold text-omni-ink">
                   {ex.label}
                 </span>
               </button>
@@ -694,7 +711,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
             <button
               type="button"
               onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-[#7B0209] dark:hover:text-red-400 transition-colors cursor-pointer py-1"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-omni-ink-secondary hover:text-omni-bordo transition-colors cursor-pointer py-1"
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
               <span>Opções avançadas</span>
@@ -713,7 +730,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                   setTimeout(() => adjustTextareaHeight(), 0);
                   executeParamSearch('');
                 }}
-                className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 transition-colors cursor-pointer"
+                className="text-xs text-omni-muted hover:text-omni-ink transition-colors cursor-pointer"
               >
                 Limpar entrada
               </button>
@@ -729,20 +746,20 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                 exit={{ opacity: 0, height: 0 }}
                 className="overflow-hidden"
               >
-                <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 flex flex-wrap gap-6 items-center">
+                <div className="p-4 rounded-xl bg-white border border-omni-line shadow-neu-card flex flex-wrap gap-6 items-center">
                   {/* Escopo */}
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
+                    <span className="text-xs font-semibold text-omni-ink-secondary">
                       Escopo da correspondência
                     </span>
-                    <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-lg border border-gray-200 dark:border-slate-700 text-xs font-semibold">
+                    <div className="flex items-center gap-1 bg-omni-mist p-1 rounded-lg border border-omni-line text-xs font-semibold">
                       <button
                         type="button"
                         onClick={() => setCriteriaScope('SNIPPET')}
                         className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
                           criteriaScope === 'SNIPPET'
-                            ? 'bg-[#7B0209] text-white'
-                            : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200'
+                            ? 'bg-omni-bordo text-white'
+                            : 'text-omni-ink-secondary hover:text-omni-ink'
                         }`}
                       >
                         No mesmo snippet
@@ -752,8 +769,8 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                         onClick={() => setCriteriaScope('SCREEN')}
                         className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
                           criteriaScope === 'SCREEN'
-                            ? 'bg-[#7B0209] text-white'
-                            : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200'
+                            ? 'bg-omni-bordo text-white'
+                            : 'text-omni-ink-secondary hover:text-omni-ink'
                         }`}
                       >
                         Na mesma tela
@@ -763,17 +780,17 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
 
                   {/* Combinação */}
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
+                    <span className="text-xs font-semibold text-omni-ink-secondary">
                       Combinação de parâmetros
                     </span>
-                    <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-lg border border-gray-200 dark:border-slate-700 text-xs font-semibold">
+                    <div className="flex items-center gap-1 bg-omni-mist p-1 rounded-lg border border-omni-line text-xs font-semibold">
                       <button
                         type="button"
                         onClick={() => setCriteriaCombination('AND')}
                         className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
                           criteriaCombination === 'AND'
-                            ? 'bg-[#7B0209] text-white'
-                            : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200'
+                            ? 'bg-omni-bordo text-white'
+                            : 'text-omni-ink-secondary hover:text-omni-ink'
                         }`}
                       >
                         Todos (AND)
@@ -783,8 +800,8 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                         onClick={() => setCriteriaCombination('OR')}
                         className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
                           criteriaCombination === 'OR'
-                            ? 'bg-[#7B0209] text-white'
-                            : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200'
+                            ? 'bg-omni-bordo text-white'
+                            : 'text-omni-ink-secondary hover:text-omni-ink'
                         }`}
                       >
                         Pelo menos um (OR)
@@ -794,16 +811,16 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
 
                   {/* Sensibilidade / Normalização */}
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
+                    <span className="text-xs font-semibold text-omni-ink-secondary">
                       Normalização de sintaxe
                     </span>
-                    <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-slate-300 pt-1">
+                    <div className="flex items-center gap-4 text-xs text-omni-ink-secondary pt-1">
                       <label className="flex items-center gap-1.5 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={ignoreCase}
                           onChange={(e) => setIgnoreCase(e.target.checked)}
-                          className="rounded border-gray-300 text-[#7B0209] focus:ring-[#7B0209]"
+                          className="rounded border-gray-300 text-omni-bordo focus:ring-omni-bordo"
                         />
                         <span>Ignorar maiúsculas/minúsculas</span>
                       </label>
@@ -812,7 +829,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                           type="checkbox"
                           checked={ignoreWhitespace}
                           onChange={(e) => setIgnoreWhitespace(e.target.checked)}
-                          className="rounded border-gray-300 text-[#7B0209] focus:ring-[#7B0209]"
+                          className="rounded border-gray-300 text-omni-bordo focus:ring-omni-bordo"
                         />
                         <span>Ignorar espaços e quebras de linha</span>
                       </label>
@@ -830,17 +847,17 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
         <div className="w-full flex flex-col items-start gap-3 mt-3 px-2">
           {/* AI Loading indicator */}
           {aiLoading && (
-            <div className="w-full p-3 rounded-xl bg-red-50/60 dark:bg-slate-800/60 border border-red-100 dark:border-slate-700 flex items-center gap-3 text-xs font-ui text-gray-700 dark:text-slate-200">
-              <Loader2 className="w-4 h-4 animate-spin text-[#7B0209] shrink-0" />
+            <div className="w-full p-3 rounded-xl bg-red-50/60 border border-red-100 flex items-center gap-3 text-xs font-ui text-omni-ink">
+              <Loader2 className="w-4 h-4 animate-spin text-omni-bordo shrink-0" />
               <span>Consultando inteligência artificial sobre os artefatos...</span>
             </div>
           )}
 
           {/* AI Error banner */}
           {aiError && (
-            <div className="w-full p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 flex items-center justify-between gap-3 text-xs font-ui text-red-800 dark:text-red-200">
+            <div className="w-full p-3 rounded-xl bg-red-50 border border-red-200 flex items-center justify-between gap-3 text-xs font-ui text-red-800">
               <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
                 <span>{aiError}</span>
               </div>
               <button
@@ -856,7 +873,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
 
           {/* Example AI questions */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
+            <span className="text-xs font-medium text-omni-muted">
               Exemplos:
             </span>
             <button
@@ -866,9 +883,9 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                 setAiQuestion(q);
                 executeAiSearch(q);
               }}
-              className="text-xs font-medium text-gray-500 dark:text-slate-400 hover:text-[#7B0209] dark:hover:text-red-400 transition-colors flex items-center gap-1 px-3 py-1 rounded-lg bg-gray-50 dark:bg-slate-800/80 border border-gray-200/60 dark:border-slate-700/60 cursor-pointer"
+              className="h-8 text-[12.5px] font-sans text-omni-ink-secondary hover:text-omni-ink transition-colors flex items-center gap-1.5 px-3 rounded-lg bg-white border border-omni-line hover:bg-omni-mist hover:border-omni-bordo/30 shadow-neu-card cursor-pointer"
             >
-              <Sparkles className="w-3 h-3 text-[#7B0209]" />
+              <Sparkles className="w-3 h-3 text-omni-bordo" />
               <span>Confirmação de pagamento</span>
             </button>
 
@@ -879,9 +896,9 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                 setAiQuestion(q);
                 executeAiSearch(q);
               }}
-              className="text-xs font-medium text-gray-500 dark:text-slate-400 hover:text-[#7B0209] dark:hover:text-red-400 transition-colors flex items-center gap-1 px-3 py-1 rounded-lg bg-gray-50 dark:bg-slate-800/80 border border-gray-200/60 dark:border-slate-700/60 cursor-pointer"
+              className="h-8 text-[12.5px] font-sans text-omni-ink-secondary hover:text-omni-ink transition-colors flex items-center gap-1.5 px-3 rounded-lg bg-white border border-omni-line hover:bg-omni-mist hover:border-omni-bordo/30 shadow-neu-card cursor-pointer"
             >
-              <Sparkles className="w-3 h-3 text-[#7B0209]" />
+              <Sparkles className="w-3 h-3 text-omni-bordo" />
               <span>Fluxos de Pix ou Cartões</span>
             </button>
 
@@ -892,9 +909,9 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
                 setAiQuestion(q);
                 executeAiSearch(q);
               }}
-              className="text-xs font-medium text-gray-500 dark:text-slate-400 hover:text-[#7B0209] dark:hover:text-red-400 transition-colors flex items-center gap-1 px-3 py-1 rounded-lg bg-gray-50 dark:bg-slate-800/80 border border-gray-200/60 dark:border-slate-700/60 cursor-pointer"
+              className="h-8 text-[12.5px] font-sans text-omni-ink-secondary hover:text-omni-ink transition-colors flex items-center gap-1.5 px-3 rounded-lg bg-white border border-omni-line hover:bg-omni-mist hover:border-omni-bordo/30 shadow-neu-card cursor-pointer"
             >
-              <Sparkles className="w-3 h-3 text-[#7B0209]" />
+              <Sparkles className="w-3 h-3 text-omni-bordo" />
               <span>Coleta de CPF</span>
             </button>
           </div>

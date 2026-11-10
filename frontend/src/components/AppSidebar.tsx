@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutList, 
   Landmark, 
@@ -7,11 +7,13 @@ import {
   Sparkles, 
   Network, 
   RefreshCw,
-  Plug,
   X,
-  Compass,
-  Route
+  Route,
+  Search,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
+import { formatUltimaSincronizacao } from '../utils/helpers';
 
 export interface NavItem {
   id: string;
@@ -20,14 +22,28 @@ export interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-export const NAV_ITEMS: NavItem[] = [
-  { id: 'results', label: 'Cards', path: '/hub-de-artefatos/cards', icon: LayoutList },
-  { id: 'inventory_table', label: 'Inventário', path: '/hub-de-artefatos/inventario', icon: Landmark },
-  { id: 'produtos_analise', label: 'Por Produto', path: '/hub-de-artefatos/por-produto', icon: Layers },
-  { id: 'parametros_analise', label: 'Por Parâmetro', path: '/hub-de-artefatos/por-parametro', icon: Tag },
-  { id: 'insights', label: 'Insights', path: '/hub-de-artefatos/insights', icon: Sparkles },
-  { id: 'graph', label: 'Conexões', path: '/hub-de-artefatos/conexoes', icon: Network },
+export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
+  {
+    title: 'Explorar',
+    items: [
+      { id: 'results', label: 'Cards', path: '/hub-de-artefatos/cards', icon: LayoutList },
+      { id: 'inventory_table', label: 'Inventário', path: '/hub-de-artefatos/inventario', icon: Landmark },
+      { id: 'graph', label: 'Conexões', path: '/hub-de-artefatos/conexoes', icon: Network },
+      { id: 'journeys', label: 'Jornadas', path: '/hub-de-artefatos/jornadas', icon: Route },
+    ]
+  },
+  {
+    title: 'Analisar',
+    items: [
+      { id: 'produtos_analise', label: 'Por produto', path: '/hub-de-artefatos/por-produto', icon: Layers },
+      { id: 'parametros_analise', label: 'Por parâmetro', path: '/hub-de-artefatos/por-parametro', icon: Tag },
+      { id: 'insights', label: 'Insights', path: '/hub-de-artefatos/insights', icon: Sparkles },
+    ]
+  }
 ];
+
+export const ALL_NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap(g => g.items);
+export const NAV_ITEMS: NavItem[] = ALL_NAV_ITEMS;
 
 interface AppSidebarProps {
   currentRouteId: string;
@@ -37,7 +53,9 @@ interface AppSidebarProps {
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
   onSyncClick?: () => void;
-  contextualContent?: React.ReactNode;
+  lastSync?: string | null;
+  isCollapsed?: boolean;
+  onToggleCollapse?: (collapsed: boolean) => void;
 }
 
 export const AppSidebar: React.FC<AppSidebarProps> = ({
@@ -48,27 +66,53 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   isMobileOpen = false,
   onCloseMobile,
   onSyncClick,
-  contextualContent,
+  lastSync,
+  isCollapsed: controlledCollapsed,
+  onToggleCollapse
 }) => {
-  const [isHovered, setIsHovered] = useState(false);
-  const [isFocusedWithin, setIsFocusedWithin] = useState(false);
-  const [hoveredTooltip, setHoveredTooltip] = useState<{ id: string; top: number; label: string } | null>(null);
+  // Estado de recolhimento com persistência em localStorage (omni.sidebar.collapsed)
+  const [internalCollapsed, setInternalCollapsed] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('omni.sidebar.collapsed');
+      return saved === 'true';
+    } catch {
+      return false;
+    }
+  });
 
-  const sidebarRef = useRef<HTMLElement>(null);
+  const isCollapsed = controlledCollapsed !== undefined ? controlledCollapsed : internalCollapsed;
 
-  const isExpanded = isHovered || isFocusedWithin;
+  const handleToggle = () => {
+    const next = !isCollapsed;
+    try {
+      localStorage.setItem('omni.sidebar.collapsed', String(next));
+    } catch (e) {
+      console.warn('Erro ao salvar omni.sidebar.collapsed:', e);
+    }
+    setInternalCollapsed(next);
+    if (onToggleCollapse) {
+      onToggleCollapse(next);
+    }
+  };
 
-  // Handle outside click or escape key for mobile
+  // Mantém a variável CSS --sidebar-width sincronizada com o estado
+  useEffect(() => {
+    const width = isCollapsed ? '72px' : '248px';
+    document.documentElement.style.setProperty('--sidebar-width', width);
+  }, [isCollapsed]);
+
+  // Tecla Escape para fechar mobile
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (onCloseMobile) onCloseMobile();
-        setHoveredTooltip(null);
+      if (e.key === 'Escape' && isMobileOpen && onCloseMobile) {
+        onCloseMobile();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onCloseMobile]);
+  }, [isMobileOpen, onCloseMobile]);
+
+  const sidebarWidthClass = isCollapsed ? 'md:w-[72px]' : 'md:w-[248px]';
 
   return (
     <>
@@ -76,293 +120,204 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       {isMobileOpen && (
         <div 
           onClick={onCloseMobile}
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden transition-opacity duration-200"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden transition-opacity duration-200"
           aria-hidden="true"
         />
       )}
 
-      {/* Main Sidebar */}
+      {/* Main Sidebar: fundo omni-gradient, texto branco, largura 248px ou 72px */}
       <aside
-        ref={sidebarRef}
-        onMouseEnter={() => {
-          setIsHovered(true);
-          setHoveredTooltip(null);
-        }}
-        onMouseLeave={() => {
-          setIsHovered(false);
-          setHoveredTooltip(null);
-        }}
-        onFocus={() => setIsFocusedWithin(true)}
-        onBlur={(e) => {
-          if (!sidebarRef.current?.contains(e.relatedTarget as Node)) {
-            setIsFocusedWithin(false);
-          }
-        }}
-        className={`fixed top-0 left-0 h-screen z-40 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800 transition-all duration-200 ease-in-out flex flex-col select-none
-          ${isMobileOpen ? 'translate-x-0 w-[240px] shadow-2xl' : '-translate-x-full md:translate-x-0'}
-          ${isExpanded ? 'md:w-[240px] md:shadow-2xl' : 'md:w-16'}
+        className={`fixed top-0 left-0 h-screen z-40 bg-omni-gradient text-white transition-[width,transform] duration-200 ease-in-out flex flex-col select-none shadow-xl
+          ${isMobileOpen ? 'translate-x-0 w-[248px]' : '-translate-x-full md:translate-x-0'}
+          ${sidebarWidthClass}
         `}
         aria-label="Navegação principal"
       >
-        {/* 1. Top Header / Logo */}
-        <div className="shrink-0">
-          <div className="h-16 flex items-center px-3 border-b border-gray-100 dark:border-slate-800/80">
-            <button
-              onClick={() => {
-                onHomeClick();
-                if (onCloseMobile) onCloseMobile();
-              }}
-              className="relative flex items-center w-full h-11 rounded-xl text-left transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--omni-brand-primary)] overflow-hidden"
-              title="Ir para o início"
-              aria-label="Omni Marketing - Página inicial"
-            >
-              {/* Símbolo oficial reduzido (sidebar recolhida) */}
-              <div 
-                className={`w-10 h-10 flex items-center justify-center shrink-0 transition-opacity duration-200 ${
-                  isExpanded || isMobileOpen ? 'opacity-0 pointer-events-none absolute' : 'opacity-100'
-                }`}
-              >
-                <img
-                  src="/omni-logo-1-icone.png"
-                  alt="Omni"
-                  className="w-8 h-8 object-contain rounded-lg shadow-sm"
-                  referrerPolicy="no-referrer"
-                />
+        {/* 1. Topo (64px) */}
+        <div className="h-16 flex items-center px-4 shrink-0 border-b border-white/10">
+          <button
+            onClick={() => {
+              onHomeClick();
+              if (onCloseMobile) onCloseMobile();
+            }}
+            className="flex items-center gap-3 w-full text-left cursor-pointer focus:outline-none group overflow-hidden"
+            title="OMNI - Governança de mensuração"
+            aria-label="OMNI - Página inicial"
+          >
+            <div className="w-8 h-8 rounded-lg ring-1 ring-white/25 shadow-sm overflow-hidden flex items-center justify-center shrink-0 bg-black/20 group-hover:ring-white/40 transition-all">
+              <img
+                src="/omni-logo-1-icone.png"
+                alt="OMNI"
+                className="w-full h-full object-contain"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            
+            {(!isCollapsed || isMobileOpen) && (
+              <div className="flex flex-col min-w-0 transition-opacity duration-150">
+                <span className="font-heading font-bold text-white text-base tracking-[0.08em] leading-tight">
+                  OMNI
+                </span>
+                <span className="text-[11px] text-white/65 font-ui truncate leading-tight mt-0.5">
+                  Governança de mensuração
+                </span>
               </div>
-
-              {/* Logo oficial horizontal completo (sidebar expandida) */}
-              <div 
-                className={`flex items-center min-w-0 transition-all duration-200 ${
-                  isExpanded || isMobileOpen 
-                    ? 'opacity-100 translate-x-0 w-full pl-0.5' 
-                    : 'opacity-0 -translate-x-2 pointer-events-none absolute'
-                }`}
-              >
-                <img
-                  src="/omni-logo-2-horizontal-branco.png"
-                  alt="Omni Marketing"
-                  className="h-8 max-w-[190px] object-contain"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-            </button>
-
-            {/* Close button for mobile */}
-            {isMobileOpen && (
-              <button
-                onClick={onCloseMobile}
-                className="md:hidden p-2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 ml-auto"
-                aria-label="Fechar navegação"
-              >
-                <X className="w-5 h-5" />
-              </button>
             )}
-          </div>
+          </button>
+
+          {/* Botão fechar apenas no mobile */}
+          {isMobileOpen && (
+            <button
+              onClick={onCloseMobile}
+              className="md:hidden p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 ml-auto"
+              aria-label="Fechar menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
-        {/* 2. Navigation Links */}
-        <nav className="px-3 py-2 space-y-1 mt-3 shrink-0" aria-label="Seções do sistema">
-            {NAV_ITEMS.map((item) => {
-              const isActive = currentRouteId === item.id;
-              const Icon = item.icon;
+        {/* 2. Botão "Nova busca" (40px) */}
+        <div className="p-3 shrink-0">
+          {(!isCollapsed || isMobileOpen) ? (
+            <button
+              id="sidebar-nova-busca"
+              type="button"
+              onClick={() => {
+                if (onNewSearch) onNewSearch();
+                else onHomeClick();
+                if (onCloseMobile) onCloseMobile();
+              }}
+              className="w-full h-10 px-3 bg-white text-omni-bordo hover:bg-white/95 rounded-lg shadow-sm font-ui font-semibold text-xs flex items-center justify-between transition-all cursor-pointer group"
+              title="Nova busca (/)"
+              aria-label="Nova busca"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <Search className="w-4 h-4 text-omni-bordo shrink-0 group-hover:scale-105 transition-transform" />
+                <span className="truncate">Nova busca</span>
+              </div>
+              <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-omni-mist text-omni-ink-secondary rounded border border-omni-line shadow-2xs">
+                /
+              </kbd>
+            </button>
+          ) : (
+            <button
+              id="sidebar-nova-busca-collapsed"
+              type="button"
+              onClick={() => {
+                if (onNewSearch) onNewSearch();
+                else onHomeClick();
+              }}
+              className="w-10 h-10 mx-auto flex items-center justify-center bg-white text-omni-bordo hover:bg-white/95 rounded-lg shadow-sm transition-all cursor-pointer group"
+              title="Nova busca (/)"
+              aria-label="Nova busca"
+            >
+              <Search className="w-4 h-4 text-omni-bordo group-hover:scale-105 transition-transform" />
+            </button>
+          )}
+        </div>
 
-              return (
-                <div key={item.id} className="relative">
+        {/* 3. Navegação em dois grupos (Explorar & Analisar) */}
+        <nav className="flex-1 overflow-y-auto px-2 py-1 space-y-4 custom-scrollbar" aria-label="Navegação principal">
+          {NAV_GROUPS.map((group, groupIdx) => (
+            <div key={group.title} className="space-y-1">
+              {(!isCollapsed || isMobileOpen) ? (
+                <div className="text-[11px] text-white/50 font-ui font-medium px-3 pt-1 pb-1">
+                  {group.title}
+                </div>
+              ) : (
+                groupIdx > 0 && <div className="my-2 border-t border-white/10" />
+              )}
+
+              {group.items.map((item) => {
+                const isActive = currentRouteId === item.id;
+                const Icon = item.icon;
+
+                return (
                   <button
+                    key={item.id}
                     onClick={() => {
                       onNavigate(item);
                       if (onCloseMobile) onCloseMobile();
                     }}
-                    onMouseEnter={(e) => {
-                      if (!isExpanded && !isMobileOpen) {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setHoveredTooltip({
-                          id: item.id,
-                          top: rect.top + rect.height / 2,
-                          label: item.label,
-                        });
-                      }
-                    }}
-                    onMouseLeave={() => {
-                      setHoveredTooltip(null);
-                    }}
                     aria-current={isActive ? 'page' : undefined}
-                    aria-label={item.label}
-                    className={`flex items-center w-full h-11 rounded-xl transition-all duration-150 cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-omni-brand-accent
+                    title={isCollapsed && !isMobileOpen ? item.label : undefined}
+                    className={`relative w-full h-9 rounded-lg flex items-center transition-colors duration-150 cursor-pointer text-left
+                      ${isCollapsed && !isMobileOpen ? 'justify-center px-0' : 'px-3 gap-3'}
                       ${isActive
-                        ? 'bg-red-50/80 dark:bg-red-950/40 text-omni-brand-primary border border-red-200/70 dark:border-red-900/50 shadow-neu-raised font-semibold'
-                        : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100 hover:bg-gray-100/70 dark:hover:bg-slate-800/60 font-medium'
+                        ? 'bg-white/[0.14] text-white font-semibold'
+                        : 'text-white/75 hover:bg-white/[0.07] hover:text-white font-medium'
                       }
                     `}
                   >
-                    {/* Ícone fixo no centro exato da sidebar recolhida (w-10 dentro dos 64px) */}
-                    <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                      <Icon className={`w-5 h-5 transition-transform duration-150 ${isActive ? 'text-omni-brand-primary scale-105' : 'text-gray-500 dark:text-slate-400'}`} />
-                    </div>
+                    {/* Barra branca de 3px à esquerda quando ativo */}
+                    {isActive && (
+                      <span className="absolute left-0 inset-y-1.5 w-[3px] bg-white rounded-r" aria-hidden="true" />
+                    )}
 
-                    {/* Rótulo visível apenas quando expandido */}
-                    <span 
-                      className={`text-xs font-ui whitespace-nowrap ml-2 transition-all duration-150 truncate ${
-                        isExpanded || isMobileOpen ? 'opacity-100' : 'opacity-0 md:w-0'
-                      }`}
-                    >
-                      {item.label}
-                    </span>
+                    <Icon className="w-[18px] h-[18px] shrink-0" />
+
+                    {(!isCollapsed || isMobileOpen) && (
+                      <span className="text-xs font-ui truncate leading-none">
+                        {item.label}
+                      </span>
+                    )}
                   </button>
-                </div>
-              );
-            })}
-            
-            <div className="relative mt-6">
-              <button
-                onClick={() => {
-                  if (onSyncClick) onSyncClick();
-                  if (onCloseMobile) onCloseMobile();
-                }}
-                onMouseEnter={(e) => {
-                  if (!isExpanded && !isMobileOpen) {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setHoveredTooltip({
-                      id: 'sync',
-                      top: rect.top + rect.height / 2,
-                      label: 'Sincronização',
-                    });
-                  }
-                }}
-                onMouseLeave={() => setHoveredTooltip(null)}
-                aria-label="Sincronização"
-                className="flex items-center w-full h-11 rounded-xl transition-all duration-150 cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-omni-brand-accent text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100 hover:bg-gray-100/70 dark:hover:bg-slate-800/60 font-medium"
-              >
-                <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                  <RefreshCw className="w-5 h-5 transition-transform duration-150 text-gray-500 dark:text-slate-400" />
-                </div>
-                <span className={`text-xs font-ui whitespace-nowrap ml-2 transition-all duration-150 truncate ${
-                  isExpanded || isMobileOpen ? 'opacity-100' : 'opacity-0 md:w-0'
-                }`}>
-                  Sincronização
-                </span>
-              </button>
+                );
+              })}
             </div>
-            
-            <div className="relative">
-              <button
-                onClick={() => {
-                  onNavigate({ id: 'journeys', label: 'Jornadas', path: '/hub-de-artefatos/jornadas', icon: Route });
-                  if (onCloseMobile) onCloseMobile();
-                }}
-                onMouseEnter={(e) => {
-                  if (!isExpanded && !isMobileOpen) {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setHoveredTooltip({
-                      id: 'journeys',
-                      top: rect.top + rect.height / 2,
-                      label: 'Jornadas',
-                    });
-                  }
-                }}
-                onMouseLeave={() => setHoveredTooltip(null)}
-                aria-current={currentRouteId === 'journeys' ? 'page' : undefined}
-                aria-label="Jornadas"
-                className={`flex items-center w-full h-11 rounded-xl transition-all duration-150 cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-omni-brand-accent
-                  ${currentRouteId === 'journeys'
-                    ? 'bg-red-50/80 dark:bg-red-950/40 text-omni-brand-primary border border-red-200/70 dark:border-red-900/50 shadow-neu-raised font-semibold'
-                    : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100 hover:bg-gray-100/70 dark:hover:bg-slate-800/60 font-medium'
-                  }
-                `}
-              >
-                <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                  <Route className={`w-5 h-5 transition-transform duration-150 ${currentRouteId === 'journeys' ? 'text-omni-brand-primary scale-105' : 'text-gray-500 dark:text-slate-400'}`} />
-                </div>
-                <span className={`text-xs font-ui whitespace-nowrap ml-2 transition-all duration-150 truncate ${
-                  isExpanded || isMobileOpen ? 'opacity-100' : 'opacity-0 md:w-0'
-                }`}>
-                  Jornadas
-                </span>
-              </button>
-            </div>
+          ))}
+        </nav>
 
-            <div className="relative">
-              <button
-                disabled
-                aria-disabled="true"
-                onMouseEnter={(e) => {
-                  if (!isExpanded && !isMobileOpen) {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setHoveredTooltip({
-                      id: 'plugins',
-                      top: rect.top + rect.height / 2,
-                      label: 'Plugins',
-                    });
-                  }
-                }}
-                onMouseLeave={() => setHoveredTooltip(null)}
-                aria-label="Plugins"
-                className="flex items-center w-full h-11 rounded-xl transition-all duration-150 cursor-not-allowed text-left text-gray-400 dark:text-slate-600 opacity-60 font-medium"
-              >
-                <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                  <Plug className="w-5 h-5 transition-transform duration-150 text-gray-400 dark:text-slate-600" />
-                </div>
-                <span className={`text-xs font-ui whitespace-nowrap ml-2 transition-all duration-150 truncate ${
-                  isExpanded || isMobileOpen ? 'opacity-100' : 'opacity-0 md:w-0'
-                }`}>
-                  Plugins
-                </span>
-              </button>
-            </div>
-            
-          </nav>
-
-        {/* 3. Espaço flexível disponível */}
-        <div className="flex-1 min-h-0" />
-
-        {/* 4. Área contextual de busca e filtros (apenas no sidebar expandido ou mobile) */}
-        {(isExpanded || isMobileOpen) && contextualContent && (
-          <div className="shrink-0 max-h-[45vh] overflow-y-auto px-3 py-2.5 border-t border-gray-100 dark:border-slate-800/80 custom-scrollbar">
-            {contextualContent}
-          </div>
-        )}
-
-        {/* 5. Separador & 6. “Nova Busca” no rodapé */}
-        <div className="shrink-0 p-3 border-t border-gray-100 dark:border-slate-800/80">
+        {/* 4. Rodapé (borda branco/10): Sincronização & Recolher Menu */}
+        <div className="shrink-0 border-t border-white/10 p-2 space-y-1">
+          {/* Atualizar do Confluence */}
           <button
-            id="sidebar-nova-busca"
             type="button"
             onClick={() => {
-              if (onNewSearch) {
-                onNewSearch();
-              } else {
-                onHomeClick();
-              }
+              if (onSyncClick) onSyncClick();
               if (onCloseMobile) onCloseMobile();
             }}
-            className="flex items-center w-full h-10 rounded-xl text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors cursor-pointer"
-            title="Buscar novo termo"
-            aria-label="Buscar novo termo"
-            >
-            <div className="w-10 h-10 flex items-center justify-center shrink-0">
-              <Compass className="w-4 h-4" />
-            </div>
-            <span 
-              className={`text-[11px] font-ui whitespace-nowrap ml-2 transition-all duration-150 truncate ${
-                isExpanded || isMobileOpen ? 'opacity-100' : 'opacity-0 md:w-0'
-              }`}
-            >
-              Nova Busca
-            </span>
+            title={isCollapsed && !isMobileOpen ? `Atualizar do Confluence (Última: ${formatUltimaSincronizacao(lastSync)})` : undefined}
+            className={`w-full rounded-lg text-left text-white/75 hover:bg-white/[0.07] hover:text-white transition-colors cursor-pointer flex items-center
+              ${isCollapsed && !isMobileOpen ? 'h-9 justify-center px-0' : 'px-3 py-2 gap-3'}
+            `}
+          >
+            <RefreshCw className="w-4 h-4 shrink-0 text-white/75" />
+            {(!isCollapsed || isMobileOpen) && (
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-ui font-medium leading-tight truncate">
+                  Atualizar do Confluence
+                </span>
+                <span className="text-[10px] text-white/50 font-ui leading-tight truncate mt-0.5">
+                  {formatUltimaSincronizacao(lastSync)}
+                </span>
+              </div>
+            )}
+          </button>
+
+          {/* Recolher / Expandir Menu (Desktop) */}
+          <button
+            type="button"
+            onClick={handleToggle}
+            title={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
+            className={`hidden md:flex w-full h-9 rounded-lg items-center text-white/70 hover:bg-white/[0.07] hover:text-white transition-colors cursor-pointer
+              ${isCollapsed ? 'justify-center px-0' : 'px-3 gap-3'}
+            `}
+          >
+            {isCollapsed ? (
+              <ChevronRight className="w-4 h-4 shrink-0" />
+            ) : (
+              <>
+                <ChevronLeft className="w-4 h-4 shrink-0" />
+                <span className="text-xs font-ui font-medium truncate">
+                  Recolher menu
+                </span>
+              </>
+            )}
           </button>
         </div>
       </aside>
-
-      {/* Floating Tooltip when collapsed */}
-      {hoveredTooltip && !isExpanded && !isMobileOpen && (
-        <div 
-          className="fixed left-[72px] z-50 px-2.5 py-1.5 rounded-lg bg-gray-900 dark:bg-slate-100 text-white dark:text-gray-900 text-xs font-ui font-medium shadow-xl pointer-events-none -translate-y-1/2 transition-opacity duration-150 animate-fade-in"
-          style={{ top: `${hoveredTooltip.top}px` }}
-          role="tooltip"
-        >
-          {hoveredTooltip.label}
-        </div>
-      )}
     </>
   );
 };

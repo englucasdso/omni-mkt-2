@@ -42,6 +42,7 @@ import { AppShell } from "../components/AppShell";
 import { PageHeader } from "../components/PageHeader";
 import { SidebarContextualArea } from "../components/SidebarContextualArea";
 import { SearchCenter } from "../components/search/SearchCenter";
+import { ArtifactResultCard } from "../components/search/ArtifactResultCard";
 import { isMap, isDocumentation, isNode, isRoot, isCataloged, getArtifactTypeLabel } from "../domain/artifacts";
 import { resolveMeasurementClass, getMeasurementLabel, MEASUREMENT_CONFIGS } from "../domain/measurement";
 import { getMapStatusMetrics } from "../domain/status";
@@ -1877,7 +1878,7 @@ export default function App() {
           </div>
         ) : (
           <>
-        <section className={`hero flex flex-col flex-1 w-full items-center justify-start pt-8 ${appState !== "initial" ? "hidden" : ""}`}>
+        <section className={`hero flex flex-col flex-1 w-full items-center justify-start pt-8 ${appState !== "initial" ? "!hidden" : ""}`}>
           <SearchCenter
             artifacts={fullInventory}
             activeSearch={activeSearch}
@@ -2015,10 +2016,10 @@ export default function App() {
         )}
 
         {/* Content Section */}
-        <section className={`content ${["initial", "catalog", "events_capture", "home", "operational_insights"].includes(appState) ? "hidden" : ""}`}>
+        <section className={`content ${["initial", "catalog", "events_capture", "home", "operational_insights"].includes(appState) ? "!hidden" : ""}`}>
           
           {/* Decision / Loading Area */}
-          <section className={`decision ${appState === "decision" || appState === "empty" ? "flex flex-col items-center justify-center text-center py-24" : "hidden"}`}>
+          <section className={`decision ${appState === "decision" || appState === "empty" ? "flex flex-col items-center justify-center text-center py-24" : "!hidden"}`}>
             <div className="mb-8 scale-150 transform transition-transform duration-500">
               <GradientSparkles className="w-12 h-12" animate={loading} />
             </div>
@@ -2341,8 +2342,8 @@ export default function App() {
                 className="graph-container pb-20 space-y-6"
               >
                 <PageHeader
-                  title="Conexões e Dependências"
-                  subtitle="Mapeamento relacional de produtos, subprodutos e artefatos de tagueamento."
+                  title="Conexões"
+                  subtitle="A árvore do Confluence como ela é: produtos, subprodutos e os mapas dentro de cada um. Clique no número de um nó para abrir os filhos."
                 />
                 <GraphView 
                   data={fullInventory && fullInventory.length > 0 ? fullInventory : results} 
@@ -2378,9 +2379,9 @@ export default function App() {
           </AnimatePresence>
 
           {/* Results Area (Tela de Cards) */}
-          <section className={`results space-y-6 ${appState === "results" && !loading ? "" : "hidden"}`}>
+          <section className={`results space-y-6 ${appState === "results" && !loading ? "" : "!hidden"}`}>
             <PageHeader
-              title="Cards de Artefatos"
+              title="Artefatos"
               subtitle={
                 activeSearch ? (
                   activeSearch.mode === 'conteudo' ? (
@@ -2395,7 +2396,7 @@ export default function App() {
                     `Busca por IA: ${totalCardsCount} ${totalCardsCount === 1 ? 'artefato encontrado' : 'artefatos encontrados'} para "${activeSearch.aiQuestion || activeSearch.query}"`
                   )
                 ) : (
-                  "Visualização em cards com metadados, status e histórico de cada especificação."
+                  "Todos os artefatos sincronizados. Use Nova busca para encontrar por nome, parâmetro ou pergunta."
                 )
               }
               actions={
@@ -2444,188 +2445,24 @@ export default function App() {
               />
             )}
 
-            {/* 5. Lista de Cards (Coluna única, máximo 20 por página) */}
-            <div className="space-y-6">
-              <AnimatePresence>
-                {paginatedCards.map((item, index) => {
-                const isDoc = isDocumentation(item);
-                const isMapArtifact = isMap(item);
-                const artifactLabel = getArtifactTypeLabel(item.artifact_type);
-
-                let homologationStatusLabel = '';
-                let statusColorClass = 'text-gray-800 dark:text-slate-200';
-                if (isMapArtifact) {
-                  const metrics = getMapStatusMetrics(item);
-                  if (metrics.homologationStatus === 'HOMOLOGADO') {
-                    homologationStatusLabel = 'Homologado';
-                    statusColorClass = 'text-emerald-600 dark:text-emerald-400';
-                  } else if (metrics.homologationStatus === 'PARCIAL') {
-                    homologationStatusLabel = 'Parcial';
-                    statusColorClass = 'text-amber-600 dark:text-amber-400';
-                  } else {
-                    homologationStatusLabel = 'Não homologado';
-                    statusColorClass = 'text-gray-500 dark:text-slate-400';
-                  }
-                }
-
-                return (
-                <motion.article 
-                  key={item.id} 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="flat-card border border-gray-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-neu-card group transition-all relative overflow-hidden"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {item.produto && <span className="red-badge font-ui">{item.produto}</span>}
-                      {item.subproduto && <span className="red-badge font-ui">{item.subproduto}</span>}
-                    </div>
-                    {activeSearch?.mode === 'conteudo' && activeSearch.contentMatches?.[item.id] && (() => {
-                      const matchInfo = activeSearch.contentMatches[item.id];
-                      const isExact = matchInfo.matchType === 'EXACT_ID' || matchInfo.matchType === 'EXACT_TITLE';
-                      const isTitle = matchInfo.matchType === 'TITLE_PREFIX' || matchInfo.matchType === 'TITLE_PHRASE' || matchInfo.matchType === 'ALL_TITLE_TOKENS';
-                      const badgeStyle = isExact
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
-                        : isTitle
-                        ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
-                        : 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
-                      return (
-                        <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-ui font-semibold border ${badgeStyle}`}>
-                          {matchInfo.label}
-                        </span>
-                      );
-                    })()}
-                  </div>
-
-                  <div className="mb-6">
-                    <a
-                      className="text-2xl sm:text-[28px] brand-title font-heading group-hover:opacity-80 transition-opacity inline-flex items-center gap-2 mb-2"
-                      href={item.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {item.titulo}
-                    </a>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6 p-4 rounded-xl bg-gray-50/50 dark:bg-slate-800/30 border border-gray-100 dark:border-slate-800">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] font-ui font-semibold uppercase text-gray-400 dark:text-slate-500 tracking-wider">Artefato</span>
-                      <span className="text-sm font-heading font-bold text-gray-800 dark:text-slate-200 tabular-nums">{artifactLabel}</span>
-                    </div>
-                    {isMapArtifact && (
-                      <>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-ui font-semibold uppercase text-gray-400 dark:text-slate-500 tracking-wider">Status</span>
-                          <span className={`text-sm font-heading font-bold tabular-nums ${statusColorClass}`}>{homologationStatusLabel}</span>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-ui font-semibold uppercase text-gray-400 dark:text-slate-500 tracking-wider">Responsável</span>
-                          <span className="text-sm font-ui font-semibold text-gray-800 dark:text-slate-200">{item.responsavel || "—"}</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Detalhe de correspondência de Parâmetro / Snippet (Engenharia Reversa) */}
-                  {activeSearch?.mode === 'parametros' && activeSearch.parameterGroups?.[item.id] && (() => {
-                    const group = activeSearch.parameterGroups[item.id];
-                    const firstOcc = group.occurrences?.[0];
-                    const isPartial = group.isPartial;
-
-                    let qualityBadgeClass = 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
-                    if (group.bestQuality === 'EXACT_SNIPPET') {
-                      qualityBadgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800';
-                    } else if (group.bestQuality === 'EXACT_CODE_SLICE') {
-                      qualityBadgeClass = 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800';
-                    } else if (group.bestQuality === 'COMPATIBLE_OBJECT') {
-                      qualityBadgeClass = 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800';
-                    } else if (group.bestQuality === 'SAME_PARAMETERS') {
-                      qualityBadgeClass = 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800';
-                    } else if (group.bestQuality === 'PARAM_NAME_DIFF_VAL') {
-                      qualityBadgeClass = 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800';
-                    } else if (group.bestQuality === 'PARAM_NAME_ONLY') {
-                      qualityBadgeClass = 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800';
-                    }
-
-                    return (
-                      <div className="mb-6 p-4 rounded-xl bg-gray-50/80 dark:bg-slate-800/60 border border-gray-200/80 dark:border-slate-700/80 flex flex-col gap-2.5">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${qualityBadgeClass}`}>
-                              {group.bestQualityLabel}
-                            </span>
-                            {isPartial && (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-                                Correspondência parcial
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[11px] font-ui text-gray-500 dark:text-slate-400">
-                            {group.totalOccurrences} {group.totalOccurrences === 1 ? 'ocorrência' : 'ocorrências'} em {group.uniqueScreensCount} {group.uniqueScreensCount === 1 ? 'tela' : 'telas'}
-                          </span>
-                        </div>
-
-                        {firstOcc && (
-                          <div className="flex flex-col gap-1.5 pt-1">
-                            <div className="flex items-center justify-between text-[11px] text-gray-600 dark:text-slate-300">
-                              <span className="font-medium truncate max-w-[280px]">
-                                {firstOcc.screenTitle ? `Tela: ${firstOcc.screenTitle}` : `Tela #${firstOcc.screenIndex + 1}`}
-                                {firstOcc.event ? ` (Evento: ${firstOcc.event})` : ''}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setDetailTarget({
-                                    screenId: firstOcc.screenId,
-                                    snippetIndex: firstOcc.snippetIndex,
-                                  });
-                                  setDetailModalItem(item);
-                                }}
-                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#7B0209] dark:text-red-400 hover:underline cursor-pointer"
-                              >
-                                <span>Ver no snippet do mapa</span>
-                                <ChevronRight className="w-3 h-3" />
-                              </button>
-                            </div>
-
-                            <pre className="p-3 rounded-lg bg-gray-900 text-gray-100 font-mono text-[11px] leading-relaxed overflow-x-auto max-h-36 custom-scrollbar border border-gray-800">
-                              <code>{firstOcc.rawCodePreview || firstOcc.rawCodeFull}</code>
-                            </pre>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  <div className="flex flex-wrap justify-between items-center gap-3 pt-3 border-t border-gray-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2">
-                      <button 
-                        className="px-2 py-1.5 font-ui text-sm text-gray-600 dark:text-slate-300 flex items-center gap-1 cursor-pointer hover:text-bradesco-red transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-bradesco-red rounded" 
-                        onClick={() => {
-                          setDetailTarget(null);
-                          setDetailModalItem(item);
-                        }}
-                      >
-                        Ver detalhes
-                        <ChevronRight className="w-4 h-4 ml-1" />
-                      </button>
-                      <button 
-                        type="button"
-                        className="px-2.5 py-1.5 font-ui text-sm text-gray-600 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer hover:text-[#7B0209] dark:hover:text-red-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7B0209] rounded"
-                        onClick={() => handleViewInTree(item.id)}
-                        title="Ver e destacar na árvore de conexões"
-                      >
-                        <Network className="w-4 h-4 text-gray-400 group-hover:text-[#7B0209]" />
-                        Ver na árvore
-                      </button>
-                    </div>
-                  </div>
-                </motion.article>
-                );
-              })}
-              </AnimatePresence>
+            {/* 5. Lista de Cards (Coluna única, gap 12px) */}
+            <div className="flex flex-col gap-3">
+              {paginatedCards.map((item) => (
+                <ArtifactResultCard
+                  key={item.id}
+                  item={item}
+                  activeSearch={activeSearch}
+                  onOpenDetails={(artifact) => {
+                    setDetailTarget(null);
+                    setDetailModalItem(artifact);
+                  }}
+                  onOpenSnippet={(artifact, target) => {
+                    setDetailTarget(target);
+                    setDetailModalItem(artifact);
+                  }}
+                  onViewInTree={(id) => handleViewInTree(id)}
+                />
+              ))}
             </div>
 
             {/* 6. Paginação (Apenas no final natural do scroll, após o último card) */}
@@ -2714,15 +2551,15 @@ export default function App() {
             >
               {/* Header Padronizado com PageHeader */}
               <PageHeader
-                title="Inventário de Artefatos e Especificações"
-                subtitle="Visualização técnica de todos os mapas, especificações de tags e fluxos catalogados."
+                title="Inventário"
+                subtitle="A base completa em formato de tabela, com classificação, produto, responsável e data de atualização."
                 actions={
                   <button 
                     onClick={() => setShowExportModal(true)}
-                    className="btn-neu flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-ui font-semibold text-bradesco-red hover:text-bradesco-red-hover h-10 cursor-pointer"
+                    className="btn-neu flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium text-omni-bordo hover:text-omni-rubi hover:bg-red-50/50 h-8 cursor-pointer"
                   >
-                    <Download className="w-4 h-4 text-bradesco-red" />
-                    Extrair Dados
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Extrair dados</span>
                   </button>
                 }
               />
@@ -2753,70 +2590,73 @@ export default function App() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="glass-card overflow-hidden rounded-xl border border-gray-100 dark:border-slate-700 shadow-xl dark:shadow-none bg-white dark:bg-slate-900 dark:border-slate-800"
+                    className="overflow-hidden rounded-xl border border-omni-line shadow-neu-card bg-white"
                   >
-                    <div className="overflow-x-auto overflow-y-auto custom-scrollbar excel-table-wrapper relative">
-                      <table className="w-full text-left border-collapse min-w-[1200px] excel-table">
+                    <div 
+                      className="overflow-x-auto overflow-y-auto custom-scrollbar excel-table-wrapper relative"
+                      style={{ height: 'calc(100vh - 260px)', minHeight: '360px' }}
+                    >
+                      <table className="w-full text-left border-collapse min-w-[1100px] excel-table">
                         <thead className="sticky top-0 z-20">
-                          <tr className="bg-gray-50 dark:bg-slate-800/50 border-b border-gray-100 dark:border-slate-700">
-                            <th style={{ width: columnWidths['titulo'] }} className="text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest group transition-colors relative">
-                              <div className="resizable-header min-w-[360px]">
-                                <span onClick={() => handleSort('titulo')} className="flex items-center gap-2 cursor-pointer hover:text-red-600 transition-colors w-max">
-                                  TÍTULO / ID
-                                  {inventorySort.field === 'titulo' && (inventorySort.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+                          <tr className="bg-[#FAFAFB] border-b border-omni-line">
+                            <th style={{ width: columnWidths['titulo'] }} className="text-xs font-semibold text-omni-muted relative py-3 px-4">
+                              <div className="resizable-header min-w-[320px]">
+                                <span onClick={() => handleSort('titulo')} className="flex items-center gap-1.5 cursor-pointer hover:text-omni-bordo transition-colors w-max">
+                                  Título e ID
+                                  {inventorySort.field === 'titulo' && (inventorySort.direction === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />)}
                                 </span>
                               </div>
                               <div className="column-resize-handle" onMouseDown={(e) => startResize(e, 'titulo')} />
                             </th>
-                            <th style={{ width: columnWidths['artifact_type'] }} className="text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest group transition-colors relative">
-                              <div className="resizable-header min-w-[120px]">
-                                <span onClick={() => handleSort('artifact_type')} className="cursor-pointer hover:text-red-600 transition-colors">ARTEFATO</span>
+                            <th style={{ width: columnWidths['artifact_type'] }} className="text-xs font-semibold text-omni-muted relative py-3 px-4">
+                              <div className="resizable-header min-w-[110px]">
+                                <span onClick={() => handleSort('artifact_type')} className="cursor-pointer hover:text-omni-bordo transition-colors">Tipo</span>
                               </div>
                               <div className="column-resize-handle" onMouseDown={(e) => startResize(e, 'artifact_type')} />
                             </th>
-                            <th style={{ width: columnWidths['measurement_class'] }} className="text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest group transition-colors relative">
-                              <div className="resizable-header min-w-[130px]">
-                                <span onClick={() => handleSort('measurement_class')} className="cursor-pointer hover:text-red-600 transition-colors">CLASSIFICAÇÃO</span>
+                            <th style={{ width: columnWidths['measurement_class'] }} className="text-xs font-semibold text-omni-muted relative py-3 px-4">
+                              <div className="resizable-header min-w-[120px]">
+                                <span onClick={() => handleSort('measurement_class')} className="cursor-pointer hover:text-omni-bordo transition-colors">Mensuração</span>
                               </div>
                               <div className="column-resize-handle" onMouseDown={(e) => startResize(e, 'measurement_class')} />
                             </th>
-                            <th style={{ width: columnWidths['produto'] }} className="text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest group transition-colors relative">
+                            <th style={{ width: columnWidths['produto'] }} className="text-xs font-semibold text-omni-muted relative py-3 px-4">
                               <div className="resizable-header">
-                                <span onClick={() => handleSort('produto')} className="cursor-pointer hover:text-red-600 transition-colors">PRODUTO</span>
+                                <span onClick={() => handleSort('produto')} className="cursor-pointer hover:text-omni-bordo transition-colors">Produto</span>
                               </div>
                               <div className="column-resize-handle" onMouseDown={(e) => startResize(e, 'produto')} />
                             </th>
-                            <th style={{ width: columnWidths['subproduto'] }} className="text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest group transition-colors relative">
+                            <th style={{ width: columnWidths['subproduto'] }} className="text-xs font-semibold text-omni-muted relative py-3 px-4">
                               <div className="resizable-header">
-                                <span onClick={() => handleSort('subproduto')} className="cursor-pointer hover:text-red-600 transition-colors">SUBPRODUTO</span>
+                                <span onClick={() => handleSort('subproduto')} className="cursor-pointer hover:text-omni-bordo transition-colors">Subproduto</span>
                               </div>
                               <div className="column-resize-handle" onMouseDown={(e) => startResize(e, 'subproduto')} />
                             </th>
-                            <th style={{ width: columnWidths['responsavel'] }} className="text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest group transition-colors relative">
+                            <th style={{ width: columnWidths['responsavel'] }} className="text-xs font-semibold text-omni-muted relative py-3 px-4">
                               <div className="resizable-header">
-                                <span onClick={() => handleSort('responsavel')} className="cursor-pointer hover:text-red-600 transition-colors">RESPONSÁVEL</span>
+                                <span onClick={() => handleSort('responsavel')} className="cursor-pointer hover:text-omni-bordo transition-colors">Responsável</span>
                               </div>
                               <div className="column-resize-handle" onMouseDown={(e) => startResize(e, 'responsavel')} />
                             </th>
-                            <th style={{ width: columnWidths['ultima_atualizacao'] }} className="text-[10px] font-black text-gray-400 dark:text-slate-500 tracking-widest group transition-colors relative">
+                            <th style={{ width: columnWidths['ultima_atualizacao'] }} className="text-xs font-semibold text-omni-muted relative py-3 px-4">
                               <div className="resizable-header">
-                                <span onClick={() => handleSort('ultima_atualizacao')} className="cursor-pointer hover:text-red-600 transition-colors">ATUALIZADO</span>
+                                <span onClick={() => handleSort('ultima_atualizacao')} className="cursor-pointer hover:text-omni-bordo transition-colors">Atualizado em</span>
                               </div>
                               <div className="column-resize-handle" onMouseDown={(e) => startResize(e, 'ultima_atualizacao')} />
                             </th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-50 dark:divide-slate-800/50">
+                        <tbody className="divide-y divide-omni-line-subtle bg-white">
                           {filteredInventory.length === 0 ? (
                             <tr>
                               <td colSpan={7} className="p-32 text-center">
                                 <div className="flex flex-col items-center gap-6">
-                                  <div className="w-20 h-20 bg-gray-50 dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-200">
+                                  <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
                                     <Search className="w-10 h-10" />
                                   </div>
                                   <div>
-                                    <h4 className="text-xl font-bold text-gray-900 dark:text-slate-50 mb-2">Nenhum artefato encontrado</h4>
-                                    <p className="text-gray-400 dark:text-slate-500 text-sm mb-8">Refine seus filtros ou realize uma nova busca global.</p>
+                                    <h4 className="text-xl font-bold text-omni-ink mb-2">Nenhum artefato encontrado</h4>
+                                    <p className="text-omni-muted text-sm mb-8">Refine seus filtros ou realize uma nova busca global.</p>
                                   </div>
                                 </div>
                               </td>
@@ -2828,19 +2668,19 @@ export default function App() {
                               const artifactLabel = getArtifactTypeLabel(item.artifact_type);
 
                               let classLabel = '—';
-                              let classStyle = 'text-gray-400 dark:text-slate-500';
+                              let classStyle = 'text-omni-muted';
 
                               if (isMapItem) {
                                 const mc = resolveMeasurementClass(item);
                                 classLabel = getMeasurementLabel(mc);
                                 if (mc === 'GA4') {
-                                  classStyle = 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300';
+                                  classStyle = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
                                 } else if (mc === 'GA3') {
-                                  classStyle = 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300';
+                                  classStyle = 'bg-blue-50 text-blue-700 border border-blue-200';
                                 } else if (mc === 'HIBRIDO') {
-                                  classStyle = 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300';
+                                  classStyle = 'bg-purple-50 text-purple-700 border border-purple-200';
                                 } else {
-                                  classStyle = 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300';
+                                  classStyle = 'bg-gray-100 text-omni-ink-secondary border border-omni-line';
                                 }
                               }
 
@@ -2857,15 +2697,15 @@ export default function App() {
                                   }}
                                   tabIndex={0}
                                   role="button"
-                                  className="group transition-all hover:bg-gray-50/80 dark:hover:bg-slate-800/60 cursor-pointer focus:outline-none focus:bg-red-50/20 dark:focus:bg-slate-800"
+                                  className="group transition-colors hover:bg-[#FBF7F8] cursor-pointer focus:outline-none focus:bg-[#FBF7F8]"
                                 >
-                                  <td className="p-5">
+                                  <td className="py-2.5 px-4">
                                     <div className="flex flex-col items-start w-full overflow-hidden">
-                                      <span className="block text-sm font-bold text-gray-900 dark:text-slate-50 leading-snug truncate group-hover:text-red-600 transition-colors">
+                                      <span className="block text-[13.5px] font-semibold text-omni-ink leading-snug truncate group-hover:text-omni-bordo transition-colors">
                                         {highlightText(item.titulo, tableFilter)}
                                       </span>
-                                      <div className="flex items-center gap-2 mt-1">
-                                        <span className="block text-[10px] font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider truncate">
+                                      <div className="flex items-center gap-2 mt-0.5">
+                                        <span className="block text-[11.5px] font-mono text-omni-muted tabular-nums truncate">
                                           {item.id}
                                         </span>
                                         {item.link && (
@@ -2874,7 +2714,7 @@ export default function App() {
                                             target="_blank" 
                                             rel="noreferrer"
                                             onClick={(e) => e.stopPropagation()}
-                                            className="text-gray-400 hover:text-red-600 transition-colors p-0.5 rounded"
+                                            className="text-omni-muted hover:text-omni-bordo transition-colors p-0.5 rounded"
                                             title="Abrir no Confluence"
                                           >
                                             <ExternalLink className="w-3 h-3" />
@@ -2883,36 +2723,30 @@ export default function App() {
                                       </div>
                                     </div>
                                   </td>
-                                  <td className="p-5">
-                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold tracking-tight ${
-                                      isDoc 
-                                        ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' 
-                                        : isNode(item)
-                                          ? 'bg-gray-100 text-gray-500 dark:bg-slate-800 dark:text-slate-400'
-                                          : 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300'
-                                    }`}>
+                                  <td className="py-2.5 px-4">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11.5px] font-medium bg-gray-100 text-omni-ink-secondary border border-omni-line">
                                       {artifactLabel}
                                     </span>
                                   </td>
-                                  <td className="p-5">
+                                  <td className="py-2.5 px-4">
                                     {classLabel === '—' ? (
-                                      <span className="text-gray-400 dark:text-slate-500 text-xs font-semibold">—</span>
+                                      <span className="text-omni-muted text-xs">—</span>
                                     ) : (
-                                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold tracking-tight ${classStyle}`}>
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium ${classStyle}`}>
                                         {classLabel}
                                       </span>
                                     )}
                                   </td>
-                                  <td className="p-5 text-xs font-bold text-gray-700 dark:text-slate-300 uppercase tracking-tighter">
-                                    <div className="block truncate w-full">{highlightText(item.produto || "-", tableFilter)}</div>
+                                  <td className="py-2.5 px-4 text-[13px] text-omni-ink">
+                                    <div className="block truncate w-full">{highlightText(item.produto || "—", tableFilter)}</div>
                                   </td>
-                                  <td className="p-5 text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-tighter">
-                                    <div className="block truncate w-full">{highlightText(item.subproduto || "-", tableFilter)}</div>
+                                  <td className="py-2.5 px-4 text-[13px] text-omni-ink-secondary">
+                                    <div className="block truncate w-full">{highlightText(item.subproduto || "—", tableFilter)}</div>
                                   </td>
-                                  <td className="p-5 text-xs font-bold text-gray-800 dark:text-slate-200 uppercase tracking-tighter">
-                                    <div className="block truncate w-full">{highlightText(item.responsavel || "-", tableFilter)}</div>
+                                  <td className="py-2.5 px-4 text-[13px] text-omni-ink">
+                                    <div className="block truncate w-full">{highlightText(item.responsavel || "—", tableFilter)}</div>
                                   </td>
-                                  <td className="p-5 text-[10px] font-black text-gray-400 dark:text-slate-500">
+                                  <td className="py-2.5 px-4 text-xs text-omni-muted tabular-nums">
                                     {formatDataBR(item.ultima_atualizacao)}
                                   </td>
                                 </tr>

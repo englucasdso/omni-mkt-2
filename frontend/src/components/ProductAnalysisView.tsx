@@ -372,8 +372,8 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
-        title="Análise por Produto e Subproduto"
-        subtitle="Visão consolidada da esteira analítica dividida por canais, jornadas e serviços."
+        title="Por produto"
+        subtitle="Maturidade da mensuração de cada produto e subproduto: telas, homologação e padrão GA4."
       />
 
       {/* Quando não houver produtos encontrados */}
@@ -446,11 +446,11 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
         {/* Product Details Panel */}
         <div className="lg:col-span-7">
           {activeProduct ? (
-            <div className="flat-card rounded-2xl border border-gray-200 dark:border-slate-800 p-6 md:p-8 space-y-6 sticky top-6 shadow-neu-card">
-              <div className="flex items-start justify-between gap-4 pb-6 border-b border-gray-100 dark:border-slate-800">
+            <div className="panel p-6 md:p-8 space-y-6 sticky top-6">
+              <div className="flex items-start justify-between gap-4 pb-6 border-b border-omni-line">
                 <div>
-                  <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
-                    Detalhamento do Produto
+                  <span className="text-xs font-ui font-medium text-omni-muted">
+                    Detalhamento do produto
                   </span>
                   <h3 className="text-2xl brand-title font-heading tracking-tight mt-1">
                     {activeProduct.produto}
@@ -461,7 +461,7 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
                   onClick={() => onSelectProduct(activeProduct.produto)}
                   className="btn-neu px-4 py-2 rounded-xl text-xs font-ui font-semibold text-bradesco-red hover:text-bradesco-red-hover flex items-center gap-1.5 cursor-pointer"
                 >
-                  Ver no Inventário <ArrowUpRight className="w-3.5 h-3.5" />
+                  Ver no inventário <ArrowUpRight className="w-3.5 h-3.5" />
                 </button>
               </div>
 
@@ -469,9 +469,9 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
               {activeProduct.pathsList.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <Filter className="w-3.5 h-3.5 text-gray-400" />
-                    <span className="text-xs font-ui font-semibold text-gray-600 dark:text-slate-400">
-                      Filtrar por Subproduto / Caminho:
+                    <Filter className="w-3.5 h-3.5 text-omni-muted" />
+                    <span className="text-xs font-ui font-semibold text-omni-ink-secondary">
+                      Filtrar por subproduto ou caminho:
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-1.5 max-h-56 overflow-y-auto custom-scrollbar p-0.5">
@@ -480,8 +480,8 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
                       onClick={() => setEffectiveSubproduto('TODOS')}
                       className={`px-3 py-1.5 rounded-xl text-xs font-ui font-medium transition-all cursor-pointer ${
                         effectiveSubproduto === 'TODOS'
-                          ? 'bg-white dark:bg-slate-800 text-bradesco-red border border-bradesco-red/40 shadow-neu-raised'
-                          : 'btn-neu text-gray-600 dark:text-slate-300 hover:text-gray-900'
+                          ? 'bg-red-50 text-omni-bordo border border-omni-bordo/40 font-semibold'
+                          : 'btn-neu text-omni-ink-secondary hover:text-omni-ink'
                       }`}
                     >
                       Todos ({activeProduct.mapas.length})
@@ -495,8 +495,8 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
                           onClick={() => setEffectiveSubproduto(pathItem.key)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-ui font-medium transition-all cursor-pointer ${
                             isPathSelected
-                              ? 'bg-white dark:bg-slate-800 text-bradesco-red border border-bradesco-red/40 shadow-neu-raised'
-                              : 'btn-neu text-gray-600 dark:text-slate-300 hover:text-gray-900'
+                              ? 'bg-red-50 text-omni-bordo border border-omni-bordo/40 font-semibold'
+                              : 'btn-neu text-omni-ink-secondary hover:text-omni-ink'
                           }`}
                         >
                           {pathItem.displayText} ({pathItem.count})
@@ -510,46 +510,46 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
               {/* Distribuição de status das telas (5 status oficiais) */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-xs font-ui font-semibold uppercase text-gray-500 dark:text-slate-400 tracking-wider">
+                  <h4 className="text-xs font-ui font-semibold text-omni-ink-secondary">
                     Distribuição de status das telas
                   </h4>
-                  <span className="text-xs font-medium text-gray-500 dark:text-slate-400">
+                  <span className="text-xs font-medium text-omni-muted">
                     Total: {selectedMetrics.totalTelas} telas
                   </span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                   {/* VALIDADO: verde */}
-                  <div className="p-3 rounded-xl border text-center text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800">
+                  <div className="p-3 rounded-xl border text-center text-emerald-700 bg-emerald-50/70 border-emerald-200">
                     <span className="text-lg font-heading font-bold block tabular-nums">{selectedMetrics.statusCounts.VALIDADO}</span>
-                    <span className="text-[10px] font-medium uppercase tracking-wider">Validado</span>
+                    <span className="text-[11px] font-medium">Validado</span>
                   </div>
                   {/* CORREÇÃO: vermelho */}
-                  <div className="p-3 rounded-xl border text-center text-rose-700 dark:text-rose-400 bg-rose-50/70 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800">
+                  <div className="p-3 rounded-xl border text-center text-rose-700 bg-rose-50/70 border-rose-200">
                     <span className="text-lg font-heading font-bold block tabular-nums">{selectedMetrics.statusCounts['CORREÇÃO']}</span>
-                    <span className="text-[10px] font-medium uppercase tracking-wider">Correção</span>
+                    <span className="text-[11px] font-medium">Correção</span>
                   </div>
                   {/* NOVO: amarelo */}
-                  <div className="p-3 rounded-xl border text-center text-amber-800 dark:text-amber-300 bg-amber-50/70 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800">
+                  <div className="p-3 rounded-xl border text-center text-amber-800 bg-amber-50/70 border-amber-200">
                     <span className="text-lg font-heading font-bold block tabular-nums">{selectedMetrics.statusCounts.NOVO}</span>
-                    <span className="text-[10px] font-medium uppercase tracking-wider">Novo</span>
+                    <span className="text-[11px] font-medium">Novo</span>
                   </div>
                   {/* EXCLUIR: cinza */}
-                  <div className="p-3 rounded-xl border text-center text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/80 border-slate-300 dark:border-slate-700">
+                  <div className="p-3 rounded-xl border text-center text-slate-700 bg-slate-100 border-slate-300">
                     <span className="text-lg font-heading font-bold block tabular-nums">{selectedMetrics.statusCounts.EXCLUIR}</span>
-                    <span className="text-[10px] font-medium uppercase tracking-wider">Excluir</span>
+                    <span className="text-[11px] font-medium">Excluir</span>
                   </div>
                   {/* DESCONTINUAR: azul */}
-                  <div className="p-3 rounded-xl border text-center text-blue-700 dark:text-blue-400 bg-blue-50/70 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800">
+                  <div className="p-3 rounded-xl border text-center text-blue-700 bg-blue-50/70 border-blue-200">
                     <span className="text-lg font-heading font-bold block tabular-nums">{selectedMetrics.statusCounts.DESCONTINUAR}</span>
-                    <span className="text-[10px] font-medium uppercase tracking-wider">Descontinuar</span>
+                    <span className="text-[11px] font-medium">Descontinuar</span>
                   </div>
                 </div>
 
                 {/* Diagnóstico técnico exclusivo em caso de falha de extração na fonte */}
                 {selectedMetrics.extractionErrorsCount > 0 && (
-                  <div className="mt-2 p-2.5 rounded-xl border border-amber-300 bg-amber-50/80 dark:bg-amber-950/30 text-amber-900 dark:text-amber-300 text-xs flex items-center justify-between">
+                  <div className="mt-2 p-2.5 rounded-xl border border-amber-300 bg-amber-50/80 text-amber-900 text-xs flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                       <span>{selectedMetrics.extractionErrorsCount} tela(s) com estrutura de status não reconhecida no Confluence.</span>
                     </div>
                     <span className="text-[11px] font-medium opacity-80">Falha de extração</span>
@@ -558,28 +558,28 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
               </div>
 
               {/* Métrica de Homologação dos Mapas */}
-              <div className="p-4 bg-gray-50/80 dark:bg-slate-800/50 rounded-2xl border border-gray-200 dark:border-slate-800 space-y-2">
+              <div className="p-4 bg-gray-50/80 rounded-2xl border border-omni-line space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-ui font-semibold uppercase text-gray-500 dark:text-slate-400 tracking-wider">
-                    Mapas Homologados
+                  <span className="text-xs font-ui font-semibold text-omni-ink-secondary">
+                    Mapas integralmente homologados
                   </span>
-                  <span className="text-base font-heading font-bold text-emerald-600 dark:text-emerald-400">
+                  <span className="text-base font-heading font-bold text-emerald-600">
                     {selectedMetrics.taxaHomologacao}%
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
                   <div 
                     className="bg-emerald-500 h-full transition-all duration-300 rounded-full" 
                     style={{ width: `${selectedMetrics.taxaHomologacao}%` }} 
                   />
                 </div>
-                <div className="flex flex-wrap items-center justify-between text-[11px] text-gray-500 dark:text-slate-400 pt-1 gap-2">
+                <div className="flex flex-wrap items-center justify-between text-[11px] text-omni-muted pt-1 gap-2">
                   <span>
-                    <strong className="text-gray-900 dark:text-slate-100 font-semibold">{selectedMetrics.mapasHomologados}</strong> de{' '}
-                    <strong className="text-gray-900 dark:text-slate-100 font-semibold">{selectedMetrics.mapasComTelas}</strong> mapas com telas detectadas (100% validados)
+                    <strong className="text-omni-ink font-semibold">{selectedMetrics.mapasHomologados}</strong> de{' '}
+                    <strong className="text-omni-ink font-semibold">{selectedMetrics.mapasComTelas}</strong> mapas com telas detectadas (100% validados)
                   </span>
                   {selectedMetrics.mapasSemTelas > 0 && (
-                    <span className="text-gray-400 dark:text-slate-500">
+                    <span className="text-omni-muted">
                       {selectedMetrics.mapasSemTelas} sem telas (não computados)
                     </span>
                   )}
@@ -588,45 +588,45 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
 
               {/* Measurement breakdown */}
               <div>
-                <h4 className="text-xs font-ui font-semibold uppercase text-gray-500 dark:text-slate-400 tracking-wider mb-3">
-                  Classificação de Mensuração
+                <h4 className="text-xs font-ui font-semibold text-omni-ink-secondary mb-3">
+                  Classificação de mensuração
                 </h4>
                 <div className="grid grid-cols-4 gap-2">
-                  <div className="p-3 bg-gray-50/80 dark:bg-slate-800/60 rounded-xl border border-gray-200 dark:border-slate-800 text-center">
-                    <span className="text-[11px] font-medium text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.GA4.label}</span>
-                    <span className="text-base font-heading font-bold text-gray-800 dark:text-slate-100">{selectedMetrics.measurementCounts.GA4 || 0}</span>
+                  <div className="p-3 bg-gray-50/80 rounded-xl border border-omni-line text-center">
+                    <span className="text-[11px] font-medium text-omni-muted block">{MEASUREMENT_CONFIGS.GA4.label}</span>
+                    <span className="text-base font-heading font-bold text-omni-ink">{selectedMetrics.measurementCounts.GA4 || 0}</span>
                   </div>
-                  <div className="p-3 bg-gray-50/80 dark:bg-slate-800/60 rounded-xl border border-gray-200 dark:border-slate-800 text-center">
-                    <span className="text-[11px] font-medium text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.GA3.label}</span>
-                    <span className="text-base font-heading font-bold text-gray-800 dark:text-slate-100">{selectedMetrics.measurementCounts.GA3 || 0}</span>
+                  <div className="p-3 bg-gray-50/80 rounded-xl border border-omni-line text-center">
+                    <span className="text-[11px] font-medium text-omni-muted block">{MEASUREMENT_CONFIGS.GA3.label}</span>
+                    <span className="text-base font-heading font-bold text-omni-ink">{selectedMetrics.measurementCounts.GA3 || 0}</span>
                   </div>
-                  <div className="p-3 bg-gray-50/80 dark:bg-slate-800/60 rounded-xl border border-gray-200 dark:border-slate-800 text-center">
-                    <span className="text-[11px] font-medium text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.HIBRIDO.label}</span>
-                    <span className="text-base font-heading font-bold text-gray-800 dark:text-slate-100">{selectedMetrics.measurementCounts.HIBRIDO || 0}</span>
+                  <div className="p-3 bg-gray-50/80 rounded-xl border border-omni-line text-center">
+                    <span className="text-[11px] font-medium text-omni-muted block">{MEASUREMENT_CONFIGS.HIBRIDO.label}</span>
+                    <span className="text-base font-heading font-bold text-omni-ink">{selectedMetrics.measurementCounts.HIBRIDO || 0}</span>
                   </div>
-                  <div className="p-3 bg-gray-50/80 dark:bg-slate-800/60 rounded-xl border border-gray-200 dark:border-slate-800 text-center">
-                    <span className="text-[11px] font-medium text-gray-500 dark:text-slate-400 block">{MEASUREMENT_CONFIGS.NAO_CLASSIFICADO.label}</span>
-                    <span className="text-base font-heading font-bold text-gray-800 dark:text-slate-100">{selectedMetrics.measurementCounts.NAO_CLASSIFICADO || 0}</span>
+                  <div className="p-3 bg-gray-50/80 rounded-xl border border-omni-line text-center">
+                    <span className="text-[11px] font-medium text-omni-muted block">{MEASUREMENT_CONFIGS.NAO_CLASSIFICADO.label}</span>
+                    <span className="text-base font-heading font-bold text-omni-ink">{selectedMetrics.measurementCounts.NAO_CLASSIFICADO || 0}</span>
                   </div>
                 </div>
               </div>
 
               {/* Most used parameters in this product */}
               <div>
-                <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider mb-3">
-                  Parâmetros Mais Recorrentes neste Produto
+                <h4 className="text-xs font-ui font-semibold text-omni-ink-secondary mb-3">
+                  Parâmetros mais recorrentes neste produto
                 </h4>
                 {activeProduct.topParameters.length === 0 ? (
-                  <p className="text-xs text-gray-400 italic">Nenhum parâmetro detectado nos mapas deste produto.</p>
+                  <p className="text-xs text-omni-muted italic">Nenhum parâmetro detectado nos mapas deste produto.</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {activeProduct.topParameters.map(param => (
                       <span 
                         key={param.name}
-                        className="px-3 py-1.5 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-xs font-mono text-gray-800 dark:text-slate-200 flex items-center gap-2"
+                        className="px-3 py-1.5 bg-gray-50 border border-omni-line rounded-xl text-xs font-mono text-omni-ink flex items-center gap-2"
                       >
                         <strong>{param.name}</strong>
-                        <span className="text-[10px] text-gray-400">({param.count}x)</span>
+                        <span className="text-[10px] text-omni-muted">({param.count}x)</span>
                       </span>
                     ))}
                   </div>
@@ -635,8 +635,8 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
 
               {/* Map items list */}
               <div>
-                <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider mb-3">
-                  Mapas Vinculados ({selectedMaps.length})
+                <h4 className="text-xs font-ui font-semibold text-omni-ink-secondary mb-3">
+                  Mapas vinculados ({selectedMaps.length})
                 </h4>
                 <div className="space-y-2.5 max-h-[520px] max-h-[55vh] overflow-y-auto custom-scrollbar pr-1">
                   {selectedMaps.map(mapItem => {

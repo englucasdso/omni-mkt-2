@@ -50,24 +50,33 @@ export const SidebarFilterPopover: React.FC<SidebarFilterPopoverProps> = ({
     const padding = 16;
     const windowWidth = window.innerWidth;
     const windowHeight = window.innerHeight;
-
-    // Coloca à direita do botão/sidebar com um respiro de 12px
-    let left = anchorRect.right + 12;
-    if (left + popoverWidth > windowWidth - padding) {
-      left = windowWidth - popoverWidth - padding;
-    }
-
-    // Alinhamento vertical ancorado
     const popoverEl = popoverRef.current;
-    const popoverHeight = popoverEl ? popoverEl.offsetHeight : 480;
+    const popoverHeight = popoverEl ? popoverEl.offsetHeight : 440;
 
-    // Tenta alinhar a base do popover com o botão ou centralizar
-    let top = anchorRect.bottom - popoverHeight;
-    if (top < padding) {
-      top = padding;
-    }
-    if (top + popoverHeight > windowHeight - padding) {
-      top = windowHeight - popoverHeight - padding;
+    let top: number;
+    let left: number;
+
+    // Se estiver na barra superior (top < 100), abre abaixo do botão
+    if (anchorRect.top < 100) {
+      top = anchorRect.bottom + 8;
+      // Alinha pela direita do botão se couber, senão pela esquerda
+      left = anchorRect.right - popoverWidth;
+      if (left < padding) left = anchorRect.left;
+      if (left + popoverWidth > windowWidth - padding) {
+        left = windowWidth - popoverWidth - padding;
+      }
+      if (left < padding) left = padding;
+    } else {
+      // Posição lateral
+      left = anchorRect.right + 12;
+      if (left + popoverWidth > windowWidth - padding) {
+        left = windowWidth - popoverWidth - padding;
+      }
+      top = anchorRect.bottom - popoverHeight;
+      if (top < padding) top = padding;
+      if (top + popoverHeight > windowHeight - padding) {
+        top = windowHeight - popoverHeight - padding;
+      }
     }
 
     setPopoverCoords({ top, left });
@@ -217,7 +226,7 @@ export function FilterSegmentedRow<T extends string>({
 }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider block">
+      <label className="text-xs font-ui font-semibold text-omni-ink-secondary block">
         {label}
       </label>
       <div className="flex flex-wrap gap-1.5">
@@ -271,7 +280,7 @@ export function FilterSearchableSingle({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <label className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
+        <label className="text-xs font-ui font-semibold text-omni-ink-secondary">
           {label}
         </label>
         {!isDefaultSelected && (
@@ -403,7 +412,7 @@ export function FilterMultiSelectSearchable({
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <label className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
+          <label className="text-xs font-ui font-semibold text-omni-ink-secondary">
             {label}
           </label>
           {activeSelected.length > 0 && (

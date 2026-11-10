@@ -176,28 +176,26 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
     ];
 
     return (
-      <div className="flex flex-col gap-2 w-full min-w-0" id="sidebar-contextual-cards">
+      <div className="flex items-center gap-2 min-w-0" id="sidebar-contextual-cards">
         {/* Botão de Refinar Resultados (Abre o Popover Flutuante) */}
         <button
           ref={filterButtonRef}
           type="button"
           onClick={() => setIsPopoverOpen(!isPopoverOpen)}
           aria-expanded={isPopoverOpen}
-          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-ui font-semibold transition-all border cursor-pointer ${
+          className={`h-8 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
             isPopoverOpen || activeFiltersCount > 0
-              ? 'bg-red-50/70 dark:bg-red-950/30 border-[#7B0209]/30 text-[#7B0209]'
-              : 'bg-gray-50/80 dark:bg-slate-800/80 border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+              ? 'bg-red-50 text-omni-bordo border-omni-bordo/30 font-semibold'
+              : 'bg-white border-omni-line text-omni-ink-secondary hover:text-omni-ink hover:border-gray-300 shadow-neu-card'
           }`}
         >
-          <div className="flex items-center gap-1.5 truncate">
-            <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Refinar resultados</span>
-            {activeFiltersCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#7B0209] text-white">
-                {activeFiltersCount}
-              </span>
-            )}
-          </div>
+          <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
+          <span>Filtros</span>
+          {activeFiltersCount > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-omni-bordo text-white">
+              {activeFiltersCount}
+            </span>
+          )}
         </button>
 
         {/* Popover Flutuante rendered via Portal */}
@@ -264,22 +262,22 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
     const totalActiveCount = activeMultiCount + togglesCount;
 
     return (
-      <div className="flex flex-col gap-2 w-full min-w-0" id="sidebar-contextual-inventory">
+      <div className="flex items-center gap-2 min-w-0" id="sidebar-contextual-inventory">
         {/* Campo de Busca Reativo */}
-        <div className="relative w-full">
-          <Search className="w-3.5 h-3.5 text-gray-400 dark:text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0" />
+        <div className="relative w-44 sm:w-56">
+          <Search className="w-3.5 h-3.5 text-omni-muted absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0" />
           <input
             type="text"
-            placeholder="Buscar inventário..."
+            placeholder="Filtrar inventário..."
             value={tableFilter}
             onChange={(e) => onTableFilterChange(e.target.value)}
-            className="w-full pl-8 pr-7 py-1.5 bg-gray-50/90 dark:bg-slate-800/90 border border-gray-200 dark:border-slate-700 rounded-lg text-xs font-ui text-gray-800 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-gray-300 dark:focus:ring-slate-600 focus:border-gray-400 dark:focus:border-slate-500 transition-all truncate"
+            className="w-full pl-8 pr-7 h-8 bg-white border border-omni-line rounded-lg text-xs font-ui text-omni-ink placeholder:text-omni-muted focus:outline-none focus:ring-2 focus:ring-omni-rubi/20 focus:border-omni-rubi transition-all truncate"
           />
           {tableFilter && (
             <button
               type="button"
               onClick={() => onTableFilterChange('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 p-0.5"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-omni-muted hover:text-omni-ink p-0.5"
               title="Limpar busca"
               aria-label="Limpar busca"
             >
@@ -294,21 +292,19 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
           type="button"
           onClick={() => setIsPopoverOpen(!isPopoverOpen)}
           aria-expanded={isPopoverOpen}
-          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-ui font-semibold transition-all border cursor-pointer ${
+          className={`h-8 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
             isPopoverOpen || totalActiveCount > 0
-              ? 'bg-red-50/70 dark:bg-red-950/30 border-[#7B0209]/30 text-[#7B0209]'
-              : 'bg-gray-50/80 dark:bg-slate-800/80 border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+              ? 'bg-red-50 text-omni-bordo border-omni-bordo/30 font-semibold'
+              : 'bg-white border-omni-line text-omni-ink-secondary hover:text-omni-ink hover:border-gray-300 shadow-neu-card'
           }`}
         >
-          <div className="flex items-center gap-1.5 truncate">
-            <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Filtros</span>
-            {totalActiveCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#7B0209] text-white">
-                {totalActiveCount}
-              </span>
-            )}
-          </div>
+          <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
+          <span>Filtros</span>
+          {totalActiveCount > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-omni-bordo text-white">
+              {totalActiveCount}
+            </span>
+          )}
         </button>
 
         {/* Popover Flutuante */}
@@ -322,8 +318,8 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
         >
           {/* Toggles Rápidos */}
           <div className="space-y-1.5">
-            <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider block">
-              Exceções e Status
+            <span className="text-xs font-ui font-semibold text-omni-ink-secondary block">
+              Exceções e status
             </span>
             <div className="flex flex-wrap gap-1.5">
               <button
@@ -426,22 +422,22 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
     const isFiltered = productSubprodutoFilter !== 'TODOS' && productSubprodutoFilter !== 'all';
 
     return (
-      <div className="flex flex-col gap-2 w-full min-w-0" id="sidebar-contextual-product">
+      <div className="flex items-center gap-2 min-w-0" id="sidebar-contextual-product">
         {/* Campo de Busca Reativo */}
-        <div className="relative w-full">
-          <Search className="w-3.5 h-3.5 text-gray-400 dark:text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0" />
+        <div className="relative w-44 sm:w-56">
+          <Search className="w-3.5 h-3.5 text-omni-muted absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0" />
           <input
             type="text"
             placeholder="Filtrar produtos..."
             value={productSearch}
             onChange={(e) => onProductSearchChange(e.target.value)}
-            className="w-full pl-8 pr-7 py-1.5 bg-gray-50/90 dark:bg-slate-800/90 border border-gray-200 dark:border-slate-700 rounded-lg text-xs font-ui text-gray-800 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-gray-300 dark:focus:ring-slate-600 focus:border-gray-400 dark:focus:border-slate-500 transition-all truncate"
+            className="w-full pl-8 pr-7 h-8 bg-white border border-omni-line rounded-lg text-xs font-ui text-omni-ink placeholder:text-omni-muted focus:outline-none focus:ring-2 focus:ring-omni-rubi/20 focus:border-omni-rubi transition-all truncate"
           />
           {productSearch && (
             <button
               type="button"
               onClick={() => onProductSearchChange('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 p-0.5"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-omni-muted hover:text-omni-ink p-0.5"
               title="Limpar busca"
               aria-label="Limpar busca"
             >
@@ -456,21 +452,19 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
           type="button"
           onClick={() => setIsPopoverOpen(!isPopoverOpen)}
           aria-expanded={isPopoverOpen}
-          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-ui font-semibold transition-all border cursor-pointer ${
+          className={`h-8 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
             isPopoverOpen || isFiltered
-              ? 'bg-red-50/70 dark:bg-red-950/30 border-[#7B0209]/30 text-[#7B0209]'
-              : 'bg-gray-50/80 dark:bg-slate-800/80 border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+              ? 'bg-red-50 text-omni-bordo border-omni-bordo/30 font-semibold'
+              : 'bg-white border-omni-line text-omni-ink-secondary hover:text-omni-ink hover:border-gray-300 shadow-neu-card'
           }`}
         >
-          <div className="flex items-center gap-1.5 truncate">
-            <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Filtros</span>
-            {isFiltered && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#7B0209] text-white">
-                1
-              </span>
-            )}
-          </div>
+          <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
+          <span>Filtros</span>
+          {isFiltered && (
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-omni-bordo text-white">
+              1
+            </span>
+          )}
         </button>
 
         {/* Popover Flutuante */}
@@ -498,22 +492,22 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
   // 4. POR PARÂMETRO (parametros_analise)
   if (currentRouteId === 'parametros_analise') {
     return (
-      <div className="flex flex-col gap-2 w-full min-w-0" id="sidebar-contextual-param">
+      <div className="flex items-center gap-2 min-w-0" id="sidebar-contextual-param">
         {/* Campo de Busca Reativo */}
-        <div className="relative w-full">
-          <Search className="w-3.5 h-3.5 text-gray-400 dark:text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0" />
+        <div className="relative w-44 sm:w-64">
+          <Search className="w-3.5 h-3.5 text-omni-muted absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0" />
           <input
             type="text"
             placeholder="Buscar parâmetro/valor..."
             value={paramSearch}
             onChange={(e) => onParamSearchChange(e.target.value)}
-            className="w-full pl-8 pr-7 py-1.5 bg-gray-50/90 dark:bg-slate-800/90 border border-gray-200 dark:border-slate-700 rounded-lg text-xs font-ui text-gray-800 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-gray-300 dark:focus:ring-slate-600 focus:border-gray-400 dark:focus:border-slate-500 transition-all truncate"
+            className="w-full pl-8 pr-7 h-8 bg-white border border-omni-line rounded-lg text-xs font-ui text-omni-ink placeholder:text-omni-muted focus:outline-none focus:ring-2 focus:ring-omni-rubi/20 focus:border-omni-rubi transition-all truncate"
           />
           {paramSearch && (
             <button
               type="button"
               onClick={() => onParamSearchChange('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 p-0.5"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-omni-muted hover:text-omni-ink p-0.5"
               title="Limpar busca"
               aria-label="Limpar busca"
             >
@@ -526,10 +520,10 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
           <button
             type="button"
             onClick={onResetParamFilters}
-            className="flex items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-ui font-semibold text-gray-500 hover:text-[#7B0209] dark:text-slate-400 transition-colors cursor-pointer"
+            className="h-8 flex items-center gap-1 px-2.5 rounded-lg text-xs font-medium text-omni-bordo hover:bg-red-50 transition-colors cursor-pointer"
           >
-            <RotateCcw className="w-3 h-3 text-[#7B0209]" />
-            Limpar busca
+            <RotateCcw className="w-3 h-3 text-omni-bordo" />
+            <span>Limpar</span>
           </button>
         )}
       </div>
@@ -544,28 +538,26 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
     if (insightsMeasurementFilter !== 'all') activeInsightsCount++;
 
     return (
-      <div className="flex flex-col gap-2 w-full min-w-0" id="sidebar-contextual-insights">
+      <div className="flex items-center gap-2 min-w-0" id="sidebar-contextual-insights">
         {/* Botão de Filtros */}
         <button
           ref={filterButtonRef}
           type="button"
           onClick={() => setIsPopoverOpen(!isPopoverOpen)}
           aria-expanded={isPopoverOpen}
-          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-ui font-semibold transition-all border cursor-pointer ${
+          className={`h-8 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
             isPopoverOpen || activeInsightsCount > 0
-              ? 'bg-red-50/70 dark:bg-red-950/30 border-[#7B0209]/30 text-[#7B0209]'
-              : 'bg-gray-50/80 dark:bg-slate-800/80 border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+              ? 'bg-red-50 text-omni-bordo border-omni-bordo/30 font-semibold'
+              : 'bg-white border-omni-line text-omni-ink-secondary hover:text-omni-ink hover:border-gray-300 shadow-neu-card'
           }`}
         >
-          <div className="flex items-center gap-1.5 truncate">
-            <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Filtros de Indicadores</span>
-            {activeInsightsCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#7B0209] text-white">
-                {activeInsightsCount}
-              </span>
-            )}
-          </div>
+          <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
+          <span>Filtros</span>
+          {activeInsightsCount > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-omni-bordo text-white">
+              {activeInsightsCount}
+            </span>
+          )}
         </button>
 
         {/* Popover Flutuante */}
@@ -573,7 +565,7 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
           isOpen={isPopoverOpen}
           onClose={() => setIsPopoverOpen(false)}
           anchorRef={filterButtonRef}
-          title="Filtros de Indicadores"
+          title="Filtros de indicadores"
           activeCount={activeInsightsCount}
           onResetAll={onResetInsightsFilters}
         >
@@ -583,17 +575,17 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
             options={availableInsightsProducts}
             value={insightsProductFilter}
             onChange={onInsightsProductFilterChange}
-            allOptionLabel="TODOS OS PRODUTOS"
+            allOptionLabel="Todos os produtos"
             placeholder="Buscar produto..."
           />
 
           {/* Nível 2 / Subproduto */}
           <FilterSearchableSingle
-            label="Nível 2 / Subproduto"
+            label="Subproduto"
             options={availableInsightsSubprodutos}
             value={insightsSubprodutoFilter}
             onChange={onInsightsSubprodutoFilterChange}
-            allOptionLabel="TODOS OS SUBPRODUTOS"
+            allOptionLabel="Todos os subprodutos"
             placeholder="Buscar subproduto..."
           />
 
@@ -603,9 +595,9 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
             value={insightsMeasurementFilter}
             onChange={onInsightsMeasurementFilterChange}
             options={[
-              { value: 'all', label: 'Qualquer' },
+              { value: 'all', label: 'Todas as classificações' },
               { value: 'GA4', label: 'GA4' },
-              { value: 'GA3', label: 'GA3 / Universal' },
+              { value: 'GA3', label: 'Universal Analytics (GA3)' },
               { value: 'HIBRIDO', label: 'Híbrido' },
             ]}
           />

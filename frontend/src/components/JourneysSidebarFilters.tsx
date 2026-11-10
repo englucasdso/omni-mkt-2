@@ -97,11 +97,11 @@ export const JourneysSidebarFilters: React.FC<Props> = ({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">Produto</label>
+    <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-1.5">
+        <label className="text-xs font-medium text-omni-ink-secondary shrink-0">Produto</label>
         <select
-          className="w-full h-9 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs px-2 focus:ring-2 focus:ring-omni-brand-accent focus:border-omni-brand-accent transition-all dark:text-slate-200"
+          className="h-8 max-w-[160px] rounded-lg border border-omni-line bg-white text-xs px-2.5 text-omni-ink focus:outline-none focus:ring-2 focus:ring-omni-rubi/20 focus:border-omni-rubi transition-all cursor-pointer truncate shadow-neu-card"
           value={selectedProduct}
           onChange={(e) => {
             onSelectProduct(e.target.value);
@@ -115,10 +115,10 @@ export const JourneysSidebarFilters: React.FC<Props> = ({
           ))}
         </select>
       </div>
-      <div>
-        <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">Subproduto</label>
+      <div className="flex items-center gap-1.5">
+        <label className="text-xs font-medium text-omni-ink-secondary shrink-0">Subproduto</label>
         <select
-          className="w-full h-9 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs px-2 focus:ring-2 focus:ring-omni-brand-accent focus:border-omni-brand-accent transition-all dark:text-slate-200"
+          className="h-8 max-w-[160px] rounded-lg border border-omni-line bg-white text-xs px-2.5 text-omni-ink focus:outline-none focus:ring-2 focus:ring-omni-rubi/20 focus:border-omni-rubi transition-all cursor-pointer truncate shadow-neu-card disabled:opacity-50 disabled:cursor-not-allowed"
           value={selectedSubproduct}
           onChange={(e) => {
             onSelectSubproduct(e.target.value);
@@ -132,10 +132,10 @@ export const JourneysSidebarFilters: React.FC<Props> = ({
           ))}
         </select>
       </div>
-      <div>
-        <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">Mapa</label>
+      <div className="flex items-center gap-1.5">
+        <label className="text-xs font-medium text-omni-ink-secondary shrink-0">Mapa</label>
         <select
-          className="w-full h-9 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs px-2 focus:ring-2 focus:ring-omni-brand-accent focus:border-omni-brand-accent transition-all dark:text-slate-200"
+          className="h-8 max-w-[200px] rounded-lg border border-omni-line bg-white text-xs px-2.5 text-omni-ink focus:outline-none focus:ring-2 focus:ring-omni-rubi/20 focus:border-omni-rubi transition-all cursor-pointer truncate shadow-neu-card disabled:opacity-50 disabled:cursor-not-allowed"
           value={selectedMapId}
           onChange={(e) => onSelectMapId(e.target.value)}
           disabled={!selectedSubproduct}

@@ -14,17 +14,17 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   actions,
 }) => {
   return (
-    <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-6 pb-6 mb-6 border-b border-gray-200/80 dark:border-slate-800/80 w-full transition-all">
+    <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 pt-6 pb-6 w-full">
       <div className="flex items-start sm:items-center gap-3 min-w-0">
         <div className="min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-heading font-bold tracking-tight text-gray-900 dark:text-slate-50 truncate">
+            <h1 className="text-[26px] font-heading font-bold tracking-[-0.02em] text-omni-ink truncate leading-tight">
               {title}
             </h1>
             {badge}
           </div>
           {subtitle && (
-            <p className="text-xs text-gray-500 dark:text-slate-400 mt-1 font-ui leading-relaxed">
+            <p className="text-sm text-omni-ink-secondary mt-1 font-sans leading-relaxed max-w-3xl">
               {subtitle}
             </p>
           )}

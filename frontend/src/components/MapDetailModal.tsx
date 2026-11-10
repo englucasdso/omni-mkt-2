@@ -92,6 +92,27 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
     }
   }, [item?.id, initialTab, initialScreenId, initialSnippetIndex]);
 
+  // Fechar com Escape e travar scroll do body enquanto aberto
+  useEffect(() => {
+    if (!item) return;
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [item, onClose]);
+
   if (!item) return null;
 
   const screens = item.screens || [];
@@ -178,12 +199,19 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
   ] as const;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm overflow-y-auto">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={item.titulo || 'Detalhes do artefato'}
+      onClick={onClose}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-[#1A1D24]/55 backdrop-blur-xs overflow-y-auto"
+    >
       <motion.div 
         initial={{ opacity: 0, scale: 0.98, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.98, y: 10 }}
-        className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh] w-full max-w-5xl"
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white border border-omni-line rounded-2xl shadow-overlay flex flex-col overflow-hidden max-h-[90vh] w-full max-w-5xl"
       >
         {/* 1. CABEÇALHO DO ARTEFATO */}
         <div className="p-6 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">

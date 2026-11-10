@@ -51,9 +51,26 @@
    DESIGN TOKENS: Soft Flat Design Corporativo (80% Flat 2.0 + 20% Neumorfismo)
    ========================================================================== */
 :root {
-  /* Tipografia: Rethink Sans (UI, tabelas, textos) & Bradesco Sans (Logo e títulos) */
-  --font-heading: 'Bradesco Sans', 'BradescoSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, Helvetica, sans-serif;
-  --font-ui: 'Rethink Sans', 'RethinkSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, Helvetica, sans-serif;
+  /* Nova Paleta Corporativa OMNI */
+  --omni-vinho: #3D000B;
+  --omni-bordo: #7B0209;
+  --omni-rubi: #CC092F;
+  --omni-carmim: #E30328;
+  --omni-ink: #1A1D24;
+  --omni-ink-secondary: #4A505C;
+  --omni-muted: #6B7280;
+  --omni-mist: #F4F5F7;
+  --omni-line: #E3E5EA;
+  --omni-line-subtle: #ECEEF2;
+  --omni-surface: #FFFFFF;
+
+  --omni-gradient: linear-gradient(160deg, #3D000B 0%, #7B0209 46%, #CC092F 100%);
+  --omni-gradient-action: linear-gradient(135deg, #7B0209 0%, #B3061F 60%, #CC092F 100%);
+
+  /* Tipografia: Rethink Sans (UI, tabelas, textos) & Bradesco Sans (Títulos) */
+  --font-heading: 'Bradesco Sans', 'BradescoSans', 'Rethink Sans Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  --font-ui: 'Rethink Sans Variable', 'Rethink Sans', 'RethinkSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
 
   /* Pesos */
   --fw-regular: 400;
@@ -61,11 +78,9 @@
   --fw-semibold: 600;
   --fw-bold: 700;
 
-  /* Cores Institucionais Omni Marketing */
+  /* Aliases Institucionais */
   --omni-brand-primary: #7B0209;
   --omni-brand-accent: #E30328;
-
-  /* Aliases Institucionais e Cores Funcionais */
   --bradesco-red: #7B0209;
   --bradesco-red-hover: #5e0107;
   --bradesco-purple: #7B0209;
@@ -73,39 +88,40 @@
   --accent-danger: #dc2626;
 
   /* Superfícies e Fundo Corporativo */
-  --bg: #f6f8fa;
-  --color-surface: #ffffff;
-  --color-surface-hover: #f8fafc;
-  --color-surface-muted: #f0f3f6;
+  --bg: #F4F5F7;
+  --color-surface: #FFFFFF;
+  --color-surface-hover: #F8FAFC;
+  --color-surface-muted: #F4F5F7;
 
   /* Bordas e Divisores */
-  --color-border: #e2e8f0;
-  --color-border-subtle: #edf2f7;
+  --color-border: #E3E5EA;
+  --color-border-subtle: #ECEEF2;
 
-  /* Texto com alto contraste e sobriedade (grafite principal, cinza médio auxiliar) */
-  --text: #1e293b;
-  --color-text-primary: #1e293b;
-  --color-text-secondary: #475569;
-  --color-text-muted: #64748b;
-  --muted: #64748b;
+  /* Texto com alto contraste e sobriedade */
+  --text: #1A1D24;
+  --color-text-primary: #1A1D24;
+  --color-text-secondary: #4A505C;
+  --color-text-muted: #6B7280;
+  --muted: #6B7280;
 
-  /* Neumorfismo Discreto: Relevo sutil, sombra externa suave e efeito pressionado */
-  --shadow-card: 4px 6px 16px rgba(160, 174, 192, 0.16), -4px -4px 12px rgba(255, 255, 255, 0.9);
-  --shadow-card-hover: 6px 8px 20px rgba(160, 174, 192, 0.22), -5px -5px 15px rgba(255, 255, 255, 1);
-  --shadow-raised: 2px 3px 7px rgba(160, 174, 192, 0.18), -2px -2px 6px rgba(255, 255, 255, 0.95);
-  --shadow-raised-hover: 3px 4px 10px rgba(160, 174, 192, 0.24), -3px -3px 8px rgba(255, 255, 255, 1);
-  --shadow-pressed: inset 2px 2px 5px rgba(160, 174, 192, 0.25), inset -2px -2px 5px rgba(255, 255, 255, 0.8);
-  --shadow-input: inset 1.5px 1.5px 4px rgba(160, 174, 192, 0.16), inset -1.5px -1.5px 4px rgba(255, 255, 255, 0.85);
+  /* Sombras refinadas Enterprise (precisão Linear/Stripe) */
+  --shadow-card: 0 1px 2px rgba(26,29,36,.04), 0 1px 1px rgba(26,29,36,.02);
+  --shadow-card-hover: 0 4px 14px rgba(26,29,36,.07), 0 1px 2px rgba(26,29,36,.04);
+  --shadow-raised: 0 1px 2px rgba(26,29,36,.05);
+  --shadow-raised-hover: 0 2px 6px rgba(26,29,36,.08);
+  --shadow-pressed: inset 0 1px 2px rgba(26,29,36,.08);
+  --shadow-input: none;
   --shadow-soft: var(--shadow-card);
+  --shadow-overlay: 0 24px 64px rgba(26,29,36,.18);
 
-  /* Raios de Borda Padronizados (10px a 22px) */
-  --radius-sm: 10px;
-  --radius-md: 14px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
+  /* Raios de Borda Padronizados */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
   --radius-pill: 9999px;
 
-  --transition: all 0.2s ease-in-out;
+  --transition: all 0.15s ease-in-out;
 }
 
 .dark {
@@ -380,45 +396,72 @@ body,
   backdrop-filter: none !important;
 }
 
-/* Botões com relevo suave e efeito pressionado no clique */
-.btn-neu {
+/* Botão primário com degradê de ação corporativo */
+.btn-primary {
   font-family: var(--font-ui);
   font-weight: 600;
-  background: #ffffff;
+  background: var(--omni-gradient-action);
+  color: #ffffff;
+  border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), var(--shadow-raised);
+  border: 1px solid rgba(123, 2, 9, 0.2);
+  transition: filter 0.15s ease, background 0.15s ease;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.08);
+}
+
+.btn-primary:active {
+  filter: brightness(0.96);
+}
+
+/* Painel limpo corporativo (Linear/Stripe) */
+.panel {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+/* Botões neutros planos (flat) */
+.btn-neu {
+  font-family: var(--font-ui);
+  font-weight: 500;
+  background: var(--color-surface);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border);
+  border-radius: 8px;
   box-shadow: var(--shadow-raised);
-  transition: all 0.15s ease-in-out;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .btn-neu:hover {
-  box-shadow: var(--shadow-raised-hover);
-  border-color: #cbd5e1;
-  transform: translateY(-1px);
+  border-color: #C9CDD5;
+  transform: none !important;
 }
 
 .btn-neu:active,
 .btn-neu.active {
   box-shadow: var(--shadow-pressed) !important;
-  transform: translateY(1px);
+  transform: none !important;
 }
 
 .dark .btn-neu {
   background: #1e293b;
   border-color: #334155;
   color: #f8fafc;
-  box-shadow: var(--shadow-raised);
 }
 
 .dark .btn-neu:hover {
   background: #27354f;
   border-color: #475569;
+  transform: none !important;
 }
 
 .dark .btn-neu:active,
 .dark .btn-neu.active {
-  box-shadow: var(--shadow-pressed) !important;
-  transform: translateY(1px);
+  transform: none !important;
 }
 
 /* Inputs e filtros com leve profundidade interna */
@@ -504,15 +547,13 @@ select:focus-visible {
 }
 
 .content {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
   width: 100%;
-  padding: 40px 24px;
+  padding: 0 0 24px;
 }
 
-.hidden {
-  display: none !important;
-}
+
 
 /* CUSTOM BUTTONS */
 .gradient-btn {
@@ -586,4 +627,51 @@ select:focus-visible {
 }
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(255,255,255,0.15);
+}
+
+
+/* Foco por teclado */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(204, 9, 47, 0.55) !important;
+}
+
+/* Redução de movimento */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+/* Omni Filterbar na Barra Superior */
+.omni-filterbar {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.omni-filterbar > * {
+  width: auto !important;
+}
+
+.omni-filterbar input[type="text"],
+.omni-filterbar input[type="search"] {
+  min-width: 260px;
+  height: 34px !important;
+}
+
+.omni-filterbar button {
+  height: 34px !important;
+}
+
+.omni-filterbar select {
+  min-width: 180px;
+  height: 34px !important;
 }

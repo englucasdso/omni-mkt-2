@@ -622,15 +622,15 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({
 
   if (!selectedMapId) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-gray-50/50 dark:bg-slate-900/50 p-8 text-center">
-        <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-slate-800 flex items-center justify-center mb-3 text-gray-400">
+      <div className="flex-1 flex flex-col items-center justify-center bg-omni-mist/40 p-8 text-center rounded-2xl border border-omni-line m-4">
+        <div className="w-12 h-12 rounded-2xl bg-white border border-omni-line shadow-neu-card flex items-center justify-center mb-3 text-omni-bordo">
           <BrainCircuit className="w-6 h-6" />
         </div>
-        <p className="text-sm font-semibold text-gray-700 dark:text-slate-300">
-          Selecione um mapa para visualizar sua jornada.
+        <p className="text-base font-semibold text-omni-ink">
+          Escolha um mapa para ver a jornada
         </p>
-        <p className="text-xs text-gray-400 dark:text-slate-500 mt-1 max-w-sm">
-          Escolha um produto e subproduto nos filtros laterais para carregar as telas catalogadas.
+        <p className="text-xs text-omni-ink-secondary mt-1 max-w-md">
+          Use Produto, Subproduto e Mapa na barra acima. As telas aparecem na ordem em que estão documentadas no Confluence.
         </p>
       </div>
     );
