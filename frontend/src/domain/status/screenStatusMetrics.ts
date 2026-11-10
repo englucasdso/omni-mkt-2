@@ -1,7 +1,8 @@
-import { normalizarStatus, OfficialStatus, OFFICIAL_STATUSES, STATUS_CONFIGS, StatusStyleConfig } from '../../utils/statusUtils';
+import { normalizarStatus, getStatusStyle, OfficialStatus, OFFICIAL_STATUSES, STATUS_CONFIGS, StatusStyleConfig } from '../../utils/statusUtils';
+import type { HomologationStatus } from './homologationConfig';
 import { Artifact, ScreenItem } from '../../types';
 
-export { normalizarStatus, OFFICIAL_STATUSES, STATUS_CONFIGS };
+export { normalizarStatus, getStatusStyle, OFFICIAL_STATUSES, STATUS_CONFIGS };
 export type { OfficialStatus, StatusStyleConfig };
 
 export interface ScreenStatusMetrics {
@@ -23,7 +24,7 @@ export interface ScreenStatusMetrics {
   discontinue: number;
   unrecognized: number;
   homologationPercentage: number | null;
-  homologationStatus: 'HOMOLOGADO' | 'PARCIAL' | 'NAO_HOMOLOGADO' | 'NAO_CALCULAVEL';
+  homologationStatus: HomologationStatus;
   isFullyValidated: boolean;
   isFullyHomologated: boolean;
   hasScreens: boolean;
@@ -76,9 +77,8 @@ export function calculateScreenStatusMetrics(
     : null;
 
   const isFullyValidated = hasScreens && validated === totalScreens;
-  const isFullyHomologated = isFullyValidated;
 
-  let homologationStatus: 'HOMOLOGADO' | 'PARCIAL' | 'NAO_HOMOLOGADO' | 'NAO_CALCULAVEL' = 'NAO_CALCULAVEL';
+  let homologationStatus: HomologationStatus = 'NAO_CALCULAVEL';
   if (recognizedScreens > 0) {
     if (homologationPercentage === 100) {
       homologationStatus = 'HOMOLOGADO';
@@ -109,7 +109,8 @@ export function calculateScreenStatusMetrics(
     homologationPercentage,
     homologationStatus,
     isFullyValidated,
-    isFullyHomologated,
+    // "Mapa homologado" segue o mesmo critério do selo (100% das telas reconhecidas validadas).
+    isFullyHomologated: homologationStatus === 'HOMOLOGADO',
     hasScreens
   };
 }
@@ -139,7 +140,7 @@ export function getMapStatusMetrics(artifact?: Artifact | null): ScreenStatusMet
       ? Math.round((val / recognized) * 100) 
       : (artifact?.homologation_percentage ?? null);
 
-    let status: 'HOMOLOGADO' | 'PARCIAL' | 'NAO_HOMOLOGADO' | 'NAO_CALCULAVEL' = 'NAO_CALCULAVEL';
+    let status: HomologationStatus = 'NAO_CALCULAVEL';
     if (recognized > 0) {
       if (pct === 100) status = 'HOMOLOGADO';
       else if (val > 0) status = 'PARCIAL';
@@ -166,7 +167,8 @@ export function getMapStatusMetrics(artifact?: Artifact | null): ScreenStatusMet
       homologationPercentage: pct,
       homologationStatus: status,
       isFullyValidated: total > 0 && val === total,
-      isFullyHomologated: total > 0 && val === total,
+      // "Mapa homologado" segue o mesmo critério do selo (100% das telas reconhecidas validadas).
+      isFullyHomologated: status === 'HOMOLOGADO',
       hasScreens: total > 0
     };
   }

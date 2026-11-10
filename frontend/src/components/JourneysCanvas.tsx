@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useDebouncedSearch } from '../utils/contextualSearch';
 import {
   ReactFlow,
   Background,
@@ -27,17 +28,6 @@ import {
   AlertTriangle,
   RotateCcw
 } from 'lucide-react';
-
-export function useDebouncedSearch(value: string, delay: number) {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-    return () => clearTimeout(handler);
-  }, [value, delay]);
-  return debouncedValue;
-}
 
 // --- CUSTOM NODES ---
 

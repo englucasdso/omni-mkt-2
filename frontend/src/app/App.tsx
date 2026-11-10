@@ -12,16 +12,16 @@
  * os dados JSON que voltam da porta 3000.
  */
 import React, { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue } from "react";
+import { ExportDialog } from "../components/export/ExportDialog";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
 import { X, AlertTriangle, Target, Network, Filter, CheckCircle2, AlertCircle, Clock, User, Info, Shield, LogOut, Trash2, Plus, Settings, Landmark, LayoutList, RefreshCw, Check, Loader2, KeyRound, Activity, ArrowRight, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, Sparkles, FileText, Layers, Tag, Code2, Eye, ArrowUpDown, Calendar, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { ConexoesCanvas } from "../components/ConexoesCanvas";
 import { JourneysCanvas } from "../components/JourneysCanvas";
 import { JourneysSidebarFilters } from "../components/JourneysSidebarFilters";
-import { getOperationalInsights } from "../utils/inventoryHelpers";
 import { fetchInventory, searchContent, fetchUsers, createUser, updateUser, deleteUser } from "../services/api";
-import { Artifact, Insights, SearchResponse, User as UserType, UserRole, UserStatus, ActiveSearch, ParameterArtifactGroupSummary, ContentMatchSummary } from "../types";
-import { normalizar, formatDataBR, getFilteredInsights } from "../utils/helpers";
+import { Artifact, SearchResponse, User as UserType, UserRole, UserStatus, ActiveSearch, ParameterArtifactGroupSummary, ContentMatchSummary } from "../types";
+import { normalizar, formatDataBR } from "../utils/helpers";
 import { 
   buildArtifactSearchableText, 
   normalizeSearchText, 
@@ -43,8 +43,8 @@ import { PageHeader } from "../components/PageHeader";
 import { SidebarContextualArea } from "../components/SidebarContextualArea";
 import { SearchCenter } from "../components/search/SearchCenter";
 import { ArtifactResultCard } from "../components/search/ArtifactResultCard";
-import { isMap, isDocumentation, isNode, isRoot, isCataloged, getArtifactTypeLabel } from "../domain/artifacts";
-import { resolveMeasurementClass, getMeasurementLabel, MEASUREMENT_CONFIGS } from "../domain/measurement";
+import { isMap, isDocumentation, isNode, isRoot, isCataloged, getArtifactTypeLabel, ARTIFACT_TYPE_CONFIGS } from "../domain/artifacts";
+import { resolveMeasurementClass, getMeasurementLabel, MEASUREMENT_CONFIGS, ORDERED_MEASUREMENT_CLASSES } from "../domain/measurement";
 import { getMapStatusMetrics } from "../domain/status";
 
 // Espaçamento lateral global reutilizado no cabeçalho e rodapé para alinhamento no mesmo eixo vertical
@@ -435,15 +435,13 @@ export default function App() {
   const [usersDb, setUsersDb] = useState<UserType[]>([]);
   const [showAdmin, setShowAdmin] = useState(false);
   const [results, setResults] = useState<Artifact[]>([]);
-  const [insights, setInsights] = useState<Insights | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [rawAppState, setRawAppState] = useState<"home" | "catalog" | "initial" | "results" | "decision" | "insights" | "empty" | "inventory_table" | "graph" | "auth" | "syncing" | "events_capture" | "operational_insights" | "copilot" | "produtos_analise" | "parametros_analise" | "journeys">("initial");
+  const [rawAppState, setRawAppState] = useState<"initial" | "results" | "insights" | "empty" | "inventory_table" | "graph" | "produtos_analise" | "parametros_analise" | "journeys">("initial");
   const appState = rawAppState;
 
-  const [insightsActiveTab, setRawInsightsActiveTab] = useState<"indicadores" | "resumo_executivo">("indicadores");
   const [detailModalItem, setDetailModalItem] = useState<Artifact | null>(null);
   const [detailTarget, setDetailTarget] = useState<{ screenId?: string; snippetIndex?: number } | null>(null);
   const [conexoesTargetArtifactId, setConexoesTargetArtifactId] = useState<string | null>(null);
@@ -468,25 +466,18 @@ export default function App() {
     setRawAppState(newState);
     if (!updateUrl) return;
     
-    if (newState === 'initial' || newState === 'home') navigate('/hub-de-artefatos');
+    if (newState === 'initial') navigate('/hub-de-artefatos');
     else if (newState === 'results') navigate('/hub-de-artefatos/cards');
     else if (newState === 'inventory_table') navigate('/hub-de-artefatos/inventario');
     else if (newState === 'produtos_analise') navigate('/hub-de-artefatos/por-produto');
     else if (newState === 'parametros_analise') navigate('/hub-de-artefatos/por-parametro');
-    else if (newState === 'insights' && insightsActiveTab === 'indicadores') navigate('/hub-de-artefatos/insights');
-    else if (newState === 'insights' && insightsActiveTab === 'resumo_executivo') navigate('/hub-de-artefatos/insights/resumo-executivo');
-    else if (newState === 'operational_insights') navigate('/hub-de-artefatos/insights-operacionais');
+    else if (newState === 'insights') navigate('/hub-de-artefatos/insights');
     else if (newState === 'graph') navigate('/hub-de-artefatos/conexoes');
     else if (newState === 'journeys') navigate('/hub-de-artefatos/jornadas');
-    else if (newState === 'empty' || newState === 'decision') navigate('/hub-de-artefatos');
+    else if (newState === 'empty') navigate('/hub-de-artefatos');
   };
 
-  const setInsightsActiveTab = (tab: "indicadores" | "resumo_executivo", updateUrl = true) => {
-    setRawInsightsActiveTab(tab);
-    if (!updateUrl) return;
-    if (tab === 'indicadores' && appState === 'insights') navigate('/hub-de-artefatos/insights');
-    else if (tab === 'resumo_executivo' && appState === 'insights') navigate('/hub-de-artefatos/insights/resumo-executivo');
-  };
+
 
   // Sync state from URL
   useEffect(() => {
@@ -525,12 +516,9 @@ export default function App() {
       setRawAppState('journeys');
     } else if (p === '/hub-de-artefatos/insights') {
       setRawAppState('insights');
-      setRawInsightsActiveTab('indicadores');
-    } else if (p === '/hub-de-artefatos/insights/resumo-executivo') {
-      setRawAppState('insights');
-      setRawInsightsActiveTab('resumo_executivo');
-    } else if (p === '/hub-de-artefatos/insights-operacionais') {
-      setRawAppState('operational_insights');
+    } else if (p === '/hub-de-artefatos/insights/resumo-executivo' || p === '/hub-de-artefatos/insights-operacionais') {
+      // Telas descontinuadas: o conteúdo foi unificado no Insights.
+      navigate('/hub-de-artefatos/insights', { replace: true });
     } else if (p === '/hub-de-artefatos/conexoes') {
       setRawAppState('graph');
     } else if (p === '/hub-de-artefatos/jornadas') {
@@ -543,8 +531,6 @@ export default function App() {
     }
   }, [location.pathname, location.search]);
 
-  const [showSummary, setShowSummary] = useState(false);
-  const [capturePlatform, setCapturePlatform] = useState<string | null>(null);
   const [isSyncAuthOpen, setIsSyncAuthOpen] = useState(false);
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [journeyProduct, setJourneyProduct] = useState("");
@@ -553,17 +539,13 @@ export default function App() {
   const [tableFilter, setTableFilter] = useState("");
   const [lastSync, setLastSync] = useState<string | null>(localStorage.getItem('last_sync'));
   const [showExportModal, setShowExportModal] = useState(false);
-  const [showGraph, setShowGraph] = useState(false);
-  const [showExecutiveModal, setShowExecutiveModal] = useState(false);
+  const [exportSource, setExportSource] = useState<'cards' | 'inventario'>('cards');
 
-  const [executiveSummaryParams, setExecutiveSummaryParams] = useState<any>(null);
-  const [executiveSummaryResult, setExecutiveSummaryResult] = useState<any>(null);
-  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
 
   const [fullInventory, setFullInventory] = useState<Artifact[]>([]);
 
   useEffect(() => {
-    if ((appState === "operational_insights" || appState === "home" || appState === "journeys" || appState === "initial") && fullInventory.length === 0) {
+    if ((appState === "journeys" || appState === "initial") && fullInventory.length === 0) {
       setLoading(true);
       fetchInventory()
         .then((res) => {
@@ -847,7 +829,6 @@ export default function App() {
   };
 
 
-  const { recentActivities, chartData } = useMemo(() => getOperationalInsights(fullInventory), [fullInventory]);
 
   const handleBarClick = (items: Artifact[]) => {
     if(items.length === 0) return;
@@ -862,10 +843,8 @@ export default function App() {
   
 
 
-  const [insightFilters, setInsightFilters] = useState({ ga: 'all', produto: 'all', subproduto: 'all' });
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
   const resizingRef = useRef<{ key: string; startX: number; startWidth: number } | null>(null);
-  const [inventoryViewMode, setInventoryViewMode] = useState<'table' | 'panel'>('table');
   
   const [syncJob, setSyncJob] = useState<{
     active: boolean;
@@ -1063,27 +1042,16 @@ export default function App() {
 
   const handleBack = () => {
     switch (appState) {
-      case 'events_capture':
-        if (capturePlatform) {
-          setCapturePlatform(null);
-        } else {
-          setAppState('initial');
-        }
-        break;
       case 'inventory_table':
       case 'results':
       case 'graph':
       case 'insights':
-      case 'decision':
       case 'empty':
-      case 'operational_insights':
       case 'produtos_analise':
       case 'parametros_analise':
         setAppState('initial');
         break;
       case 'initial':
-      case 'home':
-      case 'catalog':
       default:
         setAppState('initial');
     }
@@ -1158,9 +1126,6 @@ export default function App() {
     setLoading(true);
     setAppState("results");
     setResults([]);
-    setInsightFilters({ ga: 'all', produto: 'all', subproduto: 'all' });
-    setExecutiveSummaryResult(null);
-    setInsightsActiveTab("indicadores");
 
     try {
       const normalizedQ = normalizar(q);
@@ -1178,7 +1143,6 @@ export default function App() {
       if (isInventory) {
         setFullInventory(data.resultados);
       }
-      setInsights(getFilteredInsights(data.resultados, q) || null);
 
       if (isInventory) {
         setAppState(appState === "results" ? "results" : "inventory_table");
@@ -1196,51 +1160,6 @@ export default function App() {
     } finally {
       setLoading(false);
       isSearchingRef.current = false;
-    }
-  };
-
-  const applyInsightFilters = () => {
-    let filtered = [...results];
-    if (insightFilters.ga !== 'all') {
-      filtered = filtered.filter(item => normalizar(item.tipo_mapa) === insightFilters.ga);
-    }
-    if (insightFilters.produto !== 'all') {
-      filtered = filtered.filter(item => item.produto === insightFilters.produto);
-    }
-    if (insightFilters.subproduto !== 'all') {
-      filtered = filtered.filter(item => item.subproduto === insightFilters.subproduto);
-    }
-    setInsights(getFilteredInsights(filtered, query));
-  };
-
-  useEffect(() => {
-    if (appState === "insights") {
-      applyInsightFilters();
-    }
-  }, [insightFilters, appState]);
-
-  const handleGenerateExecutiveSummary = async () => {
-    setIsGeneratingSummary(true);
-    setShowExecutiveModal(false);
-    try {
-      const response = await fetch("/api/insights/executive-summary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          artifacts: results,
-          term: query,
-          context: "Geração de resumo executivo pelo Hub de Artefatos"
-        })
-      });
-
-      if (!response.ok) throw new Error("Erro na rede ou IA insdisponível");
-      const data = await response.json();
-      setExecutiveSummaryResult(data);
-      setInsightsActiveTab("resumo_executivo");
-    } catch (e: any) {
-      alert("Erro ao gerar resumo: " + e.message);
-    } finally {
-      setIsGeneratingSummary(false);
     }
   };
 
@@ -1347,10 +1266,6 @@ export default function App() {
     return list.map(({ artifact }) => artifact);
   }, [indexedInventory, debouncedTableFilter, inventoryFilters, inventorySort, onlyDivergent, onlyWithoutResponsible, onlyWithoutSubproduct]);
 
-  const currentInventoryInsights = useMemo(() => {
-    return getFilteredInsights(filteredInventory, tableFilter || query);
-  }, [filteredInventory, tableFilter, query]);
-
   const inventorySummary = useMemo(() => {
     return {
       total: filteredInventory.length,
@@ -1401,7 +1316,6 @@ export default function App() {
   };
 
   const handleViewArtifactDetails = (id: string) => {
-    setShowGraph(false);
     setAppState("inventory_table");
     setTableFilter(id);
     setInventoryFilters({
@@ -1499,17 +1413,15 @@ export default function App() {
     return {
       tipoArtefato: [
         { v: 'all', l: 'Todos' },
-        { v: 'MAPA', l: `Mapas (${typeCounts.get('MAPA') || 0})` },
-        { v: 'DOCUMENTACAO', l: `Documentações (${typeCounts.get('DOCUMENTACAO') || 0})` },
-        { v: 'NO', l: `Nós (${typeCounts.get('NO') || 0})` },
-        { v: 'NAO_CLASSIFICADO', l: `Não classificados (${typeCounts.get('NAO_CLASSIFICADO') || 0})` }
+        ...(['MAPA', 'DOCUMENTACAO', 'NO', 'NAO_CLASSIFICADO'] as const).map((t) => ({
+          v: t, l: `${ARTIFACT_TYPE_CONFIGS[t].pluralLabel} (${typeCounts.get(t) || 0})`
+        }))
       ],
       classificacao: [
         { v: 'all', l: 'Todos' },
-        { v: 'GA4', l: `GA4 (${measurementCounts.get('GA4') || 0})` },
-        { v: 'GA3', l: `Universal Analytics (GA3) (${measurementCounts.get('GA3') || 0})` },
-        { v: 'HIBRIDO', l: `Híbrido (${measurementCounts.get('HIBRIDO') || 0})` },
-        { v: 'NAO_CLASSIFICADO', l: `Não classificado (${measurementCounts.get('NAO_CLASSIFICADO') || 0})` }
+        ...ORDERED_MEASUREMENT_CLASSES.map((m) => ({
+          v: m, l: `${MEASUREMENT_CONFIGS[m].label} (${measurementCounts.get(m) || 0})`
+        }))
       ],
       produtos: [
         { v: 'all', l: 'Todos' },
@@ -1648,14 +1560,6 @@ export default function App() {
     resetProductFilters();
     resetParamFilters();
     resetInsightsFilters();
-    setInsightFilters({ ga: 'all', produto: 'all', subproduto: 'all' });
-    setInsights(null);
-    setExecutiveSummaryResult(null);
-    setExecutiveSummaryParams(null);
-    setIsGeneratingSummary(false);
-    setInsightsActiveTab("indicadores");
-    setShowGraph(false);
-    setShowSummary(false);
 
     // 6. Fechar quaisquer modais abertos e limpar alvos de detalhe
     setDetailModalItem(null);
@@ -1663,7 +1567,6 @@ export default function App() {
     setConexoesTargetArtifactId(null);
     setShowAdmin(false);
     setShowExportModal(false);
-    setShowExecutiveModal(false);
     setIsSyncAuthOpen(false);
 
     // 7. Limpar chaves residuais de busca em sessionStorage e localStorage (caso existam)
@@ -1697,38 +1600,6 @@ export default function App() {
   }, [fullInventory, navigate]);
 
   const resetSearch = resetSearchSession;
-
-  const downloadFile = (data: string, filename: string, type: string) => {
-    const blob = new Blob([data], { type });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleExport = async (format: "csv" | "json") => {
-    try {
-      const items = filteredInventory;
-
-      if (format === "json") {
-        downloadFile(JSON.stringify(items, null, 2), "inventario_hub_filtrado.json", "application/json");
-      } else {
-        const headers = Object.keys(items[0]).join(",");
-        const rows = items.map((item: any) => 
-          Object.values(item).map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")
-        );
-        const csv = [headers, ...rows].join("\n");
-        downloadFile(csv, "inventario_hub_filtrado.csv", "text/csv");
-      }
-      setShowExportModal(false);
-    } catch (error) {
-      console.error("Export failed", error);
-    }
-  };
 
   const GradientSparkles = ({ className, animate = false }: { className?: string; animate?: boolean }) => (
     <motion.div
@@ -1870,7 +1741,7 @@ export default function App() {
             <Shield className="w-16 h-16 text-gray-300 dark:text-slate-600 mb-6" />
             <h2 className="text-2xl font-bold text-gray-900 dark:text-slate-50 tracking-tight">Você não possui permissão para acessar esta área.</h2>
             <button
-               onClick={() => setAppState('copilot')}
+               onClick={() => setAppState('initial')}
                className="mt-8 px-6 py-3 bg-white dark:bg-slate-900 dark:border-slate-800 border border-gray-200 dark:border-slate-600 shadow-sm dark:shadow-none hover:border-gray-900 hover:text-gray-900 dark:text-slate-50 rounded-full font-bold transition-all text-xs uppercase tracking-widest text-gray-500 dark:text-slate-400"
             >
                Voltar ao Início
@@ -1884,142 +1755,14 @@ export default function App() {
             activeSearch={activeSearch}
             resetSignal={searchSessionId}
             onApplyToCards={handleApplyToCards}
-            onNavigateToOperationalInsights={() => setAppState("operational_insights")}
           />
         </section>
 
-        {/* Level 2: Insights Dashboard (Operational) */}
-        {appState === "operational_insights" && (
-          <section className="w-full max-w-5xl mx-auto pt-8 pb-12">
-            <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
-              <div>
-                <h2 className="text-3xl font-black text-gray-900 dark:text-slate-50 tracking-tight flex items-center gap-3">
-                  <Activity className="w-8 h-8 text-purple-600" />
-                  Insights Operacionais
-                </h2>
-                <p className="text-gray-500 dark:text-slate-400 font-medium mt-2">Atividades recentes e evolução de atualizações</p>
-              </div>
-            </div>
-            <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Timeline */}
-              <div className="glass-card p-8 rounded-[40px] border border-gray-100 dark:border-slate-700 flex flex-col h-[400px]">
-                <div className="flex items-center gap-3 mb-6">
-                  <Clock className="w-5 h-5 text-gray-400 dark:text-slate-500" />
-                  <h3 className="font-bold text-gray-900 dark:text-slate-50">Atividades Recentes</h3>
-                </div>
-                <div className="flex-1 overflow-y-auto space-y-4 pr-3 custom-scrollbar">
-                  {recentActivities.length > 0 ? recentActivities.map((item, idx) => (
-                    <div 
-                      key={idx} 
-                      className="group flex gap-4 cursor-pointer hover:bg-gray-50 dark:bg-slate-800/80 p-3 -ml-3 rounded-2xl transition-all duration-300"
-                      onClick={() => window.open(item.link, '_blank')}
-                      title="Abrir mapa em nova guia"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 flex items-center justify-center shrink-0 group-hover:bg-purple-50 group-hover:border-purple-100 transition-colors">
-                        <RefreshCw className="w-4 h-4 text-gray-400 dark:text-slate-500 group-hover:text-purple-600 transition-colors" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-900 dark:text-slate-50 font-bold leading-snug truncate group-hover:text-purple-600 transition-colors">
-                          {item.title}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-[11px] font-medium text-gray-500 dark:text-slate-400">
-                          <span className="whitespace-nowrap">{item.date}</span>
-                          <span className="w-1 h-1 rounded-full bg-gray-300 shrink-0"></span>
-                          <span className="truncate max-w-[120px]">{item.responsavel}</span>
-                          <span className="w-1 h-1 rounded-full bg-gray-300 shrink-0"></span>
-                          <span className="text-purple-600 font-bold whitespace-nowrap">{item.status}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )) : (
-                    <div className="text-sm text-gray-400 dark:text-slate-500 font-medium p-4 text-center">Nenhuma atividade!</div>
-                  )}
-                </div>
-              </div>
-
-              {/* Gráfico de Atualizações */}
-              <div className="glass-card p-8 rounded-[40px] border border-gray-100 dark:border-slate-700 flex flex-col lg:col-span-2 h-[400px]">
-                <div className="flex items-center justify-between mb-8">
-                  <div className="flex items-center gap-3">
-                    <Activity className="w-5 h-5 text-gray-400 dark:text-slate-500" />
-                    <h3 className="font-bold text-gray-900 dark:text-slate-50">Evolução de Atualizações</h3>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="px-4 py-1.5 bg-gray-900 dark:bg-slate-50 text-white rounded-full text-[11px] font-bold uppercase tracking-wider">Histórico Real</span>
-                  </div>
-                </div>
-                
-                {/* Updated Elegant Graph Area avoiding overflow */}
-                <div className="flex-1 w-full pt-8 relative flex flex-col justify-end">
-                  <div className="flex items-end justify-between h-full gap-2 sm:gap-4 px-2 sm:px-6 w-full relative">
-                  {chartData.length > 0 ? chartData.map((bar, idx) => (
-                    <div 
-                      key={idx} 
-                      className="flex flex-col items-center flex-1 group cursor-pointer h-full relative"
-                      onClick={() => handleBarClick(bar.items)}
-                    >
-                      {/* Tooltip on Hover */}
-                      <div className="absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 scale-95 opacity-0 group-[&:hover]:opacity-100 group-[&:hover]:scale-100 transition-all duration-300 z-[100] pointer-events-none bg-gray-900 dark:bg-slate-50 text-white px-4 py-3 rounded-2xl text-xs font-medium shadow-2xl dark:shadow-none min-w-[200px] flex flex-col gap-2">
-                        <div className="font-bold text-sm border-b border-gray-700/50 pb-2 mb-1 flex justify-between items-center gap-4">
-                          <span className="text-gray-300 dark:text-slate-600">{idx === chartData.length - 1 ? 'Hoje' : bar.label}</span>
-                          <span className="text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-md">{bar.value} atlz</span>
-                        </div>
-                        {bar.items.length > 0 ? (
-                          <div className="flex flex-col gap-2">
-                            {bar.items.slice(0, 3).map((item: any, i: number) => (
-                              <span key={i} className="truncate text-gray-200 text-[11px] flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0"></span>
-                                {item.titulo}
-                              </span>
-                            ))}
-                            {bar.items.length > 3 && (
-                              <span className="text-gray-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider mt-1 px-3">
-                                + {bar.items.length - 3} itens alterados
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-gray-500 dark:text-slate-400 text-[11px] italic">Nenhuma atividade neste dia</span>
-                        )}
-                        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-gray-900 dark:bg-slate-50 rotate-45"></div>
-                      </div>
-
-                      <div className="flex-1 flex flex-col justify-end items-center w-full relative">
-                         {bar.value > 0 && (
-                            <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500 mb-2 opacity-0 group-[&:hover]:opacity-100 group-[&:hover]:text-purple-600 transition-all group-[&:hover]:-translate-y-1">
-                              {bar.value}
-                            </span>
-                         )}
-                         <div className="w-full flex justify-center h-full items-end relative">
-                            {/* The line track */}
-                            <div className="absolute w-[4px] bottom-0 bg-gray-50 dark:bg-slate-800 h-full rounded-t-full transition-colors group-[&:hover]:bg-gray-100 dark:bg-slate-700"></div>
-                            {/* The actual filled bar */}
-                            <div 
-                              className={`w-[4px] rounded-t-full z-10 opacity-70 group-[&:hover]:opacity-100 transition-all duration-500 relative bg-gradient-to-t from-gray-300 to-gray-400 group-[&:hover]:from-purple-500 group-[&:hover]:to-purple-400 ${bar.value === 0 ? 'min-h-[4px] from-gray-200 to-gray-200' : ''}`}
-                              style={{ height: bar.height }}
-                            ></div>
-                         </div>
-                      </div>
-                      
-                      <span className={`text-[10px] font-bold whitespace-nowrap mt-3 transition-colors ${idx === chartData.length - 1 ? 'text-gray-900 dark:text-slate-50' : 'text-gray-400 dark:text-slate-500 group-[&:hover]:text-gray-900 dark:text-slate-50'}`}>
-                        {idx === chartData.length - 1 ? 'Hoje' : bar.label}
-                      </span>
-                    </div>
-                  )) : (
-                    <div className="w-full flex items-center justify-center text-gray-400 dark:text-slate-500 text-sm font-medium">Gerando evolução...</div>
-                  )}
-                  </div>
-                </div>
-              </div>
-              </div>
-          </section>
-        )}
-
         {/* Content Section */}
-        <section className={`content ${["initial", "catalog", "events_capture", "home", "operational_insights"].includes(appState) ? "!hidden" : ""}`}>
+        <section className={`content ${appState === "initial" ? "!hidden" : ""}`}>
           
           {/* Decision / Loading Area */}
-          <section className={`decision ${appState === "decision" || appState === "empty" ? "flex flex-col items-center justify-center text-center py-24" : "!hidden"}`}>
+          <section className={`decision ${appState === "empty" ? "flex flex-col items-center justify-center text-center py-24" : "!hidden"}`}>
             <div className="mb-8 scale-150 transform transition-transform duration-500">
               <GradientSparkles className="w-12 h-12" animate={loading} />
             </div>
@@ -2036,21 +1779,6 @@ export default function App() {
                   >
                     Continuar buscando
                   </button>
-                </div>
-              </div>
-            ) : appState === "decision" ? (
-              <div className="flex flex-col items-center">
-                <p className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900 dark:text-slate-50 leading-tight mb-12">
-                  Foram encontrados <strong className="text-[var(--bradesco-red)]">{results.length}</strong> itens para <strong>"{query}"</strong>.<br />
-                  O que você quer fazer agora?
-                </p>
-                <div className="flex flex-col sm:flex-row gap-6 items-center">
-                  <button className="bg-white dark:bg-slate-900 dark:border-slate-800 border border-gray-200 dark:border-slate-600 hover:border-bradesco-red hover:text-bradesco-red text-gray-800 dark:text-slate-200 px-10 py-4 rounded-full font-bold transition-all shadow-sm dark:shadow-none hover:shadow-md dark:shadow-none min-w-[200px]" onClick={() => setAppState("results")}>Ver resultados</button>
-                  <button className="bg-white dark:bg-slate-900 dark:border-slate-800 border border-gray-200 dark:border-slate-600 hover:border-purple-600 hover:text-purple-600 text-gray-800 dark:text-slate-200 px-10 py-4 rounded-full font-bold transition-all shadow-sm dark:shadow-none hover:shadow-md dark:shadow-none min-w-[200px] flex items-center gap-2 justify-center" onClick={() => setAppState("operational_insights")}>
-                    <Activity className="w-4 h-4" />
-                    Ver insights
-                  </button>
-                  <button className="text-gray-400 dark:text-slate-500 hover:text-bradesco-red font-bold px-8 py-4 transition-colors" onClick={resetSearch}>Continuar buscando</button>
                 </div>
               </div>
             ) : null}
@@ -2116,220 +1844,6 @@ export default function App() {
                 onSearchChange={setParamSearch}
               />
             </motion.section>
-          )}
-
-          {false && appState === "insights" && (
-            !insights ? (
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col items-center justify-center py-32"
-              >
-                <div className="w-20 h-20 bg-gray-50 dark:bg-slate-800 rounded-3xl flex items-center justify-center mb-6">
-                  <Filter className="w-8 h-8 text-gray-300 dark:text-slate-600" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-slate-50 mb-2">Nenhum insight disponível</h3>
-                <p className="text-sm font-medium text-gray-500 dark:text-slate-400">A busca atual não retornou resultados suficientes para gerar análises.</p>
-              </motion.div>
-            ) : (
-            <motion.section 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="summary"
-            >
-              {/* Filter Header */}
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
-                <div className="flex items-center gap-4 bg-gray-50 dark:bg-slate-800/50 p-2 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-none overflow-x-auto max-w-full no-scrollbar">
-                  <div className="flex items-center gap-2 px-3 py-1 border-r border-gray-200 dark:border-slate-600">
-                    <Filter className="w-3.5 h-3.5 text-gray-400 dark:text-slate-500" />
-                    <span className="text-[10px] font-bold uppercase text-gray-500 dark:text-slate-400 whitespace-nowrap">Filtros</span>
-                  </div>
-                  
-                  <select 
-                    value={insightFilters.ga}
-                    onChange={(e) => setInsightFilters(prev => ({ ...prev, ga: e.target.value }))}
-                    className="bg-transparent text-xs font-bold text-gray-800 dark:text-slate-200 outline-none border-none py-1 cursor-pointer hover:text-bradesco-red transition-colors"
-                  >
-                    <option value="all">TODOS PADRÕES</option>
-                    <option value="ga4">APENAS GA4</option>
-                    <option value="universal analytics">APENAS UNIVERSAL ANALYTICS</option>
-                    <option value="doc">APENAS DOCUMENTOS</option>
-                  </select>
-
-                  <select 
-                    value={insightFilters.produto}
-                    onChange={(e) => setInsightFilters(prev => ({ ...prev, produto: e.target.value }))}
-                    className="bg-transparent text-xs font-bold text-gray-800 dark:text-slate-200 outline-none border-none py-1 cursor-pointer hover:text-red-600 transition-colors max-w-[150px]"
-                  >
-                    <option value="all">TODOS PRODUTOS</option>
-                    {(Array.from(new Set(results.map(r => r.produto))) as string[]).filter(Boolean).map(p => (
-                      <option key={p} value={p}>{p.toUpperCase()}</option>
-                    ))}
-                  </select>
-
-                  <select 
-                    value={insightFilters.subproduto}
-                    onChange={(e) => setInsightFilters(prev => ({ ...prev, subproduto: e.target.value }))}
-                    className="bg-transparent text-xs font-bold text-gray-800 dark:text-slate-200 outline-none border-none py-1 cursor-pointer hover:text-red-600 transition-colors max-w-[150px]"
-                  >
-                    <option value="all">TODOS SUBPRODUTOS</option>
-                    {(Array.from(new Set(results.map(r => r.subproduto))) as string[]).filter(Boolean).map(s => (
-                      <option key={s} value={s}>{s.toUpperCase()}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-                  {/* KPIs - Refreshed with Semantic Colors */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                <div className="group relative glass-card p-6 rounded-[32px] border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-none transition-all hover:shadow-xl dark:shadow-none hover:-translate-y-1">
-                  <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600 mb-4 group-hover:scale-110 transition-transform">
-                    <Target className="w-6 h-6" />
-                  </div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1">Total Artefatos</p>
-                  <p className="text-4xl font-extrabold text-gray-900 dark:text-slate-50 leading-none">{insights.total}</p>
-                  <p className="text-[10px] text-gray-400 dark:text-slate-500 font-bold mt-2 tracking-wider uppercase">
-                    Mapas ({insights.mapas}) vs Docs ({insights.documentos})
-                  </p>
-                </div>
-
-                <div className="group relative glass-card p-6 rounded-[32px] border-b-4 border-b-green-500 border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-none transition-all hover:shadow-xl dark:shadow-none hover:-translate-y-1">
-                  <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center text-green-600 mb-4 group-hover:scale-110 transition-transform">
-                    <CheckCircle2 className="w-6 h-6" />
-                  </div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1">GA4</p>
-                  <p className="text-4xl font-extrabold text-gray-900 dark:text-slate-50 leading-none">{insights.ga4}</p>
-                  <span className="absolute top-6 right-6 text-[10px] font-black text-green-600 bg-green-50 px-2 py-1 rounded-full">{insights.porcentagens.ga4}%</span>
-                </div>
-
-                <div className="group relative glass-card p-6 rounded-[32px] border-b-4 border-b-bradesco-red border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-none transition-all hover:shadow-xl dark:shadow-none hover:-translate-y-1">
-                  <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-bradesco-red mb-4 group-hover:scale-110 transition-transform">
-                    <AlertCircle className="w-6 h-6" />
-                  </div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1">Universal Analytics (GA3)</p>
-                  <p className="text-4xl font-extrabold text-gray-900 dark:text-slate-50 leading-none">{insights.universalAnalytics}</p>
-                  <span className="absolute top-6 right-6 text-[10px] font-black text-bradesco-red bg-red-50 px-2 py-1 rounded-full">{insights.porcentagens.universalAnalytics}%</span>
-                </div>
-
-                <div className="group relative glass-card p-6 rounded-[32px] border-b-4 border-b-gray-400 border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-none transition-all hover:shadow-xl dark:shadow-none hover:-translate-y-1">
-                  <div className="w-12 h-12 rounded-2xl bg-gray-50 dark:bg-slate-800 flex items-center justify-center text-gray-400 dark:text-slate-500 mb-4 group-hover:scale-110 transition-transform">
-                    <FileText className="w-6 h-6" />
-                  </div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1">Documentações</p>
-                  <p className="text-4xl font-extrabold text-gray-900 dark:text-slate-50 leading-none">{insights.documentos}</p>
-                  <span className="absolute top-6 right-6 text-[10px] font-black text-gray-600 dark:text-slate-300 bg-gray-100 dark:bg-slate-700 px-2 py-1 rounded-full">{insights.porcentagens.documentos}%</span>
-                </div>
-              </div>
-
-              {/* Detailed Operational Insights Panels */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-                <div className="lg:col-span-2 flex flex-col gap-8">
-                  {/* Tempo de Atualização */}
-                  <div className="glass-card p-10 rounded-[40px] border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-none relative overflow-hidden">
-                    <h4 className="text-xs font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-                       <Clock className="w-4 h-4 text-purple-500" />
-                       Frescor da Base
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase mb-1">Últimos 30 dias</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-slate-50">{insights.updates?.last30Days || 0}</p>
-                        <p className="text-[11px] font-bold text-green-600">{insights.updates?.percentLast30Days || "0"}%</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase mb-1">Últimos 60 dias</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-slate-50">{insights.updates?.last60Days || 0}</p>
-                        <p className="text-[11px] font-bold text-green-500">{insights.updates?.percentLast60Days || "0"}%</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase mb-1">Últimos 90 dias</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-slate-50">{insights.updates?.last90Days || 0}</p>
-                        <p className="text-[11px] font-bold text-yellow-600">{insights.updates?.percentLast90Days || "0"}%</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase mb-1">Defasados (+90 dias)</p>
-                        <p className="text-2xl font-bold text-red-600">{insights.updates?.olderThan90Days || 0}</p>
-                        <p className="text-[11px] font-bold text-red-500">{insights.updates?.percentOlderThan90Days || "0"}%</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Distribuição por Produto */}
-                  <div className="glass-card p-10 rounded-[40px] border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-none relative overflow-hidden">
-                    <h4 className="text-xs font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-                       <Layers className="w-4 h-4 text-purple-500" />
-                       Distribuição de Escopos
-                    </h4>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="flex flex-col gap-4">
-                         <h5 className="text-[10px] font-black tracking-widest text-gray-400 dark:text-slate-500 uppercase">Produtos</h5>
-                         {insights.distribProduto?.slice(0, 4).map((p, i) => (
-                            <div key={i} className="flex justify-between items-center bg-gray-50 dark:bg-slate-800 p-4 rounded-2xl border border-gray-100 dark:border-slate-700">
-                               <span className="text-sm font-bold text-gray-800 dark:text-slate-200">{p.name === "-" ? "N/A" : p.name}</span>
-                               <div className="flex items-center gap-4">
-                                  <span className="text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase">{p.count} itens</span>
-                               </div>
-                            </div>
-                         ))}
-                      </div>
-
-                      <div className="flex flex-col gap-4">
-                         <h5 className="text-[10px] font-black tracking-widest text-gray-400 dark:text-slate-500 uppercase">Subprodutos</h5>
-                         {insights.distribSubproduto?.slice(0, 4).map((p, i) => (
-                            <div key={i} className="flex justify-between items-center bg-gray-50 dark:bg-slate-800 p-4 rounded-2xl border border-gray-100 dark:border-slate-700">
-                               <span className="text-sm font-bold text-gray-800 dark:text-slate-200">{p.name === "-" ? "N/A" : p.name}</span>
-                               <div className="flex items-center gap-4">
-                                  <span className="text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase">{p.count} itens</span>
-                               </div>
-                            </div>
-                         ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="lg:col-span-1 flex flex-col gap-8">
-                  {/* Versionamento */}
-                  <div className="p-8 rounded-[40px] border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900 dark:border-slate-800 shadow-sm dark:shadow-none flex flex-col items-center justify-center text-center">
-                    <h4 className="text-xs font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-4">
-                      Média de Versões
-                    </h4>
-                    <div className="w-20 h-20 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 mb-4">
-                      <FileText className="w-8 h-8" />
-                    </div>
-                    <p className="text-5xl font-black text-gray-900 dark:text-slate-50">{insights.versioning?.averageVersions || "1"}</p>
-                    <p className="text-sm font-medium text-gray-500 dark:text-slate-400 mt-2">Versões por artefato</p>
-                  </div>
-
-                  {/* Top Atualizados */}
-                  <div className="p-8 rounded-[40px] border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900 dark:border-slate-800 shadow-sm dark:shadow-none flex-1">
-                    <h4 className="text-xs font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-4">
-                      Artefatos Mais Iterados
-                    </h4>
-                    <div className="flex flex-col gap-3 mt-4">
-                      {insights.versioning?.topUpdated?.map((item, i) => (
-                        <div key={i} className="flex flex-col border-b border-gray-50 dark:border-slate-800 pb-3 last:border-0 last:pb-0">
-                           <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-gray-800 dark:text-slate-200 hover:text-purple-600 cursor-pointer truncate" title={item.titulo}>
-                             {item.titulo}
-                           </a>
-                           <div className="flex justify-between items-center mt-1">
-                              <span className="text-[10px] text-gray-400 dark:text-slate-500 font-medium">{item.produto || "N/A"}</span>
-                              <span className="text-[10px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded-full">v{item.versao}</span>
-                           </div>
-                        </div>
-                      ))}
-                      {(!insights.versioning?.topUpdated || insights.versioning.topUpdated.length === 0) && (
-                        <span className="text-xs text-gray-400 dark:text-slate-500 text-center py-4 italic">Sem versionamento no conjunto.</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-
-            </motion.section>
-            )
           )}
 
           {/* Graph Visualization Section */}
@@ -2412,7 +1926,7 @@ export default function App() {
                     <span>Editar busca</span>
                   </button>
                   <button 
-                    onClick={() => setShowExportModal(true)}
+                    onClick={() => { setExportSource('cards'); setShowExportModal(true); }}
                     className="btn-neu flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-ui font-semibold text-bradesco-red hover:text-bradesco-red-hover h-10 cursor-pointer"
                   >
                     <Download className="w-4 h-4 text-bradesco-red" />
@@ -2555,7 +2069,7 @@ export default function App() {
                 subtitle="A base completa em formato de tabela, com classificação, produto, responsável e data de atualização."
                 actions={
                   <button 
-                    onClick={() => setShowExportModal(true)}
+                    onClick={() => { setExportSource('inventario'); setShowExportModal(true); }}
                     className="btn-neu flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium text-omni-bordo hover:text-omni-rubi hover:bg-red-50/50 h-8 cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
@@ -2584,7 +2098,7 @@ export default function App() {
 
                   {/* Main Content Area: Table or Panel */}
               <AnimatePresence mode="wait">
-                {inventoryViewMode === 'table' ? (
+                {(
                   <motion.div 
                     key="table"
                     initial={{ opacity: 0, y: 10 }}
@@ -2757,116 +2271,6 @@ export default function App() {
                       </table>
                     </div>
                   </motion.div>
-                ) : !currentInventoryInsights ? (
-                  <motion.div 
-                    key="panel-empty"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="p-12 text-center text-gray-500 dark:text-slate-400 font-bold mb-8 bg-gray-50 dark:bg-slate-800 rounded-[40px]"
-                  >
-                    Nenhum insight disponível para o filtro atual.
-                  </motion.div>
-                ) : (
-                  <motion.div 
-                    key="panel"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="grid grid-cols-1 lg:grid-cols-4 gap-8"
-                  >
-                    {/* Insights Panel Content */}
-                    <div className="lg:col-span-1 space-y-6">
-                       {/* Health Status */}
-                       <div className={`p-8 rounded-[32px] border bg-white dark:bg-slate-900 dark:border-slate-800 shadow-sm dark:shadow-none flex flex-col items-center text-center
-                         ${currentInventoryInsights.problemas.nivelRisco === 'alto' ? 'border-red-200' : 'border-gray-100 dark:border-slate-700'}
-                       `}>
-                          <h4 className="text-[9px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-6">Volume na Categoria</h4>
-                          <div className="text-4xl font-black text-gray-900 dark:text-slate-50 mb-2">{currentInventoryInsights.total}</div>
-                          <p className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-6">Artefatos Selecionados</p>
-                          <div className={`text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-full text-white w-full
-                            ${currentInventoryInsights.problemas.nivelRisco === 'alto' ? 'bg-bradesco-gradient shadow-lg dark:shadow-none shadow-red-100' : 'bg-green-600 shadow-lg dark:shadow-none shadow-green-100'}
-                          `}>
-                            Risco {currentInventoryInsights.problemas.nivelRisco}
-                          </div>
-                       </div>
-
-                       {/* Quick Stats */}
-                       <div className="p-8 rounded-[32px] border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900 dark:border-slate-800 shadow-sm dark:shadow-none space-y-4">
-                          {[
-                            { l: 'Sem Resp.', v: currentInventoryInsights.problemas.semResponsavel },
-                            { l: 'Sem Subp.', v: currentInventoryInsights.problemas.semSubproduto },
-                            { l: 'Probs. Tagueamento', v: currentInventoryInsights.problemas.foraPadraoGA4 }
-                          ].map((s, i) => (
-                            <div key={i} className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
-                               <span className="text-gray-400 dark:text-slate-500">{s.l}</span>
-                               <span className={s.v > 0 ? 'text-red-600 font-black' : 'text-gray-900 dark:text-slate-50'}>{s.v}</span>
-                            </div>
-                          ))}
-                       </div>
-                    </div>
-
-                    <div className="lg:col-span-3 space-y-6">
-                       {/* Main Insight Card */}
-                       <div className="p-10 rounded-[32px] border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900 dark:border-slate-800 shadow-sm dark:shadow-none relative overflow-hidden h-full">
-                          
-                          <div className="relative z-10">
-                            <h4 className="text-[9px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-4">Visão Estrutural: Detalhamento do Grupo</h4>
-                            <p className="text-xl font-medium tracking-tight text-gray-800 dark:text-slate-200 leading-tight mb-10 font-sans whitespace-pre-wrap">
-                               Análise automática baseada nos {currentInventoryInsights.total} artefatos listados, destacando a distribuição técnica e o volume de atualizações recentes.
-                            </p>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                               <div className="space-y-6">
-                                  <div>
-                                    <h5 className="text-[9px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-6">Padrão de Tagueamento</h5>
-                                    <div className="space-y-4">
-                                       {currentInventoryInsights.distribTipos?.slice(0, 4).map((tipo, i) => (
-                                         <div key={i} className="flex justify-between items-center text-[11px] font-bold border-b border-gray-50 dark:border-slate-800 pb-2 last:border-0">
-                                            <span className="text-gray-700 dark:text-slate-300 uppercase pr-4">{tipo.name}</span>
-                                            <span className="text-purple-600 font-black px-2 bg-purple-50 rounded-lg">{tipo.count}</span>
-                                         </div>
-                                       ))}
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <h5 className="text-[9px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-4">Média de Versões</h5>
-                                    <div className="text-3xl font-black text-purple-600">v{currentInventoryInsights.versioning?.averageVersions || "1"}</div>
-                                  </div>
-                               </div>
-                               <div className="bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-3xl p-8">
-                                  <h5 className="text-[9px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-6">Distribuição Operacional (Subprodutos)</h5>
-                                  <div className="space-y-4">
-                                     {currentInventoryInsights.distribSubproduto?.slice(0, 4).map((item, i) => (
-                                       <div key={i} className="space-y-2">
-                                          <div className="flex justify-between items-center text-[9px] font-black">
-                                             <span className="text-gray-700 dark:text-slate-300 uppercase truncate pr-4">{item.name === "-" ? "Sem Subproduto" : item.name}</span>
-                                             <span className="text-gray-400 dark:text-slate-500">{item.percent}%</span>
-                                          </div>
-                                          <div className="h-1 bg-white dark:bg-slate-900 dark:border-slate-800 rounded-full overflow-hidden">
-                                             <div className="h-full bg-bradesco-gradient" style={{ width: `${item.percent}%` }} />
-                                          </div>
-                                       </div>
-                                     ))}
-                                     {(!currentInventoryInsights.distribSubproduto || currentInventoryInsights.distribSubproduto.length === 0) && (
-                                       <p className="text-xs text-gray-400 dark:text-slate-500 font-medium">Sem dados.</p>
-                                     )}
-                                  </div>
-                               </div>
-                            </div>
-                          </div>
-                          
-                          <div className="mt-10 pt-10 border-t border-gray-50 dark:border-slate-800 flex gap-4">
-                            <button className="px-6 py-2 bg-gray-900 dark:bg-slate-50 transition-all hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg dark:shadow-none shadow-gray-200" onClick={() => setShowGraph(true)}>
-                               <Network className="w-4 h-4" /> Conexões Map
-                            </button>
-                            <button className="px-6 py-2 bg-white dark:bg-slate-900 dark:border-slate-800 border border-gray-200 dark:border-slate-600 hover:border-red-200 transition-all text-gray-400 dark:text-slate-500 hover:text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2" onClick={() => setShowExportModal(true)}>
-                               <Download className="w-4 h-4" /> Exportar Planilha
-                            </button>
-                          </div>
-                       </div>
-                    </div>
-                  </motion.div>
                 )}
               </AnimatePresence>
                 </>
@@ -2879,126 +2283,14 @@ export default function App() {
         )}
       </div>
 
-      {/* Export Modal */}
-      <AnimatePresence>
-        {showExportModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowExportModal(false)}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative bg-white dark:bg-slate-900 dark:border-slate-800 rounded-[40px] p-10 shadow-2xl dark:shadow-none border border-gray-100 dark:border-slate-700 max-w-sm w-full text-center"
-            >
-              <button 
-                onClick={() => setShowExportModal(false)}
-                className="absolute top-6 right-6 text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:text-slate-300"
-              >
-                <X className="w-6 h-6" />
-              </button>
-              <div className="mb-8 flex justify-center">
-                <div className="w-16 h-16 rounded-3xl bg-red-50 flex items-center justify-center text-red-600">
-                  <Download className="w-8 h-8" />
-                </div>
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-slate-50 mb-2">Extrair Base</h3>
-              <p className="text-gray-500 dark:text-slate-400 text-sm mb-8">Escolha o formato desejado para exportar todos os artefatos do inventário.</p>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <button 
-                  onClick={() => handleExport("csv")}
-                  className="flex flex-col items-center gap-3 p-6 rounded-3xl bg-gray-50 dark:bg-slate-800 hover:bg-red-50 border border-gray-100 dark:border-slate-700 hover:border-red-200 transition-all group"
-                >
-                  <span className="text-xl font-black text-gray-400 dark:text-slate-500 group-hover:text-red-600">CSV</span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400 group-hover:text-red-500">Planilha</span>
-                </button>
-                <button 
-                  onClick={() => handleExport("json")}
-                  className="flex flex-col items-center gap-3 p-6 rounded-3xl bg-gray-50 dark:bg-slate-800 hover:bg-red-50 border border-gray-100 dark:border-slate-700 hover:border-red-200 transition-all group"
-                >
-                  <span className="text-xl font-black text-gray-400 dark:text-slate-500 group-hover:text-red-600">JSON</span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400 group-hover:text-red-500">Dados</span>
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Executive Summary Modal */}
-      <AnimatePresence>
-        {showExecutiveModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowExecutiveModal(false)}
-              className="absolute inset-0 bg-black/40 backdrop-blur-md"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative bg-white dark:bg-slate-900 rounded-[40px] p-10 shadow-2xl border border-gray-100 dark:border-slate-700 max-w-md w-full text-center"
-            >
-              <button 
-                onClick={() => setShowExecutiveModal(false)}
-                className="absolute top-6 right-6 text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:text-slate-300"
-              >
-                <X className="w-6 h-6" />
-              </button>
-              
-              <div className="mb-6 flex justify-center">
-                <div className="w-16 h-16 rounded-3xl bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center text-purple-600">
-                  <Sparkles className="w-8 h-8" />
-                </div>
-              </div>
-              
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-slate-50 mb-4">Gerar Resumo Executivo</h3>
-              
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 text-sm p-4 rounded-2xl text-left mb-8 border border-yellow-100 dark:border-yellow-800">
-                <p className="font-bold flex items-center gap-2 mb-1">
-                  <AlertCircle className="w-4 h-4" /> Importante
-                </p>
-                Este resumo é gerado por IA com base nos metadados e títulos dos artefatos filtrados. A qualidade depende da padronização do Confluence.
-              </div>
-              
-              <div className="flex flex-col sm:flex-row gap-4">
-                <button 
-                  onClick={() => setShowExecutiveModal(false)}
-                  className="flex-1 py-4 px-6 rounded-full font-bold text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 border border-gray-200 dark:border-slate-600 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  onClick={handleGenerateExecutiveSummary}
-                  disabled={isGeneratingSummary}
-                  className="flex-1 py-4 px-6 rounded-full font-bold text-white bg-purple-600 hover:bg-purple-700 transition-colors shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {isGeneratingSummary ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Gerando...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-5 h-5" />
-                      Gerar resumo
-                    </>
-                  )}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {/* Extrair dados: relatórios configuráveis (domain/export) */}
+        <ExportDialog
+          open={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          currentItems={exportSource === 'cards' ? filteredAndSortedCards : filteredInventory}
+          allItems={fullInventory.length > 0 ? fullInventory : results}
+          sourceLabel={exportSource === 'cards' ? 'Cards exibidos' : 'Inventário filtrado'}
+        />
 
       {/* Modal de Detalhes Canônico de Telas e Snippets */}
       <MapDetailModal 

@@ -47,7 +47,6 @@ export interface SearchCenterProps {
       queryKind?: string;
     }
   ) => void;
-  onNavigateToOperationalInsights?: () => void;
   // Optional callbacks kept for API compatibility
   onOpenDetails?: (artifact: Artifact) => void;
   onOpenSnippet?: (artifact: Artifact, screenId?: string, snippetIndex?: number) => void;
@@ -94,7 +93,6 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
   activeSearch,
   resetSignal,
   onApplyToCards,
-  onNavigateToOperationalInsights,
 }) => {
   // Current Mode: 'conteudo' | 'parametros' | 'ia'
   const [mode, setMode] = useState<'conteudo' | 'parametros' | 'ia'>('conteudo');
@@ -666,16 +664,6 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
               <span>Digite "inventário" para ver toda a base</span>
             </button>
 
-            {onNavigateToOperationalInsights && (
-              <button
-                type="button"
-                onClick={onNavigateToOperationalInsights}
-                className="h-8 text-[12.5px] font-medium text-omni-bordo hover:text-omni-rubi transition-colors flex items-center gap-1.5 px-3 rounded-lg bg-red-50/50 border border-omni-bordo/20 cursor-pointer ml-auto"
-              >
-                <Activity className="w-3.5 h-3.5" />
-                <span>Ver insights</span>
-              </button>
-            )}
           </div>
         </div>
       )}

@@ -42,8 +42,6 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   }
 ];
 
-export const ALL_NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap(g => g.items);
-export const NAV_ITEMS: NavItem[] = ALL_NAV_ITEMS;
 
 interface AppSidebarProps {
   currentRouteId: string;

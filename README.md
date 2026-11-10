@@ -8,8 +8,9 @@ A Plataforma Omni Marketing é o portal centralizado do time de Martech, unindo 
 
 - **Copilot Central:** Assistente conversacional na página inicial ajudando a guiar os usuários de acordo com seu perfil de acesso e fornecendo resumos contextuais.
 - **Hub de Artefatos:** Busca unificada (Fuzzy Search) em todos os mapeamentos de tagueamento e documentos, facilitando encontrar a jornada de cada subproduto.
-- **Conexões (Canvas):** Uma visão inteligente em árvore mostrando a relação hierárquica `Produto -> Subproduto -> Mapas`, usando layout de grafos com D3.js e ReactFlow.
-- **Insights Operacionais com IA:** Geração instantânea de Resumos Executivos estruturados a partir dos artefatos utilizando inteligência do Google Gemini.
+- **Conexões (Canvas):** Uma visão inteligente em árvore mostrando a relação hierárquica `Produto -> Subproduto -> Mapas`, usando layout de grafos com Dagre e React Flow.
+- **Insights:** indicadores de homologação, maturidade GA4 x Universal Analytics, parâmetros recorrentes e idade da documentação, calculados pelas regras canônicas de `frontend/src/domain`.
+- **Extrair dados:** relatórios de Artefatos, Telas ou Parâmetros com colunas configuráveis, em Excel (pt-BR), CSV ou JSON.
 - **Hub de Eventos:** Integração automatizada com Google Analytics 4 utilizando Service Accounts via script em Python, possibilitando o monitoramento de eventos que estão ativos versus inativos.
 - **Integração Confluence:** Scraping inteligente das páginas de documentação do Confluence via API (Basic Auth) para auto-povoamento do inventário de métricas.
 - **Visão Dark / Light Mode:** Uma interface moderna baseada em Glassmorphism, Design Tokens e TailwindCSS, implementando o "Bradesco Neo-Dark".
@@ -131,6 +132,6 @@ A partir daqui, quem recebe `/*` é a infra de fallback SPA do `express.static('
 ---
 
 ## 🛠️ Manutenção e Limpeza Técnica
-A refatoração da v2.0 removeu lixos como scripts órfãos `test-app`, versões aleatórias de cores (white.txt, bg50), aglomerando as chamadas em Services dedicados (`ai.service`, `executiveSummary.service`). Ninguém do frontend tem o direito de realizar um lookup pro Banco de Dados local ou IA de forma exposta; tudo converge mediante as rotas da porta 3000. 
+A refatoração da v2.0 removeu lixos como scripts órfãos `test-app`, versões aleatórias de cores (white.txt, bg50), aglomerando as chamadas em Services dedicados (`semanticSearch.service`, `journeyAnalysis.service`). Ninguém do frontend tem o direito de realizar um lookup pro Banco de Dados local ou IA de forma exposta; tudo converge mediante as rotas da porta 3000. 
 
 *Felicidade no código! O projeto está homologado com padrão Enterprise.*

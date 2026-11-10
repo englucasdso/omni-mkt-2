@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { MEASUREMENT_CONFIGS, ORDERED_MEASUREMENT_CLASSES } from '../domain/measurement';
 import { 
   Search, 
   X, 
@@ -596,9 +597,7 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
             onChange={onInsightsMeasurementFilterChange}
             options={[
               { value: 'all', label: 'Todas as classificações' },
-              { value: 'GA4', label: 'GA4' },
-              { value: 'GA3', label: 'Universal Analytics (GA3)' },
-              { value: 'HIBRIDO', label: 'Híbrido' },
+              ...ORDERED_MEASUREMENT_CLASSES.filter((m) => m !== 'NAO_CLASSIFICADO').map((m) => ({ value: m, label: MEASUREMENT_CONFIGS[m].label })),
             ]}
           />
         </SidebarFilterPopover>

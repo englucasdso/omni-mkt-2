@@ -162,66 +162,6 @@ export interface Artifact {
   dominio_exclusivo_web?: string;
 }
 
-export interface Insights {
-  total: number;
-  totalMaps?: number;
-  totalDocs?: number;
-  totalScreens?: number;
-  divergentCount?: number;
-  statusCounts?: StatusSummary;
-  measurementCounts?: {
-    GA4: number;
-    GA3: number;
-    HIBRIDO: number;
-    NAO_CLASSIFICADO: number;
-  };
-  ga4?: number;
-  universalAnalytics?: number;
-  mapas?: number;
-  documentos?: number;
-  distribProduto?: { name: string; count: number; percent: string }[];
-  distribSubproduto?: { name: string; count: number; percent: string }[];
-  distribTipos?: { name: string; count: number; percent: string }[];
-  porcentagens?: {
-    ga4: string;
-    universalAnalytics: string;
-    documentos: string;
-  };
-  updates?: {
-    last30Days: number;
-    last60Days: number;
-    last90Days: number;
-    olderThan90Days: number;
-    percentLast30Days: string;
-    percentLast60Days: string;
-    percentLast90Days: string;
-    percentOlderThan90Days: string;
-  };
-  versioning?: {
-    topUpdated: Artifact[];
-    averageVersions: string;
-  };
-  searchTerm?: string;
-  problemas?: {
-    semResponsavel: number;
-    semSubproduto: number;
-    foraPadraoGA4: number;
-    desatualizados: number;
-    nivelRisco: 'baixo' | 'medio' | 'alto';
-  };
-  aderencia?: {
-    score: number;
-    interpretacao: string;
-    status: 'excelente' | 'bom' | 'atencao';
-  };
-  resumoInteligente?: {
-    principalProduto: string;
-    principalSubproduto: string;
-    textoCenario: string;
-    recomendacoes: string[];
-  };
-}
-
 export type UserRole =
   | "admin"
   | "gestor360"
@@ -246,7 +186,6 @@ export interface User {
 export interface SearchResponse {
   total: number;
   resultados: Artifact[];
-  insights: Insights;
 }
 
 export interface TaxonomyNodeReference {
