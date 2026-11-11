@@ -14,6 +14,7 @@ import {
   useDebouncedSearch 
 } from '../utils/contextualSearch';
 import { ContextualEmptyState } from './ContextualEmptyState';
+import { findValueIssuesByParameter, ValueIssue } from '../domain/quality/valueQuality';
 
 interface ParameterAnalysisViewProps {
   artifacts: Artifact[];
@@ -96,6 +97,13 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
     }).sort((a, b) => b.occurrences - a.occurrences);
   }, [artifacts]);
 
+  // Possíveis erros de digitação, calculados uma vez para a base inteira
+  const valueIssues = useMemo(
+    () => findValueIssuesByParameter(artifacts.filter((a) => isMap(a))),
+    [artifacts]
+  );
+  const EMPTY_ISSUES = useMemo(() => new Map<string, ValueIssue>(), []);
+
   const debouncedSearch = useDebouncedSearch(effectiveSearchTerm, 150);
 
   // Índice textual leve montado UMA ÚNICA VEZ quando o catálogo de parâmetros mudar
@@ -159,10 +167,15 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
     });
   }, [activeParam, selectedDistinctValue]);
 
+  const activeIssues = (activeParam && valueIssues.get(activeParam.name)) || EMPTY_ISSUES;
+
   // Derived Values for UI states
   const displayedDistinctValues = useMemo(() => {
     if (!activeParam) return [];
-    let list = [...activeParam.distinctValuesList];
+    // Valores com possível erro aparecem primeiro, para não ficarem escondidos no "ver todos"
+    let list = [...activeParam.distinctValuesList].sort(
+      (a, b) => Number(activeIssues.has(b)) - Number(activeIssues.has(a))
+    );
     
     const term = effectiveSearchTerm.trim().toLowerCase();
     if (term) {
@@ -183,7 +196,7 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
       return preview;
     }
     return list;
-  }, [activeParam, effectiveSearchTerm, isDistinctValuesExpanded, selectedDistinctValue]);
+  }, [activeParam, activeIssues, effectiveSearchTerm, isDistinctValuesExpanded, selectedDistinctValue]);
 
   const displayedMaps = useMemo(() => {
     if (isMapsExpanded) return activeParamFilteredMaps;
@@ -240,9 +253,20 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
                         {param.name}
                       </span>
                     </div>
-                    <span className="text-[11px] font-ui font-medium text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full border border-gray-200 dark:border-slate-700 tabular-nums">
-                      {param.occurrences}x
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {(valueIssues.get(param.name)?.size || 0) > 0 && (
+                        <span
+                          className="inline-flex items-center gap-1 text-[11px] font-ui font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 tabular-nums"
+                          title="Valores que podem ser erro de digitação"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden="true" />
+                          {valueIssues.get(param.name)!.size} {valueIssues.get(param.name)!.size === 1 ? 'alerta' : 'alertas'}
+                        </span>
+                      )}
+                      <span className="text-[11px] font-ui font-medium text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full border border-gray-200 dark:border-slate-700 tabular-nums">
+                        {param.occurrences}x
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-4 text-[11px] font-ui text-gray-500 dark:text-slate-400 flex-wrap">
                     <span className="tabular-nums">{param.screensCount} telas</span>
@@ -292,19 +316,45 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
                 <h4 className="text-xs font-ui font-semibold text-omni-ink-secondary mb-2">
                   Valores distintos identificados ({activeParam.distinctValuesList.length})
                 </h4>
+                {activeIssues.size > 0 && (
+                  <div className="mb-2 p-3 rounded-xl bg-amber-50 border border-amber-200 space-y-1.5">
+                    <p className="text-xs font-semibold text-amber-900">
+                      {activeIssues.size} {activeIssues.size === 1 ? 'valor pode ser' : 'valores podem ser'} erro de digitação
+                    </p>
+                    <ul className="space-y-1">
+                      {Array.from(activeIssues.entries()).map(([val, issue]) => (
+                        <li key={val} className="text-[11.5px] text-amber-900/90 leading-relaxed">
+                          <button
+                            type="button"
+                            onClick={() => handleSelectDistinctValue(val)}
+                            className="font-mono font-semibold underline decoration-amber-400 underline-offset-2 hover:decoration-amber-700 cursor-pointer"
+                          >
+                            {val}
+                          </button>{' '}
+                          ({issue.count}x): {issue.message}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 <div className={`flex flex-wrap gap-1.5 p-3 bg-gray-50/80 rounded-2xl border border-omni-line ${isDistinctValuesExpanded ? 'max-h-[320px] overflow-y-auto custom-scrollbar' : ''}`}>
                   {displayedDistinctValues.map((val, idx) => {
                     const isSelected = selectedDistinctValue === val;
+                    const issue = activeIssues.get(val);
                     return (
                       <button 
                         key={idx}
                         onClick={() => handleSelectDistinctValue(val)}
-                        className={`px-3 py-1.5 border rounded-lg text-xs font-mono transition-all outline-none focus:ring-2 focus:ring-bradesco-red/20 text-left ${
+                        title={issue ? issue.message : undefined}
+                        className={`px-3 py-1.5 border rounded-lg text-xs font-mono transition-all outline-none focus:ring-2 focus:ring-bradesco-red/20 text-left inline-flex items-center gap-1.5 ${
                           isSelected 
                             ? 'bg-bradesco-red text-white border-bradesco-red shadow-sm' 
+                            : issue
+                            ? 'bg-amber-50 border-amber-300 text-omni-ink hover:border-amber-400 cursor-pointer'
                             : 'bg-white border-omni-line text-omni-ink hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
                         }`}
                       >
+                        {issue && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" aria-label="Possível erro de digitação" />}
                         {highlightText(val, effectiveSearchTerm)}
                       </button>
                     );

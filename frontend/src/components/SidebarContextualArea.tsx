@@ -178,6 +178,29 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
 
     return (
       <div className="flex items-center gap-2 min-w-0" id="sidebar-contextual-cards">
+        {/* Busca dentro dos cards exibidos (nome, ID, task, GTM, parâmetros...) */}
+        <div className="relative w-44 sm:w-64">
+          <Search className="w-3.5 h-3.5 text-omni-muted absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0" />
+          <input
+            type="text"
+            placeholder="Filtrar cards: nome, task, GTM..."
+            value={cardSearch}
+            onChange={(e) => onCardSearchChange(e.target.value)}
+            className="w-full pl-8 pr-7 h-8 bg-white border border-omni-line rounded-lg text-xs font-ui text-omni-ink placeholder:text-omni-muted focus:outline-none focus:ring-2 focus:ring-omni-rubi/20 focus:border-omni-rubi transition-all truncate"
+          />
+          {cardSearch && (
+            <button
+              type="button"
+              onClick={() => onCardSearchChange('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-omni-muted hover:text-omni-ink p-0.5"
+              title="Limpar busca"
+              aria-label="Limpar busca"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+
         {/* Botão de Refinar Resultados (Abre o Popover Flutuante) */}
         <button
           ref={filterButtonRef}
@@ -269,7 +292,7 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
           <Search className="w-3.5 h-3.5 text-omni-muted absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0" />
           <input
             type="text"
-            placeholder="Filtrar inventário..."
+            placeholder="Filtrar: nome, task, GTM..."
             value={tableFilter}
             onChange={(e) => onTableFilterChange(e.target.value)}
             className="w-full pl-8 pr-7 h-8 bg-white border border-omni-line rounded-lg text-xs font-ui text-omni-ink placeholder:text-omni-muted focus:outline-none focus:ring-2 focus:ring-omni-rubi/20 focus:border-omni-rubi transition-all truncate"

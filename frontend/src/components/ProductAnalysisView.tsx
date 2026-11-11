@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { Artifact, ResolvedArtifactTaxonomy } from '../types';
 import { PageHeader } from './PageHeader';
+import { StatusDistribution } from './badges/StatusDistribution';
 import { normalizarStatus, OfficialStatus, getMapStatusMetrics, ScreenStatusMetrics as MapStatusMetrics } from '../domain/status';
 import { 
   normalizeSearchText, 
@@ -518,33 +519,7 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
                     Total: {selectedMetrics.totalTelas} telas
                   </span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {/* VALIDADO: verde */}
-                  <div className="p-3 rounded-xl border text-center text-emerald-700 bg-emerald-50/70 border-emerald-200">
-                    <span className="text-lg font-heading font-bold block tabular-nums">{selectedMetrics.statusCounts.VALIDADO}</span>
-                    <span className="text-[11px] font-medium">Validado</span>
-                  </div>
-                  {/* CORREÇÃO: vermelho */}
-                  <div className="p-3 rounded-xl border text-center text-rose-700 bg-rose-50/70 border-rose-200">
-                    <span className="text-lg font-heading font-bold block tabular-nums">{selectedMetrics.statusCounts['CORREÇÃO']}</span>
-                    <span className="text-[11px] font-medium">Correção</span>
-                  </div>
-                  {/* NOVO: amarelo */}
-                  <div className="p-3 rounded-xl border text-center text-amber-800 bg-amber-50/70 border-amber-200">
-                    <span className="text-lg font-heading font-bold block tabular-nums">{selectedMetrics.statusCounts.NOVO}</span>
-                    <span className="text-[11px] font-medium">Novo</span>
-                  </div>
-                  {/* EXCLUIR: cinza */}
-                  <div className="p-3 rounded-xl border text-center text-slate-700 bg-slate-100 border-slate-300">
-                    <span className="text-lg font-heading font-bold block tabular-nums">{selectedMetrics.statusCounts.EXCLUIR}</span>
-                    <span className="text-[11px] font-medium">Excluir</span>
-                  </div>
-                  {/* DESCONTINUAR: azul */}
-                  <div className="p-3 rounded-xl border text-center text-blue-700 bg-blue-50/70 border-blue-200">
-                    <span className="text-lg font-heading font-bold block tabular-nums">{selectedMetrics.statusCounts.DESCONTINUAR}</span>
-                    <span className="text-[11px] font-medium">Descontinuar</span>
-                  </div>
-                </div>
+                <StatusDistribution counts={selectedMetrics.statusCounts} />
 
                 {/* Diagnóstico técnico exclusivo em caso de falha de extração na fonte */}
                 {selectedMetrics.extractionErrorsCount > 0 && (

@@ -93,9 +93,11 @@ export function normalizeInventoryItem(item: any) {
       }
     }
     if (hasGa4 && hasGa3) measurement_class = 'HIBRIDO';
-    else if (hasGa4) measurement_class = 'GA4';
     else if (hasGa3) measurement_class = 'GA3';
+    // Regra de produto: todo mapa sem evidência de Universal Analytics é GA4
+    else measurement_class = 'GA4';
   }
+  if (!isMap) measurement_class = 'NAO_CLASSIFICADO';
 
   // Resolução canônica de taxonomia
   const tax = resolveCanonicalTaxonomy(item);

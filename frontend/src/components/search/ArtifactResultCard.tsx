@@ -6,6 +6,7 @@ import { isMap, isDocumentation, getArtifactTypeLabel } from '../../domain/artif
 import { getMapStatusMetrics } from '../../domain/status';
 import { ArtifactTypeBadge } from '../badges/ArtifactTypeBadge';
 import { MeasurementBadge } from '../badges/MeasurementBadge';
+import { resolveMeasurementClass } from '../../domain/measurement';
 import { resolveArtifactTaxonomy } from '../../utils/taxonomyResolver';
 
 export interface ArtifactResultCardProps {
@@ -176,8 +177,8 @@ export const ArtifactResultCard: React.FC<ArtifactResultCardProps> = ({
         </span>
 
         {/* Badge Mensuração */}
-        {item.measurement_class && (
-          <MeasurementBadge measurementClass={item.measurement_class} size="sm" />
+        {isMapArtifact && (
+          <MeasurementBadge measurementClass={resolveMeasurementClass(item)} size="sm" />
         )}
 
         {/* Barra de Homologação para Mapas */}

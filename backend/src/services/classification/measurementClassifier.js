@@ -111,11 +111,11 @@ export class MeasurementClassifier {
     }
 
     // Classificação de mensuração:
-    let measurement_class = 'NAO_CLASSIFICADO';
+    // Regra de produto: um mapa sem evidência de Universal Analytics é GA4.
+    // Só é GA3 com evidência de GA3 e só é Híbrido com evidência dos dois.
+    let measurement_class = 'GA4';
     if (hasGa4 && hasGa3) {
       measurement_class = 'HIBRIDO';
-    } else if (hasGa4) {
-      measurement_class = 'GA4';
     } else if (hasGa3) {
       measurement_class = 'GA3';
     }

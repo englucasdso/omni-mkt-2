@@ -9,6 +9,8 @@ export interface ArtifactTypeConfig {
   badgeText: string;
   badgeBorder: string;
   badgeClasses: string;
+  /** Cor da série em gráficos (mesma família do selo) */
+  hex: string;
 }
 
 export const ARTIFACT_TYPE_CONFIGS: Record<ArtifactType, ArtifactTypeConfig> = {
@@ -20,7 +22,8 @@ export const ARTIFACT_TYPE_CONFIGS: Record<ArtifactType, ArtifactTypeConfig> = {
     badgeBg: 'bg-red-50 dark:bg-red-950/40',
     badgeText: 'text-[#E30328] dark:text-red-400',
     badgeBorder: 'border-red-200 dark:border-red-800/60',
-    badgeClasses: 'bg-red-50 text-[#E30328] border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800/60'
+    badgeClasses: 'bg-red-50 text-[#E30328] border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800/60',
+    hex: '#E30328'
   },
   DOCUMENTACAO: {
     type: 'DOCUMENTACAO',
@@ -30,7 +33,8 @@ export const ARTIFACT_TYPE_CONFIGS: Record<ArtifactType, ArtifactTypeConfig> = {
     badgeBg: 'bg-slate-100 dark:bg-slate-800',
     badgeText: 'text-slate-700 dark:text-slate-300',
     badgeBorder: 'border-slate-300 dark:border-slate-700',
-    badgeClasses: 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+    badgeClasses: 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+    hex: '#475569'
   },
   NO: {
     type: 'NO',
@@ -40,7 +44,8 @@ export const ARTIFACT_TYPE_CONFIGS: Record<ArtifactType, ArtifactTypeConfig> = {
     badgeBg: 'bg-gray-100 dark:bg-slate-800',
     badgeText: 'text-gray-600 dark:text-slate-400',
     badgeBorder: 'border-gray-300 dark:border-slate-700',
-    badgeClasses: 'bg-gray-100 text-gray-600 border-gray-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+    badgeClasses: 'bg-gray-100 text-gray-600 border-gray-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700',
+    hex: '#94a3b8'
   },
   RAIZ: {
     type: 'RAIZ',
@@ -50,7 +55,8 @@ export const ARTIFACT_TYPE_CONFIGS: Record<ArtifactType, ArtifactTypeConfig> = {
     badgeBg: 'bg-indigo-50 dark:bg-indigo-950/40',
     badgeText: 'text-indigo-700 dark:text-indigo-300',
     badgeBorder: 'border-indigo-200 dark:border-indigo-800',
-    badgeClasses: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800'
+    badgeClasses: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800',
+    hex: '#6366f1'
   },
   NAO_CLASSIFICADO: {
     type: 'NAO_CLASSIFICADO',
@@ -60,7 +66,8 @@ export const ARTIFACT_TYPE_CONFIGS: Record<ArtifactType, ArtifactTypeConfig> = {
     badgeBg: 'bg-amber-50 dark:bg-amber-950/40',
     badgeText: 'text-amber-800 dark:text-amber-300',
     badgeBorder: 'border-amber-200 dark:border-amber-800',
-    badgeClasses: 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+    badgeClasses: 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800',
+    hex: '#d97706'
   }
 };
 

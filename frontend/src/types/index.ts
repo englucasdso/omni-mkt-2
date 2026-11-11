@@ -240,6 +240,7 @@ export type ContentMatchType =
   | 'TITLE_PREFIX'
   | 'TITLE_PHRASE'
   | 'ALL_TITLE_TOKENS'
+  | 'METADATA'
   | 'TAXONOMY'
   | 'SCREEN_OR_SNIPPET'
   | 'PARTIAL';

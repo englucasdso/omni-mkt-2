@@ -3,6 +3,7 @@
 // Runs seamlessly in Web Workers, Node, or Browser main thread without DOM dependencies.
 
 import { Artifact, ContentMatchType } from '../types';
+import { getArtifactMetadata } from '../domain/artifacts/artifactMetadata';
 import {
   cleanCodeLiteral,
   normalizeCodeForComparison,
@@ -41,6 +42,8 @@ export function getContentMatchLabel(matchType: ContentMatchType): string {
     case 'TITLE_PHRASE':
     case 'ALL_TITLE_TOKENS':
       return 'Título correspondente';
+    case 'METADATA':
+      return 'Metadado do mapa';
     case 'TAXONOMY':
       return 'Produto ou subproduto';
     case 'SCREEN_OR_SNIPPET':
@@ -56,10 +59,11 @@ const CONTENT_MATCH_PRIORITY: Record<ContentMatchType, number> = {
   EXACT_TITLE: 2,
   TITLE_PREFIX: 3,
   TITLE_PHRASE: 4,
-  ALL_TITLE_TOKENS: 5,
-  TAXONOMY: 6,
-  SCREEN_OR_SNIPPET: 7,
-  PARTIAL: 8,
+  METADATA: 5,
+  ALL_TITLE_TOKENS: 6,
+  TAXONOMY: 7,
+  SCREEN_OR_SNIPPET: 8,
+  PARTIAL: 9,
 };
 
 const GENERIC_CONTENT_TOKENS = new Set([
@@ -177,6 +181,8 @@ export interface IndexedArtifact {
   normFullPath: string;
   contentNormFullPath: string;
   responsavel: string;
+  /** Metadados do cabeçalho (task, GTM, GA4 Stream ID...) já normalizados */
+  metadata: Array<{ label: string; value: string; norm: string }>;
   screens: IndexedScreen[];
 }
 
@@ -387,6 +393,11 @@ class ArtifactSearchEngine {
         normFullPath: normalizeText(rawPath),
         contentNormFullPath: normalizeContentTitle(rawPath),
         responsavel: String(art.responsavel || ''),
+        metadata: getArtifactMetadata(art).map((m) => ({
+          label: m.label,
+          value: m.value,
+          norm: normalizeContentTitle(m.value),
+        })),
         screens,
       };
     });
@@ -495,6 +506,30 @@ class ArtifactSearchEngine {
           pathOnlyMatchedTokens.add(t);
         }
       }
+
+      // Metadados do cabeçalho: valor inteiro (ou começo, com 4+ caracteres) vale como correspondência direta
+      const metadataMatchedTokens = new Set<string>();
+      let metadataHit: { label: string; value: string } | null = null;
+      for (const meta of art.metadata) {
+        if (!meta.norm) continue;
+        if (meta.norm === normQuery || (normQuery.length >= 4 && meta.norm.startsWith(normQuery))) {
+          metadataHit = metadataHit || meta;
+          tokens.forEach((t) => metadataMatchedTokens.add(t));
+        } else {
+          tokens.forEach((t) => {
+            if (t.length >= 3 && meta.norm.includes(t)) metadataMatchedTokens.add(t);
+          });
+        }
+      }
+      if (metadataHit) {
+        score += 350;
+        matchedFields.add(`${metadataHit.label}: ${metadataHit.value}`);
+        if (!matchedValue) matchedValue = `${metadataHit.label}: ${metadataHit.value}`;
+      } else if (metadataMatchedTokens.size > 0) {
+        score += metadataMatchedTokens.size * 25;
+        matchedFields.add('Metadados');
+      }
+      metadataMatchedTokens.forEach((t) => primaryFieldMatchedTokens.add(t));
 
       const isTitlePrefix =
         art.contentNormTitle.startsWith(normQuery) || art.contentNormId.startsWith(normQuery);
@@ -607,6 +642,7 @@ class ArtifactSearchEngine {
         ...titleOrIdMatchedTokens,
         ...taxonomyMatchedTokens,
         ...screenOrSnippetMatchedTokens,
+        ...metadataMatchedTokens,
       ]);
 
       if (allMatchedTokens.size === 0) continue;
@@ -620,6 +656,8 @@ class ArtifactSearchEngine {
         matchType = 'TITLE_PREFIX';
       } else if (isTitlePhrase) {
         matchType = 'TITLE_PHRASE';
+      } else if (metadataHit) {
+        matchType = 'METADATA';
       } else if (hasAllTitleTokens) {
         matchType = 'ALL_TITLE_TOKENS';
       } else if (hasAllTaxonomyTokens) {
