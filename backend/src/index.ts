@@ -13,7 +13,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import searchRoutes from "./routes/search.routes";
 import usersRoutes from "./routes/users.routes";
-import { describeAiConfig } from "./services/ai/llmClient";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,12 +55,6 @@ async function startServer() {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`Frontend integration active via Vite middleware`);
-    const ai = describeAiConfig();
-    console.log(
-      ai.configured
-        ? `[IA] ${ai.providerLabel} (${ai.model}) via ${ai.host}${ai.usesProxy ? ' usando proxy' : ''}. Teste: http://localhost:${PORT}/api/ai/status?test=1`
-        : `[IA] Desligada: ${ai.message}`
-    );
   });
 }
 

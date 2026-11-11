@@ -18,18 +18,13 @@ import { Artifact } from '../types';
 import { StatusBadge } from './badges/StatusBadge';
 import { buildLocalJourney } from '../domain/journey/localJourney';
 import {
-  Loader2,
   Search,
   BrainCircuit,
   Info,
   ExternalLink,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
-  AlertTriangle,
-  RotateCcw,
   Code2,
-  X,
 } from 'lucide-react';
 
 // --- Medidas do layout ---------------------------------------------------------
@@ -106,12 +101,6 @@ const ScreenNode = React.memo(({ data, selected }: any) => {
           <h4 className="text-[13px] font-semibold text-omni-ink leading-snug line-clamp-2 min-h-[34px]">
             {data.summary || 'Tela sem instrução'}
           </h4>
-
-          {data.decision && (
-            <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 line-clamp-1 shrink-0" title={data.decision.rationale || ''}>
-              <span className="font-semibold">Decisão:</span> {data.decision.condition}
-            </p>
-          )}
 
           <div className="flex items-center justify-between gap-2 min-h-[22px]">
             {eventName ? (
@@ -274,48 +263,13 @@ function layoutJourney(nodes: any[], stages: StageInfo[], cardHeight: number) {
   return { nodes: [...frames, ...laidOut], columnOf };
 }
 
-/**
- * A IA descreve decisões como um nó intermediário (tela → decisão → destinos).
- * No quadro, a decisão vira um aviso na tela de origem e as setas vão direto
- * para os destinos, com o rótulo de cada caminho.
- */
-function foldDecisions(nodes: any[], edges: any[]) {
-  const decisions = new Map(nodes.filter((n) => n.kind === 'decision').map((n) => [n.id, n]));
-  if (decisions.size === 0) return { nodes, edges, decisionBySource: new Map<string, any>() };
-
-  const decisionBySource = new Map<string, any>();
-  const incoming = new Map<string, string>();
-  edges.forEach((e) => {
-    if (decisions.has(e.target)) {
-      incoming.set(e.target, e.source);
-      decisionBySource.set(e.source, decisions.get(e.target));
-    }
-  });
-
-  const folded: any[] = [];
-  edges.forEach((e) => {
-    if (decisions.has(e.target)) return;
-    if (decisions.has(e.source)) {
-      const src = incoming.get(e.source);
-      if (src) folded.push({ ...e, id: `${e.id}-folded`, source: src, label: e.label, decision: true });
-      return;
-    }
-    folded.push(e);
-  });
-  return { nodes: nodes.filter((n) => n.kind !== 'decision'), edges: folded, decisionBySource };
-}
-
 // --- Componente --------------------------------------------------------------
-
-const journeyAiCache = new Map<string, any>();
 
 interface JourneysCanvasProps {
   artifacts: Artifact[];
   selectedMapId: string | null;
   onOpenScreen: (map: Artifact, target?: { screenId?: string; snippetIndex?: number }) => void;
 }
-
-type JourneySource = 'local' | 'ia';
 
 const normalizeText = (t: string) =>
   String(t || '')
@@ -326,9 +280,6 @@ const normalizeText = (t: string) =>
 const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({ artifacts, selectedMapId, onOpenScreen }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [analysis, setAnalysis] = useState<{ data: any; source: JourneySource } | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [showCode, setShowCode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebouncedSearch(searchQuery, 300);
@@ -344,10 +295,6 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({ artifacts, selecte
     return [...selectedMap.screens].sort((a: any, b: any) => (a.screen_index ?? 9999) - (b.screen_index ?? 9999));
   }, [selectedMap]);
 
-  const cacheKey = selectedMap
-    ? `${selectedMap.id}-${(selectedMap as any).versao ?? (selectedMap as any).version ?? ''}-${screens.length}`
-    : '';
-
   const openTarget = useCallback(
     (screenId?: string, snippetIndex?: number) => {
       if (selectedMap) onOpenScreen(selectedMap, { screenId, snippetIndex: snippetIndex ?? 0 });
@@ -355,17 +302,13 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({ artifacts, selecte
     [selectedMap, onOpenScreen]
   );
 
-  // Ao trocar de mapa: usa a análise de IA em cache ou organiza localmente
-  useEffect(() => {
-    setError(null);
-    setSearchQuery('');
-    if (!selectedMap || screens.length === 0) {
-      setAnalysis(null);
-      return;
-    }
-    const cached = journeyAiCache.get(cacheKey);
-    setAnalysis(cached ? { data: cached, source: 'ia' } : { data: buildLocalJourney(selectedMap), source: 'local' });
-  }, [selectedMap?.id, screens.length]);
+  // Organização por etapas, calculada a partir do texto das telas
+  const analysis = useMemo(
+    () => (selectedMap && screens.length > 0 ? buildLocalJourney(selectedMap) : null),
+    [selectedMap, screens.length]
+  );
+
+  useEffect(() => setSearchQuery(''), [selectedMap?.id]);
 
   // Desenha a análise atual
   useEffect(() => {
@@ -374,14 +317,12 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({ artifacts, selecte
       setEdges([]);
       return;
     }
-    const { data } = analysis;
+    const data = analysis;
     const stages: StageInfo[] = Array.isArray(data.stages) ? data.stages : [];
     const stageKindByScreen = new Map<string, string>();
     stages.forEach((st) => st.screenIds.forEach((sid) => stageKindByScreen.set(String(sid), st.kind || 'main')));
 
-    const folded = foldDecisions(data.nodes || [], data.edges || []);
-
-    const flowNodes = folded.nodes.map((n: any) => {
+    const flowNodes = (data.nodes || []).map((n: any) => {
       const screenObj = screens.find((s: any) => String(s.screen_id) === String(n.screenId)) || null;
       return {
         id: n.id,
@@ -390,7 +331,6 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({ artifacts, selecte
           ...n,
           screen: screenObj,
           showCode,
-          decision: folded.decisionBySource.get(n.id),
           stageKind: screenObj ? stageKindByScreen.get(String(screenObj.screen_id)) : undefined,
           onOpenSnippet: (snippetIndex: number) => screenObj && openTarget(screenObj.screen_id, snippetIndex),
         },
@@ -400,14 +340,14 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({ artifacts, selecte
     const { nodes: laidOut, columnOf } = layoutJourney(flowNodes, stages, showCode ? CARD_HEIGHT_WITH_CODE : CARD_HEIGHT);
     const nodeById = new Map(flowNodes.map((n: any) => [n.id, n]));
 
-    const flowEdges = folded.edges
+    const flowEdges = (data.edges || [])
       .filter((e: any) => nodeById.has(e.source) && nodeById.has(e.target))
       .map((e: any) => {
         const targetKind = nodeById.get(e.target)?.data?.stageKind;
         const isException = e.variant === 'exception' || targetKind === 'exception';
         const isAmbiguous = e.confidence === 'AMBIGUO';
         const sameColumn = columnOf.get(e.source) === columnOf.get(e.target);
-        const color = isException ? '#dc2626' : e.decision ? '#b45309' : isAmbiguous ? '#d97706' : '#7B0209';
+        const color = isException ? '#dc2626' : isAmbiguous ? '#d97706' : '#7B0209';
         return {
           id: e.id,
           source: e.source,
@@ -429,36 +369,6 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({ artifacts, selecte
     setEdges(flowEdges);
     setTimeout(() => fitView({ padding: 0.08, maxZoom: 1, minZoom: 0.3, duration: 400 }), 80);
   }, [analysis, showCode, screens, selectedMap, openTarget, setNodes, setEdges, fitView]);
-
-  const handleAnalyze = async () => {
-    if (!selectedMap) return;
-    setIsAnalyzing(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/insights/journeys/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ artifact: selectedMap }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data.error || 'Não foi possível falar com a IA.');
-        return;
-      }
-      journeyAiCache.set(cacheKey, data);
-      setAnalysis({ data, source: 'ia' });
-    } catch (e: any) {
-      setError(e?.message || 'Erro de rede ao chamar a IA.');
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const showLocal = () => {
-    if (!selectedMap) return;
-    setError(null);
-    setAnalysis({ data: buildLocalJourney(selectedMap), source: 'local' });
-  };
 
   // Busca: destaca e centraliza a primeira tela encontrada, sem refazer o layout
   useEffect(() => {
@@ -498,7 +408,7 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({ artifacts, selecte
         </div>
         <p className="text-base font-semibold text-omni-ink">Escolha um mapa para ver a jornada</p>
         <p className="text-xs text-omni-ink-secondary mt-1 max-w-md">
-          Use Produto, Subproduto e Mapa na barra acima. As telas são agrupadas por etapa; Gerar jornada pede para a IA refinar.
+          Use Produto, Subproduto e Mapa na barra acima. As telas aparecem agrupadas por etapa da jornada.
         </p>
       </div>
     );
@@ -515,10 +425,9 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({ artifacts, selecte
     );
   }
 
-  const isAi = analysis?.source === 'ia';
-  const summary: string = analysis?.data?.summary || '';
-  const stageCount = (analysis?.data?.stages || []).length;
-  const decisionCount = (analysis?.data?.nodes || []).filter((n: any) => n.kind === 'decision').length;
+  const summary: string = analysis?.summary || '';
+  const classified = analysis?.classifiedCount ?? 0;
+  const unclassified = screens.length - classified;
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden rounded-2xl border border-omni-line bg-white">
@@ -547,65 +456,18 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({ artifacts, selecte
           {showCode ? 'Esconder código' : 'Mostrar código'}
         </button>
 
-        <div className="flex-1" />
-
-        {isAi && (
-          <button
-            type="button"
-            onClick={showLocal}
-            className="h-9 px-3 rounded-lg border border-omni-line text-xs font-semibold text-omni-ink-secondary hover:border-omni-bordo/40 cursor-pointer"
-          >
-            Ver organização local
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={handleAnalyze}
-          disabled={isAnalyzing}
-          className="h-9 px-4 rounded-lg bg-omni-bordo hover:bg-[#630005] text-white text-xs font-semibold inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-wait cursor-pointer"
-        >
-          {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          {isAnalyzing ? 'Organizando com IA…' : isAi ? 'Gerar de novo' : 'Gerar jornada com IA'}
-        </button>
       </div>
 
       {/* Resumo da jornada */}
       <div className="flex items-start gap-2.5 px-4 py-2.5 border-b border-omni-line bg-omni-mist/50">
-        {isAi ? (
-          <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-        ) : (
-          <Info className="w-4 h-4 text-omni-muted shrink-0 mt-0.5" />
-        )}
+        <Info className="w-4 h-4 text-omni-muted shrink-0 mt-0.5" />
         <p className="text-xs text-omni-ink-secondary leading-relaxed">
-          <span className="font-semibold text-omni-ink">
-            {isAi ? 'Organizada pela IA. ' : 'Organizada pelo texto das telas. '}
-          </span>
           {summary}
-          {isAi && decisionCount > 0 && ` ${decisionCount} ${decisionCount === 1 ? 'decisão identificada' : 'decisões identificadas'}.`}
-          {!isAi && stageCount > 0 && ' Use Gerar jornada com IA para nomear etapas e encontrar desvios.'}
+          {unclassified > 0 &&
+            ` ${unclassified} ${unclassified === 1 ? 'tela não tinha' : 'telas não tinham'} pista de etapa e ${unclassified === 1 ? 'ficou' : 'ficaram'} junto da tela anterior.`}{' '}
+          Etapas definidas pelo texto, evento e parâmetros de cada tela; telas de erro saem da tela anterior em vermelho.
         </p>
       </div>
-
-      {error && (
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 max-w-xl w-[92%] bg-white border border-red-200 rounded-xl shadow-lg px-4 py-3 flex items-start gap-3">
-          <AlertTriangle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-red-800">A IA não organizou esta jornada</p>
-            <p className="text-xs text-omni-ink-secondary mt-0.5 leading-relaxed">{error}</p>
-            <p className="text-[11px] text-omni-muted mt-1">A organização local continua na tela.</p>
-          </div>
-          <button
-            type="button"
-            onClick={handleAnalyze}
-            className="shrink-0 h-7 px-2.5 rounded-md bg-red-600 hover:bg-red-700 text-white text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer"
-          >
-            <RotateCcw className="w-3 h-3" /> Tentar de novo
-          </button>
-          <button type="button" onClick={() => setError(null)} className="shrink-0 p-1 text-omni-muted hover:text-omni-ink cursor-pointer" aria-label="Fechar aviso">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
 
       <div className="flex-1 min-h-0">
         <ReactFlow

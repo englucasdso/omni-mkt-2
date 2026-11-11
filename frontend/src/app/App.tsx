@@ -15,12 +15,12 @@ import React, { useState, useEffect, useRef, useMemo, useCallback, useDeferredVa
 import { ExportDialog } from "../components/export/ExportDialog";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
-import { X, AlertTriangle, Target, Network, Filter, CheckCircle2, AlertCircle, Clock, User, Info, Shield, LogOut, Trash2, Plus, Settings, Landmark, LayoutList, RefreshCw, Check, Loader2, KeyRound, Activity, ArrowRight, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, Sparkles, FileText, Layers, Tag, Code2, Eye, ArrowUpDown, Calendar, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { X, AlertTriangle, Target, Network, Filter, CheckCircle2, AlertCircle, Clock, User, Info, Shield, LogOut, Trash2, Plus, Settings, Landmark, LayoutList, RefreshCw, Check, Loader2, KeyRound, Activity, ArrowRight, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, Sparkles, MessageCircleQuestion, FileText, Layers, Tag, Code2, Eye, ArrowUpDown, Calendar, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { ConexoesCanvas } from "../components/ConexoesCanvas";
 import { JourneysCanvas } from "../components/JourneysCanvas";
 import { JourneysSidebarFilters } from "../components/JourneysSidebarFilters";
 import { fetchInventory, searchContent, fetchUsers, createUser, updateUser, deleteUser } from "../services/api";
-import { Artifact, SearchResponse, User as UserType, UserRole, UserStatus, ActiveSearch, ParameterArtifactGroupSummary, ContentMatchSummary, AiMatchSummary } from "../types";
+import { Artifact, SearchResponse, User as UserType, UserRole, UserStatus, ActiveSearch, ParameterArtifactGroupSummary, ContentMatchSummary, QuestionMatchSummary } from "../types";
 import { normalizar, formatDataBR } from "../utils/helpers";
 import { 
   buildArtifactSearchableText, 
@@ -576,19 +576,17 @@ export default function App() {
     searchQuery: string,
     filteredIds: string[],
     meta?: {
-      mode: 'conteudo' | 'parametros' | 'ia';
+      mode: 'conteudo' | 'parametros' | 'pergunta';
       parameterCriteria?: any[];
-      aiQuestion?: string;
+      questionText?: string;
       scope?: 'SNIPPET' | 'SCREEN';
       operator?: 'AND' | 'OR';
       parameterGroups?: Record<string, ParameterArtifactGroupSummary>;
       contentMatches?: Record<string, ContentMatchSummary>;
       matchedTerms?: string[];
       queryKind?: string;
-      aiMessage?: string;
-      aiEngine?: 'ia' | 'local';
-      aiNotice?: string;
-      aiMatches?: Record<string, AiMatchSummary>;
+      questionMessage?: string;
+      questionMatches?: Record<string, QuestionMatchSummary>;
     }
   ) => {
     // 1. Receber filteredIds
@@ -623,17 +621,15 @@ export default function App() {
       timestamp: Date.now(),
       filteredIds: uniqueIds,
       parameterCriteria: meta?.parameterCriteria,
-      aiQuestion: meta?.aiQuestion,
+      questionText: meta?.questionText,
       scope: meta?.scope,
       operator: meta?.operator,
       parameterGroups: meta?.parameterGroups,
       contentMatches: meta?.contentMatches,
       matchedTerms: meta?.matchedTerms,
       queryKind: meta?.queryKind,
-      aiMessage: meta?.aiMessage,
-      aiEngine: meta?.aiEngine,
-      aiNotice: meta?.aiNotice,
-      aiMatches: meta?.aiMatches,
+      questionMessage: meta?.questionMessage,
+      questionMatches: meta?.questionMatches,
     };
     setActiveSearch(newActiveSearch);
 
@@ -1916,7 +1912,7 @@ export default function App() {
                   ) : activeSearch.mode === 'parametros' ? (
                     `Busca por parâmetros: ${totalCardsCount} ${totalCardsCount === 1 ? 'artefato encontrado' : 'artefatos encontrados'}${activeSearch.query ? ` para "${activeSearch.query}"` : ''}`
                   ) : (
-                    `Busca por IA: ${totalCardsCount} ${totalCardsCount === 1 ? 'artefato encontrado' : 'artefatos encontrados'} para "${activeSearch.aiQuestion || activeSearch.query}"`
+                    `Pergunta: ${totalCardsCount} ${totalCardsCount === 1 ? 'artefato encontrado' : 'artefatos encontrados'} para "${activeSearch.questionText || activeSearch.query}"`
                   )
                 ) : (
                   "Todos os artefatos sincronizados. Use Nova busca para encontrar por nome, parâmetro ou pergunta."
@@ -1945,23 +1941,11 @@ export default function App() {
               }
             />
 
-            {/* Resposta da IA (Perguntar à IA) */}
-            {activeSearch?.mode === 'ia' && (activeSearch.aiMessage || activeSearch.aiNotice) && (
-              <div className="panel p-4 flex flex-col gap-2">
-                {activeSearch.aiMessage && (
-                  <div className="flex items-start gap-2.5">
-                    <Sparkles className="w-4 h-4 text-omni-bordo shrink-0 mt-0.5" />
-                    <p className="text-sm text-omni-ink leading-relaxed">{activeSearch.aiMessage}</p>
-                  </div>
-                )}
-                {activeSearch.aiEngine === 'local' && activeSearch.aiNotice && (
-                  <div className="flex items-start gap-2.5 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
-                    <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-800 leading-relaxed">
-                      A IA não reordenou estes resultados. {activeSearch.aiNotice}
-                    </p>
-                  </div>
-                )}
+            {/* Fazer uma pergunta: o que foi procurado */}
+            {activeSearch?.mode === 'pergunta' && activeSearch.questionMessage && (
+              <div className="panel p-4 flex items-start gap-2.5">
+                <MessageCircleQuestion className="w-4 h-4 text-omni-bordo shrink-0 mt-0.5" />
+                <p className="text-sm text-omni-ink leading-relaxed">{activeSearch.questionMessage}</p>
               </div>
             )}
 

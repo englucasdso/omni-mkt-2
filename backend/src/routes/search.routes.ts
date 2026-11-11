@@ -7,47 +7,9 @@
 import { Router } from "express";
 import { getInventoryData, searchArtifacts } from "../services/inventory.service.js";
 import { runCollection, abortCollection, getSyncStatus } from "../integrations/confluenceClient.js";
-import { analyzeJourneyWithAI, buildDocumentarySequence } from "../services/journeyAnalysis.service.js";
 import { searchSemantic } from "../services/semanticSearch.service.js";
-import { describeAiConfig, testAiConnection, toAiErrorResponse } from "../services/ai/llmClient.js";
 
 const router = Router();
-
-router.post("/insights/journeys/analyze", async (req, res) => {
-  const { artifact } = req.body || {};
-  if (!artifact || !artifact.id) {
-    return res.status(400).json({ error: "Nenhum mapa fornecido para análise." });
-  }
-
-  try {
-    const result = await analyzeJourneyWithAI(artifact);
-    return res.json(result);
-  } catch (error: any) {
-    const { status, body } = toAiErrorResponse(error);
-    const fallbackSeq = buildDocumentarySequence(artifact);
-    return res.status(status).json({
-      ...body,
-      isAiGenerated: false,
-      fallback: true,
-      nodes: fallbackSeq.nodes,
-      edges: fallbackSeq.edges,
-    });
-  }
-});
-
-/**
- * ROTA: GET /api/ai/status
- * Mostra qual IA está configurada (sem expor a chave).
- * Com ?test=1, faz uma chamada mínima para provar que a IA responde desta máquina.
- */
-router.get("/ai/status", async (req, res) => {
-  const config = describeAiConfig();
-  if (req.query.test && config.configured) {
-    const test = await testAiConnection();
-    return res.json({ ...config, test });
-  }
-  return res.json(config);
-});
 
 router.post("/cancel-inventory", async (req, res) => {
   console.log(`[API] POST /api/cancel-inventory - Solicitação de cancelamento recebida.`);
@@ -123,25 +85,20 @@ router.get("/search", (req, res) => {
 });
 
 /**
- * ROTA: POST /api/search/semantic
- * Perguntar à IA: ranking local + reranqueamento pela IA configurada.
- * Sem IA, devolve o ranking local e explica o motivo em aiUnavailableReason.
+ * ROTA: POST /api/search/question
+ * Fazer uma pergunta: busca em linguagem natural pelos termos da pergunta (sem IA).
  */
-router.post("/search/semantic", async (req, res) => {
-  const { question, query, filters, limit } = req.body || {};
-  const queryText = String(question || query || "").trim();
-
+router.post("/search/question", (req, res) => {
+  const { question, limit } = req.body || {};
+  const queryText = String(question || "").trim();
   if (!queryText) {
     return res.status(400).json({ error: "Escreva uma pergunta sobre os artefatos." });
   }
-
   try {
-    const result = await searchSemantic(queryText, filters, limit || 10);
-    return res.json(result);
+    return res.json(searchSemantic(queryText, Number(limit) || 20));
   } catch (error: any) {
-    console.error(`[SearchAI] Falha na busca: ${error.message}`);
-    const { status, body } = toAiErrorResponse(error);
-    return res.status(status).json(body);
+    console.error(`[Pergunta] Falha na busca: ${error.message}`);
+    return res.status(500).json({ error: "Não foi possível concluir a busca." });
   }
 });
 
