@@ -14,6 +14,7 @@ import { isMap as checkIsMap, isDocumentation, getArtifactTypeLabel } from '../d
 import { resolveMeasurementClass, getMeasurementLabel } from '../domain/measurement';
 import { getMapStatusMetrics } from '../domain/status';
 import { findArtifactValueIssues, findPatternIssues } from '../domain/quality/valueQuality';
+import { HoverHint } from './HoverHint';
 
 interface MapDetailModalProps {
   item: Artifact | null;
@@ -165,9 +166,9 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
   const isFigmaLink = figmaRaw && figmaRaw !== '-' && figmaRaw.trim() !== '' && (figmaRaw.startsWith('http://') || figmaRaw.startsWith('https://'));
 
   const tabs = [
-    { id: 'telas', label: `Telas (${screens.length})`, icon: Layers, alerts: 0 },
-    { id: 'parametros', label: `Parâmetros (${parameters.length})`, icon: Tag, alerts: valueIssueCount },
-    { id: 'padroes', label: `Padrões (${patterns.length})`, icon: Code2, alerts: patternIssues.size },
+    { id: 'telas', label: 'Telas', icon: Layers, alerts: 0 },
+    { id: 'parametros', label: 'Parâmetros', icon: Tag, alerts: valueIssueCount },
+    { id: 'padroes', label: 'Padrões', icon: Code2, alerts: patternIssues.size },
     { id: 'detalhes', label: 'Detalhes', icon: FileText, alerts: 0 }
   ] as const;
 
@@ -339,11 +340,10 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                   {tab.label}
                   {tab.alerts > 0 && (
                     <span
-                      className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-amber-400 text-[10px] font-bold text-amber-950 tabular-nums"
-                      title={`${tab.alerts} ${tab.alerts === 1 ? 'alerta' : 'alertas'} para conferir`}
-                    >
-                      {tab.alerts}
-                    </span>
+                      className="w-1.5 h-1.5 rounded-full bg-amber-500"
+                      title="Tem alerta para conferir"
+                      aria-label="Tem alerta para conferir"
+                    />
                   )}
                 </button>
               );
@@ -504,17 +504,6 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                 </p>
               </div>
 
-              {valueIssueCount > 0 && (
-                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2.5">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-xs text-amber-900 leading-relaxed">
-                    <strong className="font-semibold">
-                      {valueIssueCount} {valueIssueCount === 1 ? 'valor parecido' : 'valores parecidos'} com outro já usado
-                    </strong>{' '}
-                    em {valueIssues.size} {valueIssues.size === 1 ? 'parâmetro' : 'parâmetros'}. Pode ser erro de digitação; abra o parâmetro marcado para ver qual.
-                  </p>
-                </div>
-              )}
 
               {parameters.length === 0 ? (
                 <div className="p-12 text-center text-gray-400 dark:text-slate-500">
@@ -551,10 +540,11 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                             <div className="col-span-6 sm:col-span-7 font-mono text-xs font-semibold text-gray-900 dark:text-slate-100 truncate flex items-center gap-2">
                               <span className="truncate">{param.name}</span>
                               {paramIssues && (
-                                <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-[10px] font-sans font-medium text-amber-800">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden="true" />
-                                  {paramIssues.size} {paramIssues.size === 1 ? 'possível erro' : 'possíveis erros'}
-                                </span>
+                                <span
+                                  className="shrink-0 w-1.5 h-1.5 rounded-full bg-amber-500"
+                                  title={`${paramIssues.size} ${paramIssues.size === 1 ? 'valor pode ser' : 'valores podem ser'} erro de digitação`}
+                                  aria-label="Possível erro de digitação"
+                                />
                               )}
                             </div>
                             <div className="col-span-3 sm:col-span-2 text-center text-xs font-ui text-gray-600 dark:text-slate-300">
@@ -574,26 +564,17 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                               <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
                                 Valores Distintos ({distinctValues.length}):
                               </p>
-                              {paramIssues && (
-                                <ul className="space-y-0.5">
-                                  {Array.from(paramIssues.entries()).map(([val, issue]) => (
-                                    <li key={val} className="text-[11px] text-amber-900">
-                                      <span className="font-mono font-semibold">{val}</span> ({issue.count}x): {issue.message}
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
                               {distinctValues.length > 0 ? (
-                                <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto custom-scrollbar p-1">
+                                <div className="flex flex-wrap gap-1.5 p-1">
                                   {distinctValues.map((val, vIdx) => {
                                     const issue = paramIssues?.get(val);
-                                    return (
+                                    const chip = (
                                       <span 
                                         key={vIdx}
-                                        title={issue?.message}
+                                        tabIndex={issue ? 0 : undefined}
                                         className={`px-2 py-0.5 text-[11px] rounded border font-mono inline-flex items-center gap-1 ${
                                           issue
-                                            ? 'bg-amber-50 text-amber-900 border-amber-300'
+                                            ? 'bg-amber-50 text-amber-900 border-amber-300 cursor-help'
                                             : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 border-gray-200 dark:border-slate-700'
                                         }`}
                                       >
@@ -601,6 +582,11 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                                         {val === '' ? '"" (vazio)' : val}
                                       </span>
                                     );
+                                    return issue ? (
+                                      <HoverHint key={vIdx} hint={issue.message}>
+                                        {chip}
+                                      </HoverHint>
+                                    ) : chip;
                                   })}
                                 </div>
                               ) : (
@@ -634,21 +620,11 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                   {patterns.map((pat, ptIdx) => {
                     const fields = pat.signature || [];
                     const patIssue = patternIssues.get(pat.pattern_id);
-                    const missing = new Set(patIssue?.missing || []);
-                    const extra = new Set(patIssue?.extra || []);
                     return (
                       <div 
                         key={pat.pattern_id || ptIdx}
-                        className={`p-4 rounded-xl border bg-white dark:bg-slate-900 space-y-3 ${
-                          patIssue ? 'border-amber-300' : 'border-gray-200 dark:border-slate-800'
-                        }`}
+                        className="p-4 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3"
                       >
-                        {patIssue && (
-                          <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200">
-                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                            <p className="text-[11.5px] text-amber-900 leading-relaxed">{patIssue.message}</p>
-                          </div>
-                        )}
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <span className="font-mono text-sm font-bold text-gray-900 dark:text-slate-100">
@@ -660,7 +636,35 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                               </span>
                             )}
                           </div>
-                          <span className="text-xs font-ui text-gray-500 dark:text-slate-400">
+                          <span className="flex items-center gap-2 text-xs font-ui text-gray-500 dark:text-slate-400">
+                            {patIssue && (
+                              <HoverHint
+                                align="right"
+                                hint={
+                                  <>
+                                    <span className="block">{patIssue.message}</span>
+                                    {patIssue.missing.length > 0 && (
+                                      <span className="block mt-1">
+                                        <span className="text-omni-muted">Falta:</span> <span className="font-mono">{patIssue.missing.join(', ')}</span>
+                                      </span>
+                                    )}
+                                    {patIssue.extra.length > 0 && (
+                                      <span className="block">
+                                        <span className="text-omni-muted">Sobra:</span> <span className="font-mono">{patIssue.extra.join(', ')}</span>
+                                      </span>
+                                    )}
+                                  </>
+                                }
+                              >
+                                <span
+                                  tabIndex={0}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-[10.5px] font-medium text-amber-800 cursor-help"
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden="true" />
+                                  Conferir
+                                </span>
+                              </HoverHint>
+                            )}
                             {pat.count}x {pat.count === 1 ? 'ocorrência' : 'ocorrências'} · presente em {pat.screens_count} {pat.screens_count === 1 ? 'tela' : 'telas'}
                           </span>
                         </div>
@@ -675,21 +679,7 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                               {fields.map((field, fIdx) => (
                                 <span 
                                   key={fIdx} 
-                                  title={extra.has(field) ? 'Só este disparo tem este campo' : undefined}
-                                  className={`px-2 py-0.5 rounded text-[11px] font-mono border ${
-                                    extra.has(field)
-                                      ? 'bg-amber-50 text-amber-900 border-amber-300'
-                                      : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 border-gray-200 dark:border-slate-700'
-                                  }`}
-                                >
-                                  {field}
-                                </span>
-                              ))}
-                              {Array.from(missing).map((field) => (
-                                <span
-                                  key={`faltando-${field}`}
-                                  title="Os outros disparos deste evento têm este campo"
-                                  className="px-2 py-0.5 rounded text-[11px] font-mono border border-dashed border-amber-400 text-amber-800 line-through decoration-amber-500"
+                                  className="px-2 py-0.5 bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 rounded text-[11px] font-mono border border-gray-200 dark:border-slate-700"
                                 >
                                   {field}
                                 </span>

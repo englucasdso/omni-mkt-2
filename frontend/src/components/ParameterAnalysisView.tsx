@@ -15,6 +15,7 @@ import {
 } from '../utils/contextualSearch';
 import { ContextualEmptyState } from './ContextualEmptyState';
 import { findValueIssuesByParameter, ValueIssue } from '../domain/quality/valueQuality';
+import { HoverHint } from './HoverHint';
 
 interface ParameterAnalysisViewProps {
   artifacts: Artifact[];
@@ -256,12 +257,10 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
                     <div className="flex items-center gap-1.5 shrink-0">
                       {(valueIssues.get(param.name)?.size || 0) > 0 && (
                         <span
-                          className="inline-flex items-center gap-1 text-[11px] font-ui font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 tabular-nums"
-                          title="Valores que podem ser erro de digitação"
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden="true" />
-                          {valueIssues.get(param.name)!.size} {valueIssues.get(param.name)!.size === 1 ? 'alerta' : 'alertas'}
-                        </span>
+                          className="w-1.5 h-1.5 rounded-full bg-amber-500"
+                          title="Tem valor que pode ser erro de digitação"
+                          aria-label="Tem valor que pode ser erro de digitação"
+                        />
                       )}
                       <span className="text-[11px] font-ui font-medium text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full border border-gray-200 dark:border-slate-700 tabular-nums">
                         {param.occurrences}x
@@ -317,11 +316,13 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
                   Valores distintos identificados ({activeParam.distinctValuesList.length})
                 </h4>
                 {activeIssues.size > 0 && (
-                  <div className="mb-2 p-3 rounded-xl bg-amber-50 border border-amber-200 space-y-1.5">
-                    <p className="text-xs font-semibold text-amber-900">
+                  <details className="mb-2 group">
+                    <summary className="inline-flex items-center gap-1.5 text-[11.5px] font-medium text-amber-800 cursor-pointer select-none list-none">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden="true" />
                       {activeIssues.size} {activeIssues.size === 1 ? 'valor pode ser' : 'valores podem ser'} erro de digitação
-                    </p>
-                    <ul className="space-y-1">
+                      <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
+                    </summary>
+                    <ul className="mt-2 p-3 rounded-xl bg-amber-50 border border-amber-200 space-y-1">
                       {Array.from(activeIssues.entries()).map(([val, issue]) => (
                         <li key={val} className="text-[11.5px] text-amber-900/90 leading-relaxed">
                           <button
@@ -335,17 +336,16 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
                         </li>
                       ))}
                     </ul>
-                  </div>
+                  </details>
                 )}
                 <div className={`flex flex-wrap gap-1.5 p-3 bg-gray-50/80 rounded-2xl border border-omni-line ${isDistinctValuesExpanded ? 'max-h-[320px] overflow-y-auto custom-scrollbar' : ''}`}>
                   {displayedDistinctValues.map((val, idx) => {
                     const isSelected = selectedDistinctValue === val;
                     const issue = activeIssues.get(val);
-                    return (
+                    const chip = (
                       <button 
                         key={idx}
                         onClick={() => handleSelectDistinctValue(val)}
-                        title={issue ? issue.message : undefined}
                         className={`px-3 py-1.5 border rounded-lg text-xs font-mono transition-all outline-none focus:ring-2 focus:ring-bradesco-red/20 text-left inline-flex items-center gap-1.5 ${
                           isSelected 
                             ? 'bg-bradesco-red text-white border-bradesco-red shadow-sm' 
@@ -358,6 +358,11 @@ export const ParameterAnalysisView: React.FC<ParameterAnalysisViewProps> = ({
                         {highlightText(val, effectiveSearchTerm)}
                       </button>
                     );
+                    return issue ? (
+                      <HoverHint key={idx} hint={issue.message}>
+                        {chip}
+                      </HoverHint>
+                    ) : chip;
                   })}
                 </div>
                 

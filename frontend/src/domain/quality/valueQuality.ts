@@ -223,16 +223,11 @@ export function findPatternIssues(
     const missing = Array.from(theirs).filter((f) => !mine.has(f));
     const extra = Array.from(mine).filter((f) => !theirs.has(f));
     const total = siblings.reduce((acc, p) => acc + p.count, 0);
-    const parts: string[] = [];
-    if (missing.length) parts.push(`falta ${missing.join(', ')}`);
-    if (extra.length) parts.push(`sobra ${extra.join(', ')}`);
     issues.set(pat.pattern_id, {
       missing,
       extra,
       siblings: total,
-      message:
-        `Único disparo de "${pat.event}" com estes campos; os outros ${total} usam outro conjunto` +
-        (parts.length ? ` (${parts.join('; ')}).` : '.'),
+      message: `Único disparo de "${pat.event}" com estes campos; os outros ${total} usam outro conjunto.`,
     });
   }
   return issues;
