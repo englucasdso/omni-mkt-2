@@ -266,6 +266,21 @@ export interface ActiveSearch {
   contentMatches?: Record<string, ContentMatchSummary>;
   matchedTerms?: string[];
   queryKind?: string;
+  aiMessage?: string;
+  aiEngine?: 'ia' | 'local';
+  aiNotice?: string;
+  aiMatches?: Record<string, AiMatchSummary>;
+}
+
+export interface AiMatchSummary {
+  reason: string;
+  evidence: string[];
+  confidence: 'ALTA' | 'MEDIA' | 'BAIXA';
+  screenId?: string;
+  screenIndex?: number;
+  screenTitle?: string;
+  snippetIndex?: number;
+  event?: string;
 }
 
 

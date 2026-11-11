@@ -20,7 +20,7 @@ import { ConexoesCanvas } from "../components/ConexoesCanvas";
 import { JourneysCanvas } from "../components/JourneysCanvas";
 import { JourneysSidebarFilters } from "../components/JourneysSidebarFilters";
 import { fetchInventory, searchContent, fetchUsers, createUser, updateUser, deleteUser } from "../services/api";
-import { Artifact, SearchResponse, User as UserType, UserRole, UserStatus, ActiveSearch, ParameterArtifactGroupSummary, ContentMatchSummary } from "../types";
+import { Artifact, SearchResponse, User as UserType, UserRole, UserStatus, ActiveSearch, ParameterArtifactGroupSummary, ContentMatchSummary, AiMatchSummary } from "../types";
 import { normalizar, formatDataBR } from "../utils/helpers";
 import { 
   buildArtifactSearchableText, 
@@ -559,16 +559,17 @@ export default function App() {
     }
   }, [appState, fullInventory.length, results.length]);
 
-  useEffect(() => {
-    const mainCatalogStates = ["inventory_table", "results", "produtos_analise", "parametros_analise", "insights", "graph"];
-    if (mainCatalogStates.includes(appState) && results.length === 0 && !loading && !isSearchingRef.current && (query === "" || query === "inventario")) {
-      executeSearch("inventario");
-    }
-  }, [appState, results.length, loading]);
-
   // Estado centralizado da busca ativa (ActiveSearch)
   const [activeSearch, setActiveSearch] = useState<ActiveSearch | null>(null);
   const [searchSessionId, setSearchSessionId] = useState(0);
+
+  useEffect(() => {
+    const mainCatalogStates = ["inventory_table", "results", "produtos_analise", "parametros_analise", "insights", "graph"];
+    // Uma busca que voltou vazia é um resultado legítimo: não recarregar a base inteira por cima dela
+    if (mainCatalogStates.includes(appState) && results.length === 0 && !loading && !isSearchingRef.current && !activeSearch && (query === "" || query === "inventario")) {
+      executeSearch("inventario");
+    }
+  }, [appState, results.length, loading, activeSearch]);
 
   // Callback de transporte de resultados para a tela de Cards
   const handleApplyToCards = useCallback((
@@ -584,6 +585,10 @@ export default function App() {
       contentMatches?: Record<string, ContentMatchSummary>;
       matchedTerms?: string[];
       queryKind?: string;
+      aiMessage?: string;
+      aiEngine?: 'ia' | 'local';
+      aiNotice?: string;
+      aiMatches?: Record<string, AiMatchSummary>;
     }
   ) => {
     // 1. Receber filteredIds
@@ -625,6 +630,10 @@ export default function App() {
       contentMatches: meta?.contentMatches,
       matchedTerms: meta?.matchedTerms,
       queryKind: meta?.queryKind,
+      aiMessage: meta?.aiMessage,
+      aiEngine: meta?.aiEngine,
+      aiNotice: meta?.aiNotice,
+      aiMatches: meta?.aiMatches,
     };
     setActiveSearch(newActiveSearch);
 
@@ -1792,7 +1801,7 @@ export default function App() {
               className="summary pb-20"
             >
               <CanonicalInsightsDashboard 
-                artifacts={results}
+                artifacts={fullInventory.length > 0 ? fullInventory : results}
                 onOpenMap={(art) => setDetailModalItem(art)}
                 onFilterByProduct={(prod) => {
                   setInventoryFilters(f => ({ ...f, produto: [prod] }));
@@ -1935,6 +1944,26 @@ export default function App() {
                 </div>
               }
             />
+
+            {/* Resposta da IA (Perguntar à IA) */}
+            {activeSearch?.mode === 'ia' && (activeSearch.aiMessage || activeSearch.aiNotice) && (
+              <div className="panel p-4 flex flex-col gap-2">
+                {activeSearch.aiMessage && (
+                  <div className="flex items-start gap-2.5">
+                    <Sparkles className="w-4 h-4 text-omni-bordo shrink-0 mt-0.5" />
+                    <p className="text-sm text-omni-ink leading-relaxed">{activeSearch.aiMessage}</p>
+                  </div>
+                )}
+                {activeSearch.aiEngine === 'local' && activeSearch.aiNotice && (
+                  <div className="flex items-start gap-2.5 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+                    <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-800 leading-relaxed">
+                      A IA não reordenou estes resultados. {activeSearch.aiNotice}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Âncora para rolagem suave ao trocar de página */}
             <div ref={cardsListRef} className="scroll-mt-6" />

@@ -19,6 +19,7 @@ import {
   ActiveSearch,
   ParameterArtifactGroupSummary,
   ContentMatchSummary,
+  AiMatchSummary,
 } from '../../types';
 import { searchWorkerClient } from '../../services/searchWorkerClient';
 import {
@@ -45,6 +46,10 @@ export interface SearchCenterProps {
       contentMatches?: Record<string, ContentMatchSummary>;
       matchedTerms?: string[];
       queryKind?: string;
+      aiMessage?: string;
+      aiEngine?: 'ia' | 'local';
+      aiNotice?: string;
+      aiMatches?: Record<string, AiMatchSummary>;
     }
   ) => void;
   // Optional callbacks kept for API compatibility
@@ -408,25 +413,37 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
         signal: abortController.signal,
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(
-          data.message || data.error || 'Serviço de IA temporariamente indisponível.'
-        );
+        throw new Error(data.error || data.message || 'Não foi possível consultar a IA.');
       }
 
-      const rawResults = Array.isArray(data.results) ? data.results : [];
-      const filteredIds: string[] = Array.from(
-        new Set(
-          rawResults
-            .map((r: any) => String(r.artifactId || r.id || ''))
-            .filter((id: string) => id.length > 0)
-        )
-      );
+      const rawResults: any[] = Array.isArray(data.results) ? data.results : [];
+      const aiMatches: Record<string, AiMatchSummary> = {};
+      const filteredIds: string[] = [];
+      for (const r of rawResults) {
+        const id = String(r.artifactId || r.id || '');
+        if (!id || aiMatches[id]) continue;
+        filteredIds.push(id);
+        aiMatches[id] = {
+          reason: String(r.reason || ''),
+          evidence: Array.isArray(r.evidence) ? r.evidence.map(String) : [],
+          confidence: r.confidence === 'ALTA' || r.confidence === 'BAIXA' ? r.confidence : 'MEDIA',
+          screenId: r.screenId,
+          screenIndex: typeof r.screenIndex === 'number' ? r.screenIndex : undefined,
+          screenTitle: r.screenTitle,
+          snippetIndex: typeof r.snippetIndex === 'number' ? r.snippetIndex : undefined,
+          event: r.event,
+        };
+      }
 
       onApplyToCards?.(q, filteredIds, {
         mode: 'ia',
         aiQuestion: q,
+        aiMessage: String(data.message || ''),
+        aiEngine: data.engine === 'local' ? 'local' : 'ia',
+        aiNotice: data.aiUnavailableReason,
+        aiMatches,
       });
     } catch (err: any) {
       if (err.name === 'AbortError') return;

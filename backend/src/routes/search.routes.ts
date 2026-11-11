@@ -9,6 +9,7 @@ import { getInventoryData, searchArtifacts } from "../services/inventory.service
 import { runCollection, abortCollection, getSyncStatus } from "../integrations/confluenceClient.js";
 import { analyzeJourneyWithAI, buildDocumentarySequence } from "../services/journeyAnalysis.service.js";
 import { searchSemantic } from "../services/semanticSearch.service.js";
+import { describeAiConfig, testAiConnection, toAiErrorResponse } from "../services/ai/llmClient.js";
 
 const router = Router();
 
@@ -22,19 +23,30 @@ router.post("/insights/journeys/analyze", async (req, res) => {
     const result = await analyzeJourneyWithAI(artifact);
     return res.json(result);
   } catch (error: any) {
-    const isConfigError = String(error.message || '').includes('Configuração ausente:');
-    const statusCode = isConfigError ? 400 : 502;
+    const { status, body } = toAiErrorResponse(error);
     const fallbackSeq = buildDocumentarySequence(artifact);
-
-    return res.status(statusCode).json({
-      error: error.message || "Erro ao processar análise da jornada com IA.",
+    return res.status(status).json({
+      ...body,
       isAiGenerated: false,
       fallback: true,
       nodes: fallbackSeq.nodes,
       edges: fallbackSeq.edges,
-      message: "Não foi possível concluir a análise por IA. Exibindo apenas a sequência documental."
     });
   }
+});
+
+/**
+ * ROTA: GET /api/ai/status
+ * Mostra qual IA está configurada (sem expor a chave).
+ * Com ?test=1, faz uma chamada mínima para provar que a IA responde desta máquina.
+ */
+router.get("/ai/status", async (req, res) => {
+  const config = describeAiConfig();
+  if (req.query.test && config.configured) {
+    const test = await testAiConnection();
+    return res.json({ ...config, test });
+  }
+  return res.json(config);
 });
 
 router.post("/cancel-inventory", async (req, res) => {
@@ -112,30 +124,24 @@ router.get("/search", (req, res) => {
 
 /**
  * ROTA: POST /api/search/semantic
- * Executa busca semântica em dois estágios utilizando IA (Gemini) sobre o inventário real.
+ * Perguntar à IA: ranking local + reranqueamento pela IA configurada.
+ * Sem IA, devolve o ranking local e explica o motivo em aiUnavailableReason.
  */
 router.post("/search/semantic", async (req, res) => {
   const { question, query, filters, limit } = req.body || {};
   const queryText = String(question || query || "").trim();
 
   if (!queryText) {
-    return res.status(400).json({
-      error: "Pergunta é obrigatória para a busca com IA.",
-      message: "Faça uma pergunta sobre os artefatos disponíveis."
-    });
+    return res.status(400).json({ error: "Escreva uma pergunta sobre os artefatos." });
   }
 
   try {
     const result = await searchSemantic(queryText, filters, limit || 10);
     return res.json(result);
   } catch (error: any) {
-    const isConfigError = String(error.message || "").includes("Configuração ausente:");
-    const statusCode = isConfigError ? 400 : 502;
-    console.error(`[SearchAI] Falha na busca por IA: ${error.message}`);
-    return res.status(statusCode).json({
-      error: error.message || "Não foi possível concluir a busca por IA.",
-      message: "Não foi possível concluir a busca por IA."
-    });
+    console.error(`[SearchAI] Falha na busca: ${error.message}`);
+    const { status, body } = toAiErrorResponse(error);
+    return res.status(status).json(body);
   }
 });
 

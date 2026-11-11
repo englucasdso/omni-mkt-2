@@ -1,6 +1,6 @@
 # Omni Marketing Platform
 
-A Plataforma Omni Marketing é o portal centralizado do time de Martech, unindo gestão de artefatos de dados, inventário de propriedades digitais, visualização de conexões e geração de insights através de Inteligência Artificial Generativa (Google Gemini) e integração automatizada com Confluence e GA4.
+A Plataforma Omni Marketing é o portal centralizado do time de Martech, unindo gestão de artefatos de dados, inventário de propriedades digitais, visualização de conexões e geração de insights com IA generativa (qualquer provedor compatível com OpenAI: Groq, Gemini, OpenRouter, GitHub Models ou Ollama) e integração automatizada com Confluence e GA4.
 
 ---
 
@@ -82,11 +82,18 @@ npm install
 ```
 
 ### 3. Configuração de Variáveis de Ambiente
-O sistema depende primariamente da API Generativa do Google. Outras chaves futuras também moram aqui.
-Crie um arquivo `.env` idêntico ao conteúdo de `.env.example` na **raiz** do projeto e insira as credenciais reais:
+Crie um arquivo `.env` na **raiz** do projeto a partir do `.env.example`.
+
+A IA (Perguntar à IA e Gerar jornada) funciona com qualquer provedor que fale o formato OpenAI. Todos abaixo têm camada gratuita:
 ```sh
-GEMINI_API_KEY=sua_chave_real_aqui_para_ia
+AI_PROVIDER=groq          # groq | gemini | openrouter | github | ollama | custom
+AI_API_KEY=sua_chave
 ```
+Reinicie o OMNI e abra `http://localhost:3000/api/ai/status?test=1` para confirmar que a IA responde desta máquina. O terminal também mostra, ao iniciar, qual IA está ativa.
+
+Sem IA configurada o OMNI continua funcionando: Perguntar à IA ordena pelos termos da pergunta e Jornadas organiza as telas por etapa a partir do texto de cada tela.
+
+Em rede corporativa, `HTTPS_PROXY` (proxy) e `AI_CA_CERT` (certificado raiz da empresa) podem ser informados no `.env`.
 
 ### 4. Configuração Python & Integração Google Analytics 4
 O Módulo de Hub de Eventos consulta a API do Google Analytics usando Python:
