@@ -95,7 +95,7 @@ router.post("/search/question", (req, res) => {
     return res.status(400).json({ error: "Escreva uma pergunta sobre os artefatos." });
   }
   try {
-    return res.json(searchSemantic(queryText, Number(limit) || 20));
+    return res.json(searchSemantic(queryText, Math.min(Number(limit) || 50, 200)));
   } catch (error: any) {
     console.error(`[Pergunta] Falha na busca: ${error.message}`);
     return res.status(500).json({ error: "Não foi possível concluir a busca." });
