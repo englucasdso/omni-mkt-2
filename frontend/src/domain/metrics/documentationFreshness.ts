@@ -17,10 +17,10 @@ export interface FreshnessBucket {
 }
 
 export const FRESHNESS_BUCKETS: ReadonlyArray<{ id: FreshnessBucketId; label: string; colorClass: string }> = [
-  { id: 'ATE_30', label: 'Últimos 30 dias', colorClass: 'bg-emerald-500' },
-  { id: 'DE_31_A_90', label: '31 a 90 dias', colorClass: 'bg-sky-500' },
-  { id: 'DE_91_A_180', label: '91 a 180 dias', colorClass: 'bg-amber-500' },
-  { id: 'ACIMA_180', label: 'Mais de 180 dias', colorClass: 'bg-rose-500' },
+  { id: 'ATE_30', label: 'Últimos 30 dias', colorClass: 'bg-slate-500' },
+  { id: 'DE_31_A_90', label: '31 a 90 dias', colorClass: 'bg-slate-500' },
+  { id: 'DE_91_A_180', label: '91 a 180 dias', colorClass: 'bg-slate-500' },
+  { id: 'ACIMA_180', label: 'Mais de 180 dias', colorClass: 'bg-slate-500' },
   { id: 'SEM_DATA', label: 'Sem data', colorClass: 'bg-gray-300' },
 ];
 
