@@ -22,6 +22,8 @@ import {
   QuestionMatchSummary,
 } from '../../types';
 import { searchWorkerClient } from '../../services/searchWorkerClient';
+import { safeFetch, describeError } from '../../services/api';
+import { guarded } from '../../resilience/circuitBreaker';
 import {
   artifactSearchEngine,
   getContentMatchLabel,
@@ -417,12 +419,14 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
     setQuestionError(null);
 
     try {
-      const response = await fetch('/api/search/question', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q }),
-        signal: abortController.signal,
-      });
+      const response = await guarded('api:pergunta', () =>
+        safeFetch('/api/search/question', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: q }),
+          signal: abortController.signal,
+        })
+      );
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -457,10 +461,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
     } catch (err: any) {
       if (err.name === 'AbortError') return;
       console.error('[SearchCenter] AI Search error:', err);
-      setQuestionError(
-        err.message ||
-          'Não foi possível concluir a busca. Verifique se o OMNI está rodando e tente de novo.'
-      );
+      setQuestionError(describeError(err));
     } finally {
       setQuestionLoading(false);
     }

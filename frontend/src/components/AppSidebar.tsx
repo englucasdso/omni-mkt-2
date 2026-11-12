@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ROUTES } from '../app/routes';
 import { 
   LayoutList, 
   Landmark, 
@@ -26,18 +27,18 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: 'Explorar',
     items: [
-      { id: 'results', label: 'Cards', path: '/hub-de-artefatos/cards', icon: LayoutList },
-      { id: 'inventory_table', label: 'Inventário', path: '/hub-de-artefatos/inventario', icon: Landmark },
-      { id: 'graph', label: 'Conexões', path: '/hub-de-artefatos/conexoes', icon: Network },
-      { id: 'journeys', label: 'Jornadas', path: '/hub-de-artefatos/jornadas', icon: Route },
+      { id: 'results', label: 'Cards', path: ROUTES.results, icon: LayoutList },
+      { id: 'inventory_table', label: 'Inventário', path: ROUTES.inventory_table, icon: Landmark },
+      { id: 'graph', label: 'Conexões', path: ROUTES.graph, icon: Network },
+      { id: 'journeys', label: 'Jornadas', path: ROUTES.journeys, icon: Route },
     ]
   },
   {
     title: 'Analisar',
     items: [
-      { id: 'produtos_analise', label: 'Por produto', path: '/hub-de-artefatos/por-produto', icon: Layers },
-      { id: 'parametros_analise', label: 'Por parâmetro', path: '/hub-de-artefatos/por-parametro', icon: Tag },
-      { id: 'insights', label: 'Insights', path: '/hub-de-artefatos/insights', icon: Sparkles },
+      { id: 'produtos_analise', label: 'Por produto', path: ROUTES.produtos_analise, icon: Layers },
+      { id: 'parametros_analise', label: 'Por parâmetro', path: ROUTES.parametros_analise, icon: Tag },
+      { id: 'insights', label: 'Insights', path: ROUTES.insights, icon: Sparkles },
     ]
   }
 ];

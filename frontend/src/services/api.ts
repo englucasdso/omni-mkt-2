@@ -5,14 +5,47 @@
  * caso a url da API ou a forma de buscar os dados mude no futuro.
  */
 
+import { guarded, CircuitOpenError } from '../resilience/circuitBreaker';
+
+/** fetch que troca o erro genérico de rede ("Failed to fetch") por uma mensagem clara. */
+export async function safeFetch(input: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (error) {
+    // Cancelamento pedido pela própria tela não é falha do servidor
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
+    throw new Error('O servidor do OMNI não respondeu. Confira se ele está rodando (npm run dev) e tente de novo.');
+  }
+}
+
+/** Mensagem curta e legível para mostrar ao usuário a partir de qualquer erro. */
+export function describeError(error: unknown): string {
+  if (error instanceof CircuitOpenError) {
+    return `O servidor falhou várias vezes seguidas. Nova tentativa liberada em ${Math.ceil(error.retryInMs / 1000)}s.`;
+  }
+  if (error instanceof SyntaxError) return 'O servidor devolveu uma resposta inválida.';
+  if (error instanceof Error && error.message) return error.message.split('\n')[0].trim();
+  return 'Erro desconhecido.';
+}
+
+/** Garante o formato { total, resultados: [] } antes de a tela usar os dados. */
+function ensureSearchResponse(data: any, what: string) {
+  if (!data || !Array.isArray(data.resultados)) {
+    throw new Error(`O servidor devolveu ${what} num formato inesperado.`);
+  }
+  return { ...data, total: typeof data.total === 'number' ? data.total : data.resultados.length };
+}
+
 /**
  * Busca o inventário completo (todos os artefatos) do backend.
  * Chamado primariamente quando o usuário acessa a aba "Inventário".
  */
 export async function fetchInventory() {
-  const res = await fetch("/api/inventario");
-  if (!res.ok) throw new Error("Falha ao carregar inventário");
-  return res.json();
+  return guarded('api:inventario', async () => {
+    const res = await safeFetch("/api/inventario");
+    if (!res.ok) throw new Error(`O servidor respondeu com erro ${res.status} ao carregar a base.`);
+    return ensureSearchResponse(await res.json(), 'a base');
+  });
 }
 
 /**
@@ -24,9 +57,11 @@ export async function fetchInventory() {
 export async function searchContent(query: string) {
   // EncodeURIComponent é usado para garantir que espaços e caracteres especiais 
   // na busca não quebrem o formato da URL (ex: "mapa site" vira "mapa%20site").
-  const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-  if (!res.ok) throw new Error("Falha na busca");
-  return res.json();
+  return guarded('api:busca', async () => {
+    const res = await safeFetch(`/api/search?q=${encodeURIComponent(query)}`);
+    if (!res.ok) throw new Error(`O servidor respondeu com erro ${res.status} na busca.`);
+    return ensureSearchResponse(await res.json(), 'a busca');
+  });
 }
 
 export async function fetchUsers() {
