@@ -171,7 +171,29 @@ export function countValuesByParameter(artifacts: any[]): Map<string, Map<string
 }
 
 /** Valores suspeitos por parâmetro (só parâmetros com algum achado). */
+// Último cálculo para a base inteira: Insights e Por parâmetro pedem o mesmo conjunto
+let lastIssuesInput: any[] | null = null;
+let lastIssuesResult: Map<string, Map<string, ValueIssue>> | null = null;
+
+function sameArtifacts(a: any[], b: any[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 export function findValueIssuesByParameter(artifacts: any[]): Map<string, Map<string, ValueIssue>> {
+  if (artifacts.length > 1 && lastIssuesInput && lastIssuesResult && sameArtifacts(artifacts, lastIssuesInput)) {
+    return lastIssuesResult;
+  }
+  const result = computeValueIssuesByParameter(artifacts);
+  if (artifacts.length > 1) {
+    lastIssuesInput = artifacts.slice();
+    lastIssuesResult = result;
+  }
+  return result;
+}
+
+function computeValueIssuesByParameter(artifacts: any[]): Map<string, Map<string, ValueIssue>> {
   const result = new Map<string, Map<string, ValueIssue>>();
   countValuesByParameter(artifacts).forEach((counts, name) => {
     const issues = findValueIssues(counts);
