@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { HomologationBadge } from '../badges/HomologationBadge';
-import { ExternalLink, ChevronRight, Network, Eye } from 'lucide-react';
+import { ExternalLink, ChevronRight, Eye } from 'lucide-react';
 import { Artifact } from '../../types';
 import { isMap, isDocumentation, getArtifactTypeLabel } from '../../domain/artifacts';
 import { getMapStatusMetrics } from '../../domain/status';
@@ -48,7 +48,8 @@ export interface ArtifactResultCardProps {
   } | null;
   onOpenDetails: (item: Artifact) => void;
   onOpenSnippet?: (item: Artifact, target: { screenId?: string; snippetIndex?: number }) => void;
-  onViewInTree: (artifactId: string) => void;
+  /** Mantido por compatibilidade; o card não mostra mais "Ver na árvore" */
+  onViewInTree?: (artifactId: string) => void;
 }
 
 function formatPtBrDate(dateVal?: string | number | Date | null): string {
@@ -70,7 +71,6 @@ export const ArtifactResultCard: React.FC<ArtifactResultCardProps> = ({
   activeSearch,
   onOpenDetails,
   onOpenSnippet,
-  onViewInTree,
 }) => {
   const isMapArtifact = isMap(item);
   const screensCount = Array.isArray(item.screens) ? item.screens.length : 0;
@@ -113,8 +113,30 @@ export const ArtifactResultCard: React.FC<ArtifactResultCardProps> = ({
   const questionMatch = activeSearch?.mode === 'pergunta' ? activeSearch?.questionMatches?.[item.id] : null;
   const COVERAGE_LABEL = { ALTA: 'Todos os termos', MEDIA: 'Parte dos termos', BAIXA: 'Poucos termos' } as const;
 
+  // O card inteiro abre o detalhe; botões e links internos param o clique antes
+  const openDetails = () => {
+    // Quem está selecionando texto (ID, trecho de código) não quer abrir o detalhe
+    if (window.getSelection()?.toString()) return;
+    onOpenDetails(item);
+  };
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+  // "-" ou "—" vindo do Confluence significa que não há responsável
+  const responsible = String(item.responsavel || '').trim().replace(/^[-—–]+$/, '');
+
   return (
-    <article className="panel p-5 sm:p-6 hover:border-omni-bordo/30 hover:shadow-neu-card-hover transition-all relative flex flex-col gap-3 group">
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={openDetails}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpenDetails(item);
+        }
+      }}
+      aria-label={`Abrir detalhes de ${item.titulo || item.id}`}
+      className="panel p-5 sm:p-6 hover:border-omni-bordo/30 hover:shadow-neu-card-hover transition-all relative flex flex-col gap-3 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-omni-bordo/30">
       {/* Linha 1: Caminho e match badge */}
       <div className="flex items-center justify-between gap-3 min-w-0">
         <span 
@@ -151,18 +173,11 @@ export const ArtifactResultCard: React.FC<ArtifactResultCardProps> = ({
         )}
       </div>
 
-      {/* Linha 2: Título com link externo */}
+      {/* Linha 2: Título */}
       <div className="flex items-start justify-between gap-2">
-        <button
-          type="button"
-          onClick={() => onOpenDetails(item)}
-          className="text-left group/title inline-flex items-center gap-2 cursor-pointer"
-        >
-          <h3 className="text-[19px] font-heading font-bold text-omni-ink group-hover/title:text-omni-bordo transition-colors leading-snug">
-            {item.titulo || item.id}
-          </h3>
-          <ExternalLink className="w-4 h-4 text-omni-muted group-hover/title:text-omni-bordo shrink-0 transition-colors" />
-        </button>
+        <h3 className="text-[19px] font-heading font-bold text-omni-ink group-hover:text-omni-bordo transition-colors leading-snug text-left">
+          {item.titulo || item.id}
+        </h3>
 
         <span className="text-[11px] text-omni-muted font-mono shrink-0 select-all">
           ID: {item.id}
@@ -193,31 +208,6 @@ export const ArtifactResultCard: React.FC<ArtifactResultCardProps> = ({
           </span>
         )}
 
-        {/* Quantidade de Telas */}
-        {isMapArtifact && (
-          <>
-            <span className="text-omni-muted text-xs">•</span>
-            <span className="text-xs text-omni-ink-secondary">
-              {screensCount} {screensCount === 1 ? 'tela' : 'telas'}
-            </span>
-          </>
-        )}
-
-        {/* Responsável */}
-        <span className="text-omni-muted text-xs">•</span>
-        <span className="text-xs text-omni-ink-secondary truncate max-w-[180px]">
-          {item.responsavel ? item.responsavel : 'Sem responsável'}
-        </span>
-
-        {/* Data de atualização */}
-        {item.ultima_atualizacao && (
-          <>
-            <span className="text-omni-muted text-xs">•</span>
-            <span className="text-xs text-omni-muted">
-              {formatPtBrDate(item.ultima_atualizacao)}
-            </span>
-          </>
-        )}
       </div>
 
       {/* Linha 4 (quando aplicável): por que a pergunta trouxe este artefato */}
@@ -236,7 +226,10 @@ export const ArtifactResultCard: React.FC<ArtifactResultCardProps> = ({
           {questionMatch.screenId && onOpenSnippet && (
             <button
               type="button"
-              onClick={() => onOpenSnippet(item, { screenId: questionMatch.screenId, snippetIndex: questionMatch.snippetIndex ?? 0 })}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenSnippet(item, { screenId: questionMatch.screenId, snippetIndex: questionMatch.snippetIndex ?? 0 });
+              }}
               className="self-start inline-flex items-center gap-1.5 text-xs font-semibold text-omni-bordo hover:underline cursor-pointer"
             >
               <Eye className="w-3.5 h-3.5" />
@@ -276,7 +269,8 @@ export const ArtifactResultCard: React.FC<ArtifactResultCardProps> = ({
                 {onOpenSnippet && (
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       onOpenSnippet(item, {
                         screenId: firstOcc.screenId,
                         snippetIndex: firstOcc.snippetIndex,
@@ -298,27 +292,43 @@ export const ArtifactResultCard: React.FC<ArtifactResultCardProps> = ({
         </div>
       )}
 
-      {/* Linha 5: Ações */}
-      <div className="flex items-center justify-between gap-3 pt-2 mt-0.5 border-t border-omni-line-subtle">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => onOpenDetails(item)}
-            className="text-xs font-semibold text-omni-bordo hover:text-omni-rubi inline-flex items-center gap-1 cursor-pointer transition-colors"
+      {/* Linha 5: Confluence à esquerda; telas, responsável e data à direita */}
+      <div className="flex items-center justify-between gap-3 pt-2 mt-0.5 border-t border-omni-line-subtle min-w-0">
+        {item.link ? (
+          <a
+            href={item.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={stop}
+            onKeyDown={stop}
+            title="Abrir a página no Confluence"
+            className="shrink-0 text-xs font-medium text-omni-ink-secondary hover:text-omni-bordo inline-flex items-center gap-1.5 transition-colors"
           >
-            <span>Ver detalhes</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+            <span>Confluence</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        ) : (
+          <span />
+        )}
 
-          <button
-            type="button"
-            onClick={() => onViewInTree(item.id)}
-            className="text-xs font-medium text-omni-muted hover:text-omni-ink inline-flex items-center gap-1.5 cursor-pointer transition-colors"
-            title="Destacar artefato na árvore de conexões"
-          >
-            <Network className="w-3.5 h-3.5 text-omni-muted" />
-            <span>Ver na árvore</span>
-          </button>
+        <div className="flex items-center justify-end gap-x-2 min-w-0 text-xs text-omni-ink-secondary">
+          {isMapArtifact && (
+            <>
+              <span className="shrink-0">
+                {screensCount} {screensCount === 1 ? 'tela' : 'telas'}
+              </span>
+              <span className="text-omni-muted">•</span>
+            </>
+          )}
+          <span className="truncate max-w-[220px]" title={responsible || undefined}>
+            {responsible || 'Sem responsável'}
+          </span>
+          {item.ultima_atualizacao && (
+            <>
+              <span className="text-omni-muted">•</span>
+              <span className="shrink-0 text-omni-muted">{formatPtBrDate(item.ultima_atualizacao)}</span>
+            </>
+          )}
         </div>
       </div>
     </article>
