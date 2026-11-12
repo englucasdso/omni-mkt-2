@@ -726,7 +726,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
       <Panel title="Status das telas" hint={`${fmt(stats.totalScreens)} telas | clique para ver os mapas`}>
         <StatusDistribution
           counts={stats.screenStatus}
-          showBar
+          showPercent
           onSelect={(status, e) => openDrill(`Mapas com telas em ${STATUS_CONFIGS[status].label}`, stats.mapsByStatus[status], e)}
         />
       </Panel>
@@ -741,11 +741,11 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
               type="button"
               disabled={!clickable}
               onClick={(e) => openDrill(label.charAt(0).toUpperCase() + label.slice(1), ids, e)}
-              className={`panel p-5 flex gap-3 min-w-0 text-left ${clickable ? 'cursor-pointer hover:border-amber-300' : 'cursor-default'}`}
+              className={`group panel p-5 flex gap-3 min-w-0 text-left transition-colors ${clickable ? 'cursor-pointer hover:border-omni-bordo/30' : 'cursor-default'}`}
             >
               <div
-                className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border ${
-                  value > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border bg-gray-50 border-gray-200 text-gray-400 transition-colors ${
+                  clickable ? 'group-hover:bg-red-50 group-hover:border-omni-bordo/30 group-hover:text-omni-bordo' : ''
                 }`}
               >
                 {value > 0 ? <Icon className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
