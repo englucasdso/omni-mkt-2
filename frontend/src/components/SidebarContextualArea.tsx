@@ -3,7 +3,6 @@ import { MEASUREMENT_CONFIGS, ORDERED_MEASUREMENT_CLASSES } from '../domain/meas
 import { 
   Search, 
   X, 
-  SlidersHorizontal, 
   RotateCcw, 
   AlertTriangle 
 } from 'lucide-react';
@@ -14,32 +13,7 @@ import {
   FilterMultiSelectSearchable 
 } from './SidebarFilterPopover';
 
-/** Filtros de qualidade dos Cards (valem só para mapas) */
-export interface CardQualityFilters {
-  homologacao: 'todas' | 'HOMOLOGADO' | 'PARCIAL' | 'NAO_HOMOLOGADO';
-  mensuracao: 'todas' | 'GA4' | 'GA3' | 'HIBRIDO';
-  statusTela: 'todos' | 'CORREÇÃO' | 'NOVO' | 'EXCLUIR' | 'DESCONTINUAR';
-  produto: string;
-  divergente: boolean;
-}
-
-export const DEFAULT_CARD_QUALITY_FILTERS: CardQualityFilters = {
-  homologacao: 'todas',
-  mensuracao: 'todas',
-  statusTela: 'todos',
-  produto: 'todos',
-  divergente: false,
-};
-
-export function countCardQualityFilters(f: CardQualityFilters): number {
-  return (
-    (f.homologacao !== 'todas' ? 1 : 0) +
-    (f.mensuracao !== 'todas' ? 1 : 0) +
-    (f.statusTela !== 'todos' ? 1 : 0) +
-    (f.produto !== 'todos' ? 1 : 0) +
-    (f.divergente ? 1 : 0)
-  );
-}
+import { CardFilters, CardFilterOptions, countCardFilters } from '../domain/filters/cardFilters';
 
 export interface SidebarContextualAreaProps {
   currentRouteId: string;
@@ -50,17 +24,9 @@ export interface SidebarContextualAreaProps {
   cardSort: 'relevancia' | 'recentes' | 'antigos' | 'az' | 'za';
   onCardSortChange: (val: 'relevancia' | 'recentes' | 'antigos' | 'az' | 'za') => void;
   hasActiveSearch?: boolean;
-  cardArtifactType: 'todos' | 'mapas' | 'docs' | 'nos';
-  onCardArtifactTypeChange: (val: 'todos' | 'mapas' | 'docs' | 'nos') => void;
-  cardResponsible: string;
-  onCardResponsibleChange: (val: string) => void;
-  cardYear: string;
-  onCardYearChange: (val: string) => void;
-  availableResponsibles: string[];
-  availableYears: string[];
-  cardQuality: CardQualityFilters;
-  onCardQualityChange: (val: CardQualityFilters) => void;
-  availableProducts: string[];
+  cardFilters: CardFilters;
+  onCardFiltersChange: (val: CardFilters) => void;
+  cardFilterOptions: CardFilterOptions;
   isCardFilterActive: boolean;
   onResetCardFilters: () => void;
 
@@ -130,17 +96,9 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
   cardSort,
   onCardSortChange,
   hasActiveSearch = false,
-  cardArtifactType,
-  onCardArtifactTypeChange,
-  cardResponsible,
-  onCardResponsibleChange,
-  cardYear,
-  cardQuality,
-  onCardQualityChange,
-  availableProducts,
-  onCardYearChange,
-  availableResponsibles,
-  availableYears,
+  cardFilters,
+  onCardFiltersChange,
+  cardFilterOptions,
   isCardFilterActive,
   onResetCardFilters,
 
@@ -195,11 +153,8 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
     const defaultSort = hasActiveSearch ? 'relevancia' : 'recentes';
     let activeFiltersCount = 0;
     if (cardSort !== defaultSort) activeFiltersCount++;
-    if (cardArtifactType !== 'todos') activeFiltersCount++;
-    if (cardResponsible !== 'todos') activeFiltersCount++;
-    if (cardYear !== 'todas') activeFiltersCount++;
-    activeFiltersCount += countCardQualityFilters(cardQuality);
-    const setQuality = (patch: Partial<CardQualityFilters>) => onCardQualityChange({ ...cardQuality, ...patch });
+    activeFiltersCount += countCardFilters(cardFilters);
+    const setFilter = (patch: Partial<CardFilters>) => onCardFiltersChange({ ...cardFilters, ...patch });
 
     const sortOptions = [
       ...(hasActiveSearch || cardSort === 'relevancia'
@@ -214,7 +169,7 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
     return (
       <div className="flex items-center gap-2 min-w-0" id="sidebar-contextual-cards">
         {/* Busca dentro dos cards exibidos (nome, ID, task, GTM, parâmetros...) */}
-        <div className="relative w-44 sm:w-64">
+        <div className="relative w-[260px] shrink-0">
           <Search className="w-3.5 h-3.5 text-omni-muted absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0" />
           <input
             type="text"
@@ -242,13 +197,12 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
           type="button"
           onClick={() => setIsPopoverOpen(!isPopoverOpen)}
           aria-expanded={isPopoverOpen}
-          className={`h-8 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
+          className={`h-8 shrink-0 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
             isPopoverOpen || activeFiltersCount > 0
               ? 'bg-red-50 text-omni-bordo border-omni-bordo/30 font-semibold'
               : 'bg-white border-omni-line text-omni-ink-secondary hover:text-omni-ink hover:border-gray-300 shadow-neu-card'
           }`}
         >
-          <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
           <span>Filtros</span>
           {activeFiltersCount > 0 && (
             <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-omni-bordo text-white">
@@ -262,7 +216,7 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
           isOpen={isPopoverOpen}
           onClose={() => setIsPopoverOpen(false)}
           anchorRef={filterButtonRef}
-          title="Refinar resultados"
+          title="Filtros dos Cards"
           activeCount={activeFiltersCount}
           onResetAll={onResetCardFilters}
         >
@@ -275,102 +229,79 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
           />
 
 
-          {/* Tipo de Artefato */}
-          <FilterSegmentedRow
-            label="Tipo de Artefato"
-            value={cardArtifactType}
-            onChange={(v) => onCardArtifactTypeChange(v)}
-            options={[
-              { value: 'todos', label: 'Todos' },
-              { value: 'mapas', label: 'Mapas' },
-              { value: 'docs', label: 'Docs' },
-              { value: 'nos', label: 'Nós' },
-            ]}
-          />
-
-          {/* Qualidade do mapa: ao escolher qualquer opção abaixo, só mapas aparecem */}
-          <FilterSegmentedRow
-            label="Homologação"
-            value={cardQuality.homologacao}
-            onChange={(v) => setQuality({ homologacao: v })}
-            options={[
-              { value: 'todas', label: 'Todas' },
-              { value: 'HOMOLOGADO', label: 'Homologado' },
-              { value: 'PARCIAL', label: 'Parcial' },
-              { value: 'NAO_HOMOLOGADO', label: 'Não homologado' },
-            ]}
-          />
-
-          <FilterSegmentedRow
-            label="Tem telas em"
-            value={cardQuality.statusTela}
-            onChange={(v) => setQuality({ statusTela: v })}
-            options={[
-              { value: 'todos', label: 'Qualquer' },
-              { value: 'CORREÇÃO', label: 'Correção' },
-              { value: 'NOVO', label: 'Novo' },
-              { value: 'EXCLUIR', label: 'Excluir' },
-              { value: 'DESCONTINUAR', label: 'Descontinuar' },
-            ]}
-          />
-
-          <FilterSegmentedRow
-            label="Mensuração"
-            value={cardQuality.mensuracao}
-            onChange={(v) => setQuality({ mensuracao: v })}
-            options={[
-              { value: 'todas', label: 'Todas' },
-              { value: 'GA4', label: 'GA4' },
-              { value: 'GA3', label: 'Universal' },
-              { value: 'HIBRIDO', label: 'Híbrido' },
-            ]}
-          />
-
-          <FilterSearchableSingle
-            label="Produto"
-            options={availableProducts}
-            value={cardQuality.produto}
-            onChange={(v) => setQuality({ produto: v })}
-            allOptionLabel="Todos os produtos"
-            placeholder="Buscar produto..."
-          />
-
+          {/* Exceções e status (mesmo bloco do Inventário) */}
           <div className="space-y-1.5">
-            <span className="text-xs font-ui font-semibold text-omni-ink-secondary block">Situação</span>
-            <div>
+            <label className="text-xs font-ui font-semibold text-omni-ink-secondary block">Exceções e status</label>
+            <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
-                onClick={() => setQuality({ divergente: !cardQuality.divergente })}
-                aria-pressed={cardQuality.divergente}
+                onClick={() => setFilter({ divergente: !cardFilters.divergente })}
+                aria-pressed={cardFilters.divergente}
                 className={`px-2.5 py-1.5 rounded-xl text-xs font-ui font-medium border transition-colors cursor-pointer flex items-center gap-1 ${
-                  cardQuality.divergente
+                  cardFilters.divergente
                     ? 'bg-red-50 dark:bg-red-950/40 text-[#7B0209] border-[#7B0209]/40 font-semibold'
                     : 'bg-gray-50 dark:bg-slate-800 text-gray-700 dark:text-slate-300 border-gray-200 dark:border-slate-700 hover:bg-gray-100'
                 }`}
               >
                 <AlertTriangle className="w-3 h-3 text-[#7B0209]" />
-                Só status divergente
+                Divergentes
               </button>
             </div>
           </div>
 
-          {/* Responsável */}
-          <FilterSearchableSingle
+          <FilterMultiSelectSearchable
+            label="Tipo de Artefato"
+            options={cardFilterOptions.tipo}
+            values={cardFilters.tipo}
+            onChange={(vals) => setFilter({ tipo: vals })}
+            placeholder="Buscar tipo de artefato..."
+          />
+
+          <FilterMultiSelectSearchable
+            label="Homologação"
+            options={cardFilterOptions.homologacao}
+            values={cardFilters.homologacao}
+            onChange={(vals) => setFilter({ homologacao: vals })}
+            placeholder="Buscar homologação..."
+          />
+
+          <FilterMultiSelectSearchable
+            label="Tem telas em"
+            options={cardFilterOptions.statusTela}
+            values={cardFilters.statusTela}
+            onChange={(vals) => setFilter({ statusTela: vals })}
+            placeholder="Buscar status..."
+          />
+
+          <FilterMultiSelectSearchable
+            label="Classificação"
+            options={cardFilterOptions.mensuracao}
+            values={cardFilters.mensuracao}
+            onChange={(vals) => setFilter({ mensuracao: vals })}
+            placeholder="Buscar classificação..."
+          />
+
+          <FilterMultiSelectSearchable
+            label="Produto"
+            options={cardFilterOptions.produto}
+            values={cardFilters.produto}
+            onChange={(vals) => setFilter({ produto: vals })}
+            placeholder="Buscar produto..."
+          />
+
+          <FilterMultiSelectSearchable
             label="Responsável"
-            options={availableResponsibles}
-            value={cardResponsible}
-            onChange={onCardResponsibleChange}
-            allOptionLabel="Todos os responsáveis"
+            options={cardFilterOptions.responsavel}
+            values={cardFilters.responsavel}
+            onChange={(vals) => setFilter({ responsavel: vals })}
             placeholder="Buscar responsável..."
           />
 
-          {/* Ano */}
-          <FilterSearchableSingle
-            label="Data (Ano)"
-            options={availableYears}
-            value={cardYear}
-            onChange={onCardYearChange}
-            allOptionLabel="Todos os anos"
+          <FilterMultiSelectSearchable
+            label="Ano"
+            options={cardFilterOptions.ano}
+            values={cardFilters.ano}
+            onChange={(vals) => setFilter({ ano: vals })}
             placeholder="Buscar ano..."
           />
         </SidebarFilterPopover>
@@ -389,7 +320,7 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
     return (
       <div className="flex items-center gap-2 min-w-0" id="sidebar-contextual-inventory">
         {/* Campo de Busca Reativo */}
-        <div className="relative w-44 sm:w-56">
+        <div className="relative w-[260px] shrink-0">
           <Search className="w-3.5 h-3.5 text-omni-muted absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0" />
           <input
             type="text"
@@ -417,13 +348,12 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
           type="button"
           onClick={() => setIsPopoverOpen(!isPopoverOpen)}
           aria-expanded={isPopoverOpen}
-          className={`h-8 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
+          className={`h-8 shrink-0 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
             isPopoverOpen || totalActiveCount > 0
               ? 'bg-red-50 text-omni-bordo border-omni-bordo/30 font-semibold'
               : 'bg-white border-omni-line text-omni-ink-secondary hover:text-omni-ink hover:border-gray-300 shadow-neu-card'
           }`}
         >
-          <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
           <span>Filtros</span>
           {totalActiveCount > 0 && (
             <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-omni-bordo text-white">
@@ -549,7 +479,7 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
     return (
       <div className="flex items-center gap-2 min-w-0" id="sidebar-contextual-product">
         {/* Campo de Busca Reativo */}
-        <div className="relative w-44 sm:w-56">
+        <div className="relative w-[260px] shrink-0">
           <Search className="w-3.5 h-3.5 text-omni-muted absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0" />
           <input
             type="text"
@@ -577,13 +507,12 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
           type="button"
           onClick={() => setIsPopoverOpen(!isPopoverOpen)}
           aria-expanded={isPopoverOpen}
-          className={`h-8 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
+          className={`h-8 shrink-0 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
             isPopoverOpen || isFiltered
               ? 'bg-red-50 text-omni-bordo border-omni-bordo/30 font-semibold'
               : 'bg-white border-omni-line text-omni-ink-secondary hover:text-omni-ink hover:border-gray-300 shadow-neu-card'
           }`}
         >
-          <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
           <span>Filtros</span>
           {isFiltered && (
             <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-omni-bordo text-white">
@@ -619,7 +548,7 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
     return (
       <div className="flex items-center gap-2 min-w-0" id="sidebar-contextual-param">
         {/* Campo de Busca Reativo */}
-        <div className="relative w-44 sm:w-64">
+        <div className="relative w-[260px] shrink-0">
           <Search className="w-3.5 h-3.5 text-omni-muted absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0" />
           <input
             type="text"
@@ -670,13 +599,12 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
           type="button"
           onClick={() => setIsPopoverOpen(!isPopoverOpen)}
           aria-expanded={isPopoverOpen}
-          className={`h-8 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
+          className={`h-8 shrink-0 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
             isPopoverOpen || activeInsightsCount > 0
               ? 'bg-red-50 text-omni-bordo border-omni-bordo/30 font-semibold'
               : 'bg-white border-omni-line text-omni-ink-secondary hover:text-omni-ink hover:border-gray-300 shadow-neu-card'
           }`}
         >
-          <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
           <span>Filtros</span>
           {activeInsightsCount > 0 && (
             <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-omni-bordo text-white">

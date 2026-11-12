@@ -15,11 +15,14 @@ import React, { useState, useEffect, useRef, useMemo, useCallback, useDeferredVa
 import { ExportDialog } from "../components/export/ExportDialog";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
+import { ROUTES, viewFromPath, legacyRedirect } from "./routes";
+import { ErrorBoundary } from "../resilience/ErrorBoundary";
 import { X, AlertTriangle, Target, Network, Filter, CheckCircle2, AlertCircle, Clock, User, Info, Shield, LogOut, Trash2, Plus, Settings, Landmark, LayoutList, RefreshCw, Check, Loader2, KeyRound, Activity, ArrowRight, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, Sparkles, MessageCircleQuestion, FileText, Layers, Tag, Code2, Eye, ArrowUpDown, Calendar, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { ConexoesCanvas } from "../components/ConexoesCanvas";
 import { JourneysCanvas } from "../components/JourneysCanvas";
 import { JourneysSidebarFilters } from "../components/JourneysSidebarFilters";
-import { fetchInventory, searchContent, fetchUsers, createUser, updateUser, deleteUser } from "../services/api";
+import { fetchInventory, searchContent, fetchUsers, createUser, updateUser, deleteUser, safeFetch, describeError } from "../services/api";
+import { guarded } from "../resilience/circuitBreaker";
 import { Artifact, SearchResponse, User as UserType, UserRole, UserStatus, ActiveSearch, ParameterArtifactGroupSummary, ContentMatchSummary, QuestionMatchSummary } from "../types";
 import { normalizar, formatDataBR } from "../utils/helpers";
 import { 
@@ -40,7 +43,8 @@ import { ParameterAnalysisView } from "../components/ParameterAnalysisView";
 import { CanonicalInsightsDashboard } from "../components/CanonicalInsightsDashboard";
 import { AppShell } from "../components/AppShell";
 import { PageHeader } from "../components/PageHeader";
-import { SidebarContextualArea, CardQualityFilters, DEFAULT_CARD_QUALITY_FILTERS, countCardQualityFilters } from "../components/SidebarContextualArea";
+import { SidebarContextualArea } from "../components/SidebarContextualArea";
+import { CardFilters, EMPTY_CARD_FILTERS, countCardFilters, matchesCardFilters, buildCardFilterOptions } from "../domain/filters/cardFilters";
 import { SearchCenter } from "../components/search/SearchCenter";
 import { ArtifactResultCard } from "../components/search/ArtifactResultCard";
 import { isMap, isDocumentation, isNode, isRoot, isCataloged, getArtifactTypeLabel, ARTIFACT_TYPE_CONFIGS } from "../domain/artifacts";
@@ -450,7 +454,7 @@ export default function App() {
     setDetailModalItem(null);
     setDetailTarget(null);
     setConexoesTargetArtifactId(artifactId);
-    navigate(`/hub-de-artefatos/conexoes?artifactId=${encodeURIComponent(artifactId)}`);
+    navigate(`${ROUTES.graph}?artifactId=${encodeURIComponent(artifactId)}`);
   }, [navigate]);
 
   const handleOpenMapDetail = useCallback((art: Artifact) => {
@@ -459,22 +463,14 @@ export default function App() {
 
   const handleClearConexoesTarget = useCallback(() => {
     setConexoesTargetArtifactId(null);
-    navigate('/hub-de-artefatos/conexoes', { replace: true });
+    navigate(ROUTES.graph, { replace: true });
   }, [navigate]);
 
   const setAppState = (newState: typeof rawAppState, updateUrl = true) => {
     setRawAppState(newState);
     if (!updateUrl) return;
     
-    if (newState === 'initial') navigate('/hub-de-artefatos');
-    else if (newState === 'results') navigate('/hub-de-artefatos/cards');
-    else if (newState === 'inventory_table') navigate('/hub-de-artefatos/inventario');
-    else if (newState === 'produtos_analise') navigate('/hub-de-artefatos/por-produto');
-    else if (newState === 'parametros_analise') navigate('/hub-de-artefatos/por-parametro');
-    else if (newState === 'insights') navigate('/hub-de-artefatos/insights');
-    else if (newState === 'graph') navigate('/hub-de-artefatos/conexoes');
-    else if (newState === 'journeys') navigate('/hub-de-artefatos/jornadas');
-    else if (newState === 'empty') navigate('/hub-de-artefatos');
+    navigate(newState === 'empty' ? ROUTES.initial : ROUTES[newState]);
   };
 
 
@@ -485,49 +481,29 @@ export default function App() {
     const searchParams = new URLSearchParams(location.search);
     const targetArtId = searchParams.get('artifactId');
 
-    if (p === '/hub-de-artefatos/conexoes') {
-      setRawAppState('graph');
+    // Endereços antigos (/hub-de-artefatos/...) redirecionam para os novos, mantendo ?artifactId
+    const legacy = legacyRedirect(p);
+    if (legacy) {
+      navigate(`${legacy}${location.search}`, { replace: true });
+      return;
+    }
+
+    const view = viewFromPath(p);
+    if (view === 'graph') {
       setConexoesTargetArtifactId(targetArtId || null);
     } else {
       setConexoesTargetArtifactId(null);
     }
 
-    if (p === '/' || p === '/home') {
-      setRawAppState('initial');
-      navigate('/hub-de-artefatos', { replace: true });
-      if (p === '/home') setShowAdmin(false);
-    } else if (p === '/home/gestao-de-usuarios') {
+    if (p === '/home/gestao-de-usuarios') {
       setRawAppState('initial');
       setShowAdmin(true);
-    } else if (p === '/overview' || p === '/hub-de-eventos') {
-      setRawAppState('initial');
-      navigate('/hub-de-artefatos', { replace: true });
-    } else if (p === '/hub-de-artefatos') {
-      setRawAppState('initial');
-    } else if (p === '/hub-de-artefatos/cards') {
-      setRawAppState('results');
-    } else if (p === '/hub-de-artefatos/inventario') {
-      setRawAppState('inventory_table');
-    } else if (p === '/hub-de-artefatos/por-produto') {
-      setRawAppState('produtos_analise');
-    } else if (p === '/hub-de-artefatos/por-parametro') {
-      setRawAppState('parametros_analise');
-    } else if (p === '/hub-de-artefatos/jornadas') {
-      setRawAppState('journeys');
-    } else if (p === '/hub-de-artefatos/insights') {
-      setRawAppState('insights');
-    } else if (p === '/hub-de-artefatos/insights/resumo-executivo' || p === '/hub-de-artefatos/insights-operacionais') {
-      // Telas descontinuadas: o conteúdo foi unificado no Insights.
-      navigate('/hub-de-artefatos/insights', { replace: true });
-    } else if (p === '/hub-de-artefatos/conexoes') {
-      setRawAppState('graph');
-    } else if (p === '/hub-de-artefatos/jornadas') {
-      setRawAppState('journeys');
+    } else if (view) {
+      setRawAppState(view);
+      if (view === 'initial') setShowAdmin(false);
     } else {
-      // Not found handling / default
-      if (p !== '/hub-de-artefatos' && p !== '/') {
-        navigate('/hub-de-artefatos', { replace: true });
-      }
+      // Endereço desconhecido: volta para a busca
+      navigate(ROUTES.initial, { replace: true });
     }
   }, [location.pathname, location.search]);
 
@@ -543,21 +519,28 @@ export default function App() {
 
 
   const [fullInventory, setFullInventory] = useState<Artifact[]>([]);
+  // Falha ao falar com o servidor: a tela continua com os últimos dados e mostra um aviso
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [retryingData, setRetryingData] = useState(false);
 
   useEffect(() => {
-    if ((appState === "journeys" || appState === "initial") && fullInventory.length === 0) {
+    if ((appState === "journeys" || appState === "initial") && fullInventory.length === 0 && !dataError) {
       setLoading(true);
       fetchInventory()
         .then((res) => {
           setFullInventory(res.resultados);
+          setDataError(null);
           if (results.length === 0) {
             setResults(res.resultados);
           }
         })
-        .catch((e) => console.error(e))
+        .catch((e) => {
+          console.error(e);
+          setDataError(describeError(e));
+        })
         .finally(() => setLoading(false));
     }
-  }, [appState, fullInventory.length, results.length]);
+  }, [appState, fullInventory.length, results.length, dataError]);
 
   // Estado centralizado da busca ativa (ActiveSearch)
   const [activeSearch, setActiveSearch] = useState<ActiveSearch | null>(null);
@@ -566,10 +549,10 @@ export default function App() {
   useEffect(() => {
     const mainCatalogStates = ["inventory_table", "results", "produtos_analise", "parametros_analise", "insights", "graph"];
     // Uma busca que voltou vazia é um resultado legítimo: não recarregar a base inteira por cima dela
-    if (mainCatalogStates.includes(appState) && results.length === 0 && !loading && !isSearchingRef.current && !activeSearch && (query === "" || query === "inventario")) {
+    if (mainCatalogStates.includes(appState) && results.length === 0 && !loading && !dataError && !isSearchingRef.current && !activeSearch && (query === "" || query === "inventario")) {
       executeSearch("inventario");
     }
-  }, [appState, results.length, loading, activeSearch]);
+  }, [appState, results.length, loading, activeSearch, dataError]);
 
   // Callback de transporte de resultados para a tela de Cards
   const handleApplyToCards = useCallback((
@@ -640,7 +623,7 @@ export default function App() {
     setCardSearch("");
     setCardPage(1);
 
-    // 10. Navegar para /hub-de-artefatos/cards
+    // 10. Navegar para /cards
     setAppState("results");
   }, [fullInventory]);
 
@@ -661,9 +644,8 @@ export default function App() {
   // Estados e controle exclusivos da tela de Cards
   const [cardSearch, setCardSearch] = useState("");
   const [cardSort, setCardSort] = useState<"relevancia" | "recentes" | "antigos" | "az" | "za">("recentes");
-  const [cardArtifactType, setCardArtifactType] = useState<"todos" | "mapas" | "docs" | "nos">("todos");
-  const [cardResponsible, setCardResponsible] = useState<string>("todos");
-  const [cardYear, setCardYear] = useState<string>("todas");
+  // Filtros dos Cards: listas de seleção múltipla, no mesmo formato do Inventário
+  const [cardFilters, setCardFilters] = useState<CardFilters>(EMPTY_CARD_FILTERS);
   const [cardPage, setCardPage] = useState<number>(1);
   const cardsPerPage = 20;
   const cardsListRef = useRef<HTMLDivElement>(null);
@@ -676,37 +658,10 @@ export default function App() {
     return results.length > 0 ? results : fullInventory;
   }, [activeSearch, results, fullInventory]);
 
-  // Lista dinâmica de responsáveis únicos, ordenados alfabeticamente
-  const availableResponsibles = useMemo(() => {
-    const list = Array.from(new Set(
-      cardSource
-        .map(i => i.responsavel?.trim())
-        .filter(r => Boolean(r) && r !== "N/A" && r !== "-" && r !== "Não informado")
-    )) as string[];
-    return list.sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }, [cardSource]);
-
-  // Lista dinâmica de anos disponíveis a partir da última atualização
-  const availableYears = useMemo(() => {
-    const years = Array.from(new Set(
-      cardSource.map(i => {
-        if (!i.ultima_atualizacao) return null;
-        const d = new Date(i.ultima_atualizacao);
-        return isNaN(d.getTime()) ? null : d.getFullYear().toString();
-      }).filter(Boolean) as string[]
-    ));
-    return years.sort((a, b) => Number(b) - Number(a));
-  }, [cardSource]);
+  // Opções dos filtros (com contagem) calculadas sobre o que os Cards exibem
+  const cardFilterOptions = useMemo(() => buildCardFilterOptions(cardSource.filter(i => !isRoot(i))), [cardSource]);
 
   const debouncedCardSearch = useDebouncedSearch(cardSearch, 150);
-
-  // Filtros de qualidade dos Cards (homologação, status das telas, mensuração, produto)
-  const [cardQuality, setCardQuality] = useState<CardQualityFilters>(DEFAULT_CARD_QUALITY_FILTERS);
-
-  const availableCardProducts = useMemo(() => {
-    const list = Array.from(new Set(cardSource.map(i => (i.produto || '').trim()).filter(Boolean)));
-    return list.sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }, [cardSource]);
 
   // Índice textual leve montado UMA ÚNICA VEZ quando a fonte de cards mudar e a aba de cards estiver ativa
   const indexedCards = useMemo(() => {
@@ -725,51 +680,9 @@ export default function App() {
   const filteredAndSortedCards = useMemo(() => {
     let list = indexedCards;
 
-    // 1. Filtro de Artefato (Todos, Mapas, Documentações, Nós)
-    if (cardArtifactType === "mapas") {
-      list = list.filter(({ artifact: i }) => isMap(i));
-    } else if (cardArtifactType === "docs") {
-      list = list.filter(({ artifact: i }) => isDocumentation(i));
-    } else if (cardArtifactType === "nos") {
-      list = list.filter(({ artifact: i }) => isNode(i));
-    }
-
-    // 2. Filtro de Responsável
-    if (cardResponsible !== "todos") {
-      list = list.filter(({ artifact: i }) => (i.responsavel || "").trim() === cardResponsible);
-    }
-
-    // 3. Filtro de Data (Ano)
-    if (cardYear !== "todas") {
-      list = list.filter(({ artifact: i }) => {
-        if (!i.ultima_atualizacao) return false;
-        const d = new Date(i.ultima_atualizacao);
-        return !isNaN(d.getTime()) && d.getFullYear().toString() === cardYear;
-      });
-    }
-
-    // 3b. Qualidade do mapa: qualquer filtro aqui mantém só mapas
-    if (countCardQualityFilters(cardQuality) > 0) {
-      list = list.filter(({ artifact: i }) => {
-        if (!isMap(i)) return false;
-        if (cardQuality.produto !== 'todos' && (i.produto || '').trim() !== cardQuality.produto) return false;
-        if (cardQuality.mensuracao !== 'todas' && resolveMeasurementClass(i) !== cardQuality.mensuracao) return false;
-        if (cardQuality.divergente && !i.status_divergent) return false;
-        if (cardQuality.homologacao !== 'todas' || cardQuality.statusTela !== 'todos') {
-          const m = getMapStatusMetrics(i);
-          if (cardQuality.homologacao !== 'todas' && m.homologationStatus !== cardQuality.homologacao) return false;
-          if (cardQuality.statusTela !== 'todos') {
-            const count = {
-              'CORREÇÃO': m.correction,
-              NOVO: m.new,
-              EXCLUIR: m.exclude,
-              DESCONTINUAR: m.discontinue,
-            }[cardQuality.statusTela];
-            if (!count) return false;
-          }
-        }
-        return true;
-      });
+    // 1. Filtros (tipo, produto, responsável, ano e qualidade do mapa)
+    if (countCardFilters(cardFilters) > 0) {
+      list = list.filter(({ artifact: i }) => matchesCardFilters(i, cardFilters));
     }
 
     // 4. Busca textual rápida (todas as palavras presentes no searchableText)
@@ -809,7 +722,7 @@ export default function App() {
       : sorted;
 
     return prioritized.map(({ artifact }) => artifact);
-  }, [indexedCards, debouncedCardSearch, cardArtifactType, cardResponsible, cardYear, cardSort, cardQuality]);
+  }, [indexedCards, debouncedCardSearch, cardSort, cardFilters]);
 
   const totalCardsCount = filteredAndSortedCards.length;
   const totalCardPages = Math.max(1, Math.ceil(totalCardsCount / cardsPerPage));
@@ -833,30 +746,21 @@ export default function App() {
     return (
       cardSearch.trim() !== "" ||
       cardSort !== defaultSort ||
-      cardArtifactType !== "todos" ||
-      cardResponsible !== "todos" ||
-      cardYear !== "todas" ||
-      countCardQualityFilters(cardQuality) > 0
+      countCardFilters(cardFilters) > 0
     );
-  }, [cardSearch, cardSort, cardArtifactType, cardResponsible, cardYear, activeSearch, cardQuality]);
+  }, [cardSearch, cardSort, activeSearch, cardFilters]);
 
-  const hasActiveCardFilters = cardArtifactType !== "todos" || cardResponsible !== "todos" || cardYear !== "todas" || countCardQualityFilters(cardQuality) > 0;
+  const hasActiveCardFilters = countCardFilters(cardFilters) > 0;
 
   const clearOnlyCardFilters = () => {
-    setCardArtifactType("todos");
-    setCardResponsible("todos");
-    setCardYear("todas");
-    setCardQuality(DEFAULT_CARD_QUALITY_FILTERS);
+    setCardFilters(EMPTY_CARD_FILTERS);
     setCardPage(1);
   };
 
   const resetCardFilters = () => {
     setCardSearch("");
     setCardSort(activeSearch !== null ? "relevancia" : "recentes");
-    setCardArtifactType("todos");
-    setCardResponsible("todos");
-    setCardYear("todas");
-    setCardQuality(DEFAULT_CARD_QUALITY_FILTERS);
+    setCardFilters(EMPTY_CARD_FILTERS);
     setCardPage(1);
   };
 
@@ -963,7 +867,7 @@ export default function App() {
 
     syncPollRef.current = setInterval(async () => {
       try {
-        const statusRes = await fetch("/api/sync-status");
+        const statusRes = await guarded("api:sync-status", () => safeFetch("/api/sync-status"));
         if (!statusRes.ok) return;
         const statusData = await statusRes.json();
         if (statusData) {
@@ -990,17 +894,17 @@ export default function App() {
     }, 1000);
 
     try {
-      const res = await fetch("/api/update-inventory", {
+      const res = await safeFetch("/api/update-inventory", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rootId: "1542391004", maxRows: null, mode: "full", forceRefresh: true })
       });
       
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       stopSyncPolling();
       
       if (!res.ok) {
-        throw new Error(data.error || "Falha na sincronização");
+        throw new Error(data.error || `O servidor respondeu com erro ${res.status} na sincronização.`);
       }
 
       const finalStatus = data.status || {};
@@ -1028,6 +932,7 @@ export default function App() {
         const refreshed = await fetchInventory();
         if (refreshed && Array.isArray(refreshed.resultados)) {
           setFullInventory(refreshed.resultados);
+          setDataError(null);
           if (!activeSearch) {
             setResults(refreshed.resultados);
           }
@@ -1177,6 +1082,7 @@ export default function App() {
     if (!q.trim()) return;
 
     isSearchingRef.current = true;
+    const previousResults = results;
     setLoading(true);
     setAppState("results");
     setResults([]);
@@ -1194,6 +1100,7 @@ export default function App() {
         : await searchContent(q);
 
       setResults(data.resultados);
+      setDataError(null);
       if (isInventory) {
         setFullInventory(data.resultados);
       }
@@ -1210,7 +1117,9 @@ export default function App() {
       }
     } catch (error) {
       console.error("Search failed", error);
-      setAppState("empty");
+      // Mantém o que já estava carregado e avisa, em vez de voltar para uma tela vazia
+      setResults(previousResults.length > 0 ? previousResults : fullInventory);
+      setDataError(describeError(error));
     } finally {
       setLoading(false);
       isSearchingRef.current = false;
@@ -1612,9 +1521,7 @@ export default function App() {
     // 4. Limpar filtros e paginação da tela de Cards (restaurando ordenação padrão 'recentes')
     setCardSearch("");
     setCardSort("recentes");
-    setCardArtifactType("todos");
-    setCardResponsible("todos");
-    setCardYear("todas");
+    setCardFilters(EMPTY_CARD_FILTERS);
     setCardPage(1);
 
     // 5. Limpar filtros e estados contextuais das demais telas (Inventário, Produtos, Parâmetros, Insights)
@@ -1657,8 +1564,8 @@ export default function App() {
     // 9. Atualizar estado da aplicação para 'initial'
     setRawAppState('initial');
 
-    // 10. Navegar explicitamente para /hub-de-artefatos sem parâmetros de query na URL
-    navigate('/hub-de-artefatos', { replace: true });
+    // 10. Navegar explicitamente para a busca, sem parâmetros de query na URL
+    navigate(ROUTES.initial, { replace: true });
   }, [fullInventory, navigate]);
 
   const resetSearch = resetSearchSession;
@@ -1684,6 +1591,21 @@ export default function App() {
 
   const hasPermission = true;
 
+  const retryDataLoad = async () => {
+    if (retryingData) return;
+    setRetryingData(true);
+    try {
+      const data: SearchResponse = await fetchInventory();
+      setFullInventory(data.resultados);
+      if (!activeSearch) setResults(data.resultados);
+      setDataError(null);
+    } catch (error) {
+      setDataError(describeError(error));
+    } finally {
+      setRetryingData(false);
+    }
+  };
+
   return (
     <AppShell
       currentRouteId={appState}
@@ -1693,7 +1615,8 @@ export default function App() {
       lastSync={lastSync}
       onSyncClick={() => startBackgroundSync()}
       contextualContent={
-        appState === 'journeys' ? (
+        <ErrorBoundary area="os filtros" variant="inline" resetKey={appState}>
+        {appState === 'journeys' ? (
           <JourneysSidebarFilters
             artifacts={fullInventory}
             selectedProduct={journeyProduct}
@@ -1718,29 +1641,12 @@ export default function App() {
             setCardPage(1);
           }}
           hasActiveSearch={activeSearch !== null}
-          cardArtifactType={cardArtifactType}
-          onCardArtifactTypeChange={(val) => {
-            setCardArtifactType(val);
+          cardFilters={cardFilters}
+          onCardFiltersChange={(val) => {
+            setCardFilters(val);
             setCardPage(1);
           }}
-          cardResponsible={cardResponsible}
-          onCardResponsibleChange={(val) => {
-            setCardResponsible(val);
-            setCardPage(1);
-          }}
-          cardYear={cardYear}
-          onCardYearChange={(val) => {
-            setCardYear(val);
-            setCardPage(1);
-          }}
-          availableResponsibles={availableResponsibles}
-          availableYears={availableYears}
-          cardQuality={cardQuality}
-          onCardQualityChange={(val) => {
-            setCardQuality(val);
-            setCardPage(1);
-          }}
-          availableProducts={availableCardProducts}
+          cardFilterOptions={cardFilterOptions}
           isCardFilterActive={isCardFilterActive}
           onResetCardFilters={resetCardFilters}
 
@@ -1782,10 +1688,37 @@ export default function App() {
           isInsightsFilterActive={isInsightsFilterActive}
           onResetInsightsFilters={resetInsightsFilters}
         />
-        )
+        )}
+        </ErrorBoundary>
       }
     >
       <div className="relative w-full flex-1 flex flex-col min-h-screen">
+        {dataError && (
+          <div role="status" className="mb-4 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-900">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+            <p className="flex-1 min-w-0">
+              <span className="font-semibold">Não foi possível atualizar os dados.</span>{' '}
+              {fullInventory.length > 0 || results.length > 0 ? 'Você está vendo a última versão carregada. ' : ''}
+              {dataError}
+            </p>
+            <button
+              type="button"
+              onClick={retryDataLoad}
+              disabled={retryingData}
+              className="shrink-0 h-7 px-3 rounded-lg border border-amber-300 bg-white font-semibold text-amber-900 hover:border-omni-bordo/40 hover:text-omni-bordo disabled:opacity-50 cursor-pointer"
+            >
+              {retryingData ? 'Tentando...' : 'Tentar de novo'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setDataError(null)}
+              aria-label="Fechar aviso"
+              className="shrink-0 p-1 rounded-md text-amber-700 hover:text-omni-bordo cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       <AnimatePresence>
         <SyncWidget job={syncJob} onCancel={cancelSyncJob} />
       </AnimatePresence>
@@ -1797,7 +1730,7 @@ export default function App() {
             onAddUser={handleAddUser}
             onUpdateUser={handleUpdateUser}
             onDeleteUser={handleDeleteUser}
-            onClose={() => navigate('/hub-de-artefatos')}
+            onClose={() => navigate(ROUTES.initial)}
           />
         )}
       </AnimatePresence>
@@ -1818,12 +1751,14 @@ export default function App() {
         ) : (
           <>
         <section className={`hero flex flex-col flex-1 w-full items-center justify-start pt-8 ${appState !== "initial" ? "!hidden" : ""}`}>
+          <ErrorBoundary area="a busca" resetKey={searchSessionId}>
           <SearchCenter
             artifacts={fullInventory}
             activeSearch={activeSearch}
             resetSignal={searchSessionId}
             onApplyToCards={handleApplyToCards}
           />
+          </ErrorBoundary>
         </section>
 
         {/* Content Section */}
@@ -1859,6 +1794,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               className="summary pb-20"
             >
+              <ErrorBoundary area="os Insights">
               <CanonicalInsightsDashboard 
                 artifacts={fullInventory.length > 0 ? fullInventory : results}
                 onOpenMap={(art) => setDetailModalItem(art)}
@@ -1874,6 +1810,7 @@ export default function App() {
                 selectedMeasurementFilter={insightsMeasurementFilter}
                 onMeasurementFilterChange={setInsightsMeasurementFilter}
               />
+              </ErrorBoundary>
             </motion.section>
           )}
 
@@ -1884,6 +1821,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               className="produtos-container pb-20"
             >
+              <ErrorBoundary area="a análise por produto">
               <ProductAnalysisView 
                 artifacts={results}
                 onOpenMap={(art) => setDetailModalItem(art)}
@@ -1896,6 +1834,7 @@ export default function App() {
                 selectedSubproduto={productSubprodutoFilter}
                 onSubprodutoChange={setProductSubprodutoFilter}
               />
+              </ErrorBoundary>
             </motion.section>
           )}
 
@@ -1906,12 +1845,14 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               className="parametros-container pb-20"
             >
+              <ErrorBoundary area="a análise por parâmetro">
               <ParameterAnalysisView 
                 artifacts={results}
                 onOpenMap={(art) => setDetailModalItem(art)}
                 searchTerm={paramSearch}
                 onSearchChange={setParamSearch}
               />
+              </ErrorBoundary>
             </motion.section>
           )}
 
@@ -1928,6 +1869,7 @@ export default function App() {
                   title="Conexões"
                   subtitle="A árvore do Confluence como ela é: produtos, subprodutos e os mapas dentro de cada um. Clique no número de um nó para abrir os filhos."
                 />
+                <ErrorBoundary area="as Conexões">
                 <GraphView 
                   data={fullInventory && fullInventory.length > 0 ? fullInventory : results} 
                   isEmbedded={true}
@@ -1935,6 +1877,7 @@ export default function App() {
                   onClearTargetArtifactId={handleClearConexoesTarget}
                   onOpenMap={handleOpenMapDetail}
                 />
+                </ErrorBoundary>
               </motion.section>
             )}
           </AnimatePresence>
@@ -1949,6 +1892,7 @@ export default function App() {
                 className="journeys-container pb-20 space-y-6 flex flex-col flex-1"
                 style={{ height: 'calc(100vh - 100px)' }}
               >
+                <ErrorBoundary area="as Jornadas">
                 <JourneysCanvas
                   artifacts={fullInventory}
                   selectedMapId={journeyMapId}
@@ -1957,11 +1901,13 @@ export default function App() {
                     setDetailTarget(target || null);
                   }}
                 />
+                </ErrorBoundary>
               </motion.section>
             )}
           </AnimatePresence>
 
           {/* Results Area (Tela de Cards) */}
+          <ErrorBoundary area="os Cards" resetKey={appState}>
           <section className={`results space-y-6 ${appState === "results" && !loading ? "" : "!hidden"}`}>
             <PageHeader
               title="Artefatos"
@@ -2124,8 +2070,10 @@ export default function App() {
               </div>
             )}
           </section>
+          </ErrorBoundary>
 
           {/* Inventory Table View (Functional Explorer Interface) */}
+          <ErrorBoundary area="o Inventário" resetKey={appState}>
           {appState === "inventory_table" && (
             <motion.section 
               initial={{ opacity: 0 }}
@@ -2364,6 +2312,7 @@ export default function App() {
               )}
             </motion.section>
           )}
+          </ErrorBoundary>
         </section>
         
         </>
@@ -2371,6 +2320,7 @@ export default function App() {
       </div>
 
       {/* Extrair dados: relatórios configuráveis (domain/export) */}
+        <ErrorBoundary area="a extração de dados" variant="modal" resetKey={showExportModal} onDismiss={() => setShowExportModal(false)}>
         <ExportDialog
           open={showExportModal}
           onClose={() => setShowExportModal(false)}
@@ -2378,8 +2328,18 @@ export default function App() {
           allItems={fullInventory.length > 0 ? fullInventory : results}
           sourceLabel={exportSource === 'cards' ? 'Cards exibidos' : 'Inventário filtrado'}
         />
+        </ErrorBoundary>
 
       {/* Modal de Detalhes Canônico de Telas e Snippets */}
+      <ErrorBoundary
+        area="o detalhe do mapa"
+        variant="modal"
+        resetKey={detailModalItem?.id}
+        onDismiss={() => {
+          setDetailModalItem(null);
+          setDetailTarget(null);
+        }}
+      >
       <MapDetailModal 
         item={detailModalItem} 
         initialTab={detailTarget ? 'telas' : undefined}
@@ -2391,6 +2351,7 @@ export default function App() {
           setDetailTarget(null);
         }} 
       />
+      </ErrorBoundary>
 
       </div>
     </AppShell>
