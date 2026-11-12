@@ -100,6 +100,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isMobileOpen, onCloseMobile]);
 
+  // Textos sempre presentes: só aparecem/somem, para nada mudar de lugar ao abrir
+  const showLabels = !isCollapsed || isMobileOpen;
+  const labelFade = `transition-opacity duration-150 ${showLabels ? 'opacity-100 delay-75' : 'opacity-0 pointer-events-none'}`;
+
   const sidebarWidthClass = isCollapsed ? 'md:w-[72px]' : 'md:w-[248px] md:shadow-2xl';
 
   return (
@@ -128,20 +132,14 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         `}
         aria-label="Navegação principal"
       >
-        {/* 1. Topo (64px) */}
-        <div
-          className={`h-16 flex items-center shrink-0 border-b border-white/10 ${
-            isCollapsed && !isMobileOpen ? 'justify-center px-0' : 'px-4'
-          }`}
-        >
+        {/* 1. Topo (64px): logo fixo; nome aparece ao abrir */}
+        <div className="h-16 flex items-center shrink-0 border-b border-white/10 pl-5 pr-3">
           <button
             onClick={() => {
               onHomeClick();
               if (onCloseMobile) onCloseMobile();
             }}
-            className={`flex items-center gap-3 text-left cursor-pointer focus:outline-none group overflow-hidden ${
-              isCollapsed && !isMobileOpen ? 'justify-center' : 'w-full'
-            }`}
+            className="flex items-center gap-3 text-left cursor-pointer focus:outline-none group min-w-0 flex-1"
             title="OMNI - Governança de mensuração"
             aria-label="OMNI - Página inicial"
           >
@@ -153,23 +151,20 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                 referrerPolicy="no-referrer"
               />
             </div>
-            
-            {(!isCollapsed || isMobileOpen) && (
-              <div className="flex flex-col min-w-0 transition-opacity duration-150">
-                <span className="flex items-center gap-2 leading-tight">
-                  <span className="font-heading font-bold text-white text-base tracking-[0.08em]">OMNI</span>
-                  <span
-                    className="px-1.5 py-px rounded border border-white/35 text-[9.5px] font-ui font-semibold text-white/85 tracking-wide"
-                    title="Primeira versão, em avaliação"
-                  >
-                    Beta
-                  </span>
+            <div className={`flex flex-col min-w-0 whitespace-nowrap ${labelFade}`} aria-hidden={!showLabels}>
+              <span className="flex items-center gap-2 leading-tight">
+                <span className="font-heading font-bold text-white text-base tracking-[0.08em]">OMNI</span>
+                <span
+                  className="px-1.5 py-px rounded border border-white/35 text-[9.5px] font-ui font-semibold text-white/85 tracking-wide"
+                  title="Primeira versão, em avaliação"
+                >
+                  Beta
                 </span>
-                <span className="text-[11px] text-white/65 font-ui truncate leading-tight mt-0.5">
-                  Governança de mensuração
-                </span>
-              </div>
-            )}
+              </span>
+              <span className="text-[11px] text-white/65 font-ui truncate leading-tight mt-0.5">
+                Governança de mensuração
+              </span>
+            </div>
           </button>
 
           {/* Botão fechar apenas no mobile */}
@@ -184,57 +179,35 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           )}
         </div>
 
-        {/* 2. Botão "Nova busca" (40px) */}
+        {/* 2. Botão "Nova busca" (40px): o mesmo botão nos dois estados, só revela o texto */}
         <div className="p-3 shrink-0">
-          {(!isCollapsed || isMobileOpen) ? (
-            <button
-              id="sidebar-nova-busca"
-              type="button"
-              onClick={() => {
-                if (onNewSearch) onNewSearch();
-                else onHomeClick();
-                if (onCloseMobile) onCloseMobile();
-              }}
-              className="w-full h-10 px-3 bg-white text-omni-bordo hover:bg-white/95 rounded-lg shadow-sm font-ui font-semibold text-xs flex items-center justify-between transition-all cursor-pointer group"
-              title="Nova busca (/)"
-              aria-label="Nova busca"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <Search className="w-4 h-4 text-omni-bordo shrink-0 group-hover:scale-105 transition-transform" />
-                <span className="truncate">Nova busca</span>
-              </div>
-              <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-omni-mist text-omni-ink-secondary rounded border border-omni-line shadow-2xs">
-                /
-              </kbd>
-            </button>
-          ) : (
-            <button
-              id="sidebar-nova-busca-collapsed"
-              type="button"
-              onClick={() => {
-                if (onNewSearch) onNewSearch();
-                else onHomeClick();
-              }}
-              className="w-10 h-10 mx-auto flex items-center justify-center bg-white text-omni-bordo hover:bg-white/95 rounded-lg shadow-sm transition-all cursor-pointer group"
-              title="Nova busca (/)"
-              aria-label="Nova busca"
-            >
-              <Search className="w-4 h-4 text-omni-bordo group-hover:scale-105 transition-transform" />
-            </button>
-          )}
+          <button
+            id="sidebar-nova-busca"
+            type="button"
+            onClick={() => {
+              if (onNewSearch) onNewSearch();
+              else onHomeClick();
+              if (onCloseMobile) onCloseMobile();
+            }}
+            className="w-full h-10 pl-4 pr-3 bg-white text-omni-bordo hover:bg-white/95 rounded-lg shadow-sm font-ui font-semibold text-xs flex items-center gap-2 transition-colors cursor-pointer group overflow-hidden"
+            title="Nova busca (/)"
+            aria-label="Nova busca"
+          >
+            <Search className="w-4 h-4 text-omni-bordo shrink-0 group-hover:scale-105 transition-transform" />
+            <span className={`truncate whitespace-nowrap flex-1 text-left ${labelFade}`}>Nova busca</span>
+            <kbd className={`px-1.5 py-0.5 text-[10px] font-mono bg-omni-mist text-omni-ink-secondary rounded border border-omni-line shadow-2xs ${labelFade}`}>
+              /
+            </kbd>
+          </button>
         </div>
 
-        {/* 3. Navegação em dois grupos (Explorar & Analisar) */}
-        <nav className="flex-1 overflow-y-auto px-2 py-1 space-y-4 custom-scrollbar" aria-label="Navegação principal">
-          {NAV_GROUPS.map((group, groupIdx) => (
+        {/* 3. Navegação em dois grupos (Explorar & Analisar): títulos ocupam sempre o mesmo espaço */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-1 space-y-4 custom-scrollbar" aria-label="Navegação principal">
+          {NAV_GROUPS.map((group) => (
             <div key={group.title} className="space-y-1">
-              {(!isCollapsed || isMobileOpen) ? (
-                <div className="text-[11px] text-white/50 font-ui font-medium px-3 pt-1 pb-1">
-                  {group.title}
-                </div>
-              ) : (
-                groupIdx > 0 && <div className="my-2 border-t border-white/10" />
-              )}
+              <div className={`h-6 flex items-center text-[11px] text-white/50 font-ui font-medium px-3 whitespace-nowrap ${labelFade}`} aria-hidden={!showLabels}>
+                {group.title}
+              </div>
 
               {group.items.map((item) => {
                 const isActive = currentRouteId === item.id;
@@ -248,9 +221,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                       if (onCloseMobile) onCloseMobile();
                     }}
                     aria-current={isActive ? 'page' : undefined}
-                    title={isCollapsed && !isMobileOpen ? item.label : undefined}
-                    className={`relative w-full h-9 rounded-lg flex items-center transition-colors duration-150 cursor-pointer text-left
-                      ${isCollapsed && !isMobileOpen ? 'justify-center px-0' : 'px-3 gap-3'}
+                    aria-label={item.label}
+                    className={`relative w-full h-9 rounded-lg flex items-center pl-[19px] pr-3 gap-3 transition-colors duration-150 cursor-pointer text-left
                       ${isActive
                         ? 'bg-white/[0.14] text-white font-semibold'
                         : 'text-white/75 hover:bg-white/[0.07] hover:text-white font-medium'
@@ -264,11 +236,9 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
                     <Icon className="w-[18px] h-[18px] shrink-0" />
 
-                    {(!isCollapsed || isMobileOpen) && (
-                      <span className="text-xs font-ui truncate leading-none">
-                        {item.label}
-                      </span>
-                    )}
+                    <span className={`text-xs font-ui truncate whitespace-nowrap leading-none ${labelFade}`}>
+                      {item.label}
+                    </span>
                   </button>
                 );
               })}
@@ -276,31 +246,26 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           ))}
         </nav>
 
-        {/* 4. Rodapé (borda branco/10): Sincronização */}
-        <div className="shrink-0 border-t border-white/10 p-2 space-y-1">
-          {/* Atualizar do Confluence */}
+        {/* 4. Rodapé (borda branco/10): Sincronização, altura fixa nos dois estados */}
+        <div className="shrink-0 border-t border-white/10 p-2">
           <button
             type="button"
             onClick={() => {
               if (onSyncClick) onSyncClick();
               if (onCloseMobile) onCloseMobile();
             }}
-            title={isCollapsed && !isMobileOpen ? `Atualizar do Confluence (Última: ${formatUltimaSincronizacao(lastSync)})` : undefined}
-            className={`w-full rounded-lg text-left text-white/75 hover:bg-white/[0.07] hover:text-white transition-colors cursor-pointer flex items-center
-              ${isCollapsed && !isMobileOpen ? 'h-9 justify-center px-0' : 'px-3 py-2 gap-3'}
-            `}
+            title={`Atualizar do Confluence (Última: ${formatUltimaSincronizacao(lastSync)})`}
+            className="w-full h-11 rounded-lg text-left text-white/75 hover:bg-white/[0.07] hover:text-white transition-colors cursor-pointer flex items-center pl-5 pr-3 gap-3"
           >
             <RefreshCw className="w-4 h-4 shrink-0 text-white/75" />
-            {(!isCollapsed || isMobileOpen) && (
-              <div className="flex flex-col min-w-0">
-                <span className="text-xs font-ui font-medium leading-tight truncate">
-                  Atualizar do Confluence
-                </span>
-                <span className="text-[10px] text-white/50 font-ui leading-tight truncate mt-0.5">
-                  {formatUltimaSincronizacao(lastSync)}
-                </span>
-              </div>
-            )}
+            <div className={`flex flex-col min-w-0 whitespace-nowrap ${labelFade}`}>
+              <span className="text-xs font-ui font-medium leading-tight truncate">
+                Atualizar do Confluence
+              </span>
+              <span className="text-[10px] text-white/50 font-ui leading-tight truncate mt-0.5">
+                {formatUltimaSincronizacao(lastSync)}
+              </span>
+            </div>
           </button>
         </div>
       </aside>
