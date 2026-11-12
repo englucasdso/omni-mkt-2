@@ -33,7 +33,11 @@ async function startServer() {
 
 
   // Integração e Servimento do Frontend (Visão do Usuário)
-  if (process.env.NODE_ENV !== "production") {
+  // Produção: NODE_ENV=production ou "npm run producao" (passa --prod).
+  // Serve o site já empacotado, sem as verificações do modo de desenvolvimento.
+  const isProduction = process.env.NODE_ENV === "production" || process.argv.includes("--prod");
+
+  if (!isProduction) {
     // Modo de Desenvolvimento (Programação): 
     // Usa o Vite como intermediário (middleware) para dar suporte à compilação em tempo real.
     const vite = await createViteServer({
@@ -53,7 +57,7 @@ async function startServer() {
 
   // Inicializa o servidor e o faz "escutar" os acessos na porta definida
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on http://localhost:${PORT}${isProduction ? " (modo produção)" : ""}`);
     console.log(`Frontend integration active via Vite middleware`);
   });
 }

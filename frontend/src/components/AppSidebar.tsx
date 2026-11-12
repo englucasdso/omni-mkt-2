@@ -159,8 +159,14 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
             
             {(!isCollapsed || isMobileOpen) && (
               <div className="flex flex-col min-w-0 transition-opacity duration-150">
-                <span className="font-heading font-bold text-white text-base tracking-[0.08em] leading-tight">
-                  OMNI
+                <span className="flex items-center gap-2 leading-tight">
+                  <span className="font-heading font-bold text-white text-base tracking-[0.08em]">OMNI</span>
+                  <span
+                    className="px-1.5 py-px rounded border border-white/35 text-[9.5px] font-ui font-semibold text-white/85 tracking-wide"
+                    title="Primeira versão, em avaliação"
+                  >
+                    Beta
+                  </span>
                 </span>
                 <span className="text-[11px] text-white/65 font-ui truncate leading-tight mt-0.5">
                   Governança de mensuração

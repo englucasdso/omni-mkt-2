@@ -88,7 +88,19 @@ export interface IndexedArtifact {
 /**
  * Monta o texto pesquisável de um artefato uma única vez para indexação
  */
+// O texto de busca de cada artefato é calculado uma vez e reaproveitado entre telas.
+// O inventário não é alterado no lugar: uma nova sincronização traz objetos novos.
+const searchableTextCache = new WeakMap<object, string>();
+
 export function buildArtifactSearchableText(artifact: Artifact): string {
+  const cached = searchableTextCache.get(artifact as object);
+  if (cached !== undefined) return cached;
+  const text = computeArtifactSearchableText(artifact);
+  searchableTextCache.set(artifact as object, text);
+  return text;
+}
+
+function computeArtifactSearchableText(artifact: Artifact): string {
   const parts: string[] = [];
 
   if (artifact.id) parts.push(artifact.id);

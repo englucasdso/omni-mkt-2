@@ -11,6 +11,7 @@
     "dev": "tsx backend/src/index.ts",
     "build": "vite build",
     "start": "tsx backend/src/index.ts",
+    "producao": "vite build && tsx backend/src/index.ts --prod",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"

@@ -168,13 +168,24 @@ export const AppShell: React.FC<AppShellProps> = ({
           {children}
         </main>
 
-        {/* Rodapé Discreto Corporativo */}
-        <footer className="mt-auto w-full border-t border-omni-line bg-white/70 backdrop-blur-sm py-3.5 px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-2 text-xs font-ui text-omni-muted z-10">
-          <div className="text-center sm:text-left">
-            OMNI, desenvolvido por <span className="text-omni-ink-secondary font-medium">lucas.doliveira@bradesco.com.br</span>
+        {/* Rodapé corporativo: versão beta e canal de feedback */}
+        <footer className="mt-auto w-full border-t border-omni-line bg-white/70 backdrop-blur-sm py-3 px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-2 text-[11.5px] font-ui text-omni-muted z-10">
+          <div className="flex items-center gap-2 text-center sm:text-left">
+            <span className="font-semibold text-omni-ink-secondary">OMNI</span>
+            <span className="px-1.5 py-px rounded border border-omni-line bg-omni-mist text-[10px] font-semibold text-omni-ink-secondary">
+              Beta
+            </span>
+            <span>Primeira versão, em avaliação. Números e telas ainda podem mudar.</span>
           </div>
-          <div className="text-[11px] font-medium text-omni-muted">
-            Salla.MKT v1.0.0
+          <div className="flex items-center gap-3">
+            <a
+              href="mailto:lucas.doliveira@bradesco.com.br?subject=OMNI%20Beta%20-%20Feedback"
+              className="text-omni-ink-secondary hover:text-omni-bordo hover:underline"
+            >
+              Enviar feedback
+            </a>
+            <span className="text-omni-line" aria-hidden="true">|</span>
+            <span className="tabular-nums">Versão 1.0 beta</span>
           </div>
         </footer>
       </div>

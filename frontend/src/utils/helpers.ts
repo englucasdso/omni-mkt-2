@@ -10,6 +10,23 @@ export const normalizar = (txt: string): string => {
     .trim();
 };
 
+// Criar um Intl.DateTimeFormat é caro: o formatador é criado uma vez e reaproveitado
+let cachedDateTimeFormatter: Intl.DateTimeFormat | null = null;
+const getDateTimeFormatter = (): Intl.DateTimeFormat => {
+  if (!cachedDateTimeFormatter) {
+    cachedDateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
+  return cachedDateTimeFormatter;
+};
+
 export const formatUltimaSincronizacao = (valor?: string | number | Date | null): string => {
   if (!valor) return "—";
 
@@ -47,15 +64,7 @@ export const formatUltimaSincronizacao = (valor?: string | number | Date | null)
   }
 
   try {
-    const formatter = new Intl.DateTimeFormat("pt-BR", {
-      timeZone: "America/Sao_Paulo",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    const formatter = getDateTimeFormatter();
 
     const parts = formatter.formatToParts(date);
     let day = "";
