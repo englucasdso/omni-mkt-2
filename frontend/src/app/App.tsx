@@ -40,7 +40,7 @@ import { ParameterAnalysisView } from "../components/ParameterAnalysisView";
 import { CanonicalInsightsDashboard } from "../components/CanonicalInsightsDashboard";
 import { AppShell } from "../components/AppShell";
 import { PageHeader } from "../components/PageHeader";
-import { SidebarContextualArea } from "../components/SidebarContextualArea";
+import { SidebarContextualArea, CardQualityFilters, DEFAULT_CARD_QUALITY_FILTERS, countCardQualityFilters } from "../components/SidebarContextualArea";
 import { SearchCenter } from "../components/search/SearchCenter";
 import { ArtifactResultCard } from "../components/search/ArtifactResultCard";
 import { isMap, isDocumentation, isNode, isRoot, isCataloged, getArtifactTypeLabel, ARTIFACT_TYPE_CONFIGS } from "../domain/artifacts";
@@ -700,6 +700,14 @@ export default function App() {
 
   const debouncedCardSearch = useDebouncedSearch(cardSearch, 150);
 
+  // Filtros de qualidade dos Cards (homologação, status das telas, mensuração, produto)
+  const [cardQuality, setCardQuality] = useState<CardQualityFilters>(DEFAULT_CARD_QUALITY_FILTERS);
+
+  const availableCardProducts = useMemo(() => {
+    const list = Array.from(new Set(cardSource.map(i => (i.produto || '').trim()).filter(Boolean)));
+    return list.sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [cardSource]);
+
   // Índice textual leve montado UMA ÚNICA VEZ quando a fonte de cards mudar e a aba de cards estiver ativa
   const indexedCards = useMemo(() => {
     if (appState !== 'results') return [];
@@ -740,6 +748,30 @@ export default function App() {
       });
     }
 
+    // 3b. Qualidade do mapa: qualquer filtro aqui mantém só mapas
+    if (countCardQualityFilters(cardQuality) > 0) {
+      list = list.filter(({ artifact: i }) => {
+        if (!isMap(i)) return false;
+        if (cardQuality.produto !== 'todos' && (i.produto || '').trim() !== cardQuality.produto) return false;
+        if (cardQuality.mensuracao !== 'todas' && resolveMeasurementClass(i) !== cardQuality.mensuracao) return false;
+        if (cardQuality.divergente && !i.status_divergent) return false;
+        if (cardQuality.homologacao !== 'todas' || cardQuality.statusTela !== 'todos') {
+          const m = getMapStatusMetrics(i);
+          if (cardQuality.homologacao !== 'todas' && m.homologationStatus !== cardQuality.homologacao) return false;
+          if (cardQuality.statusTela !== 'todos') {
+            const count = {
+              'CORREÇÃO': m.correction,
+              NOVO: m.new,
+              EXCLUIR: m.exclude,
+              DESCONTINUAR: m.discontinue,
+            }[cardQuality.statusTela];
+            if (!count) return false;
+          }
+        }
+        return true;
+      });
+    }
+
     // 4. Busca textual rápida (todas as palavras presentes no searchableText)
     const queryTokens = getQueryTokens(debouncedCardSearch);
     if (queryTokens.length > 0) {
@@ -777,7 +809,7 @@ export default function App() {
       : sorted;
 
     return prioritized.map(({ artifact }) => artifact);
-  }, [indexedCards, debouncedCardSearch, cardArtifactType, cardResponsible, cardYear, cardSort]);
+  }, [indexedCards, debouncedCardSearch, cardArtifactType, cardResponsible, cardYear, cardSort, cardQuality]);
 
   const totalCardsCount = filteredAndSortedCards.length;
   const totalCardPages = Math.max(1, Math.ceil(totalCardsCount / cardsPerPage));
@@ -803,16 +835,18 @@ export default function App() {
       cardSort !== defaultSort ||
       cardArtifactType !== "todos" ||
       cardResponsible !== "todos" ||
-      cardYear !== "todas"
+      cardYear !== "todas" ||
+      countCardQualityFilters(cardQuality) > 0
     );
-  }, [cardSearch, cardSort, cardArtifactType, cardResponsible, cardYear, activeSearch]);
+  }, [cardSearch, cardSort, cardArtifactType, cardResponsible, cardYear, activeSearch, cardQuality]);
 
-  const hasActiveCardFilters = cardArtifactType !== "todos" || cardResponsible !== "todos" || cardYear !== "todas";
+  const hasActiveCardFilters = cardArtifactType !== "todos" || cardResponsible !== "todos" || cardYear !== "todas" || countCardQualityFilters(cardQuality) > 0;
 
   const clearOnlyCardFilters = () => {
     setCardArtifactType("todos");
     setCardResponsible("todos");
     setCardYear("todas");
+    setCardQuality(DEFAULT_CARD_QUALITY_FILTERS);
     setCardPage(1);
   };
 
@@ -822,6 +856,7 @@ export default function App() {
     setCardArtifactType("todos");
     setCardResponsible("todos");
     setCardYear("todas");
+    setCardQuality(DEFAULT_CARD_QUALITY_FILTERS);
     setCardPage(1);
   };
 
@@ -1700,6 +1735,12 @@ export default function App() {
           }}
           availableResponsibles={availableResponsibles}
           availableYears={availableYears}
+          cardQuality={cardQuality}
+          onCardQualityChange={(val) => {
+            setCardQuality(val);
+            setCardPage(1);
+          }}
+          availableProducts={availableCardProducts}
           isCardFilterActive={isCardFilterActive}
           onResetCardFilters={resetCardFilters}
 
@@ -1945,16 +1986,6 @@ export default function App() {
               }
               actions={
                 <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => {
-                      setAppState('initial');
-                    }}
-                    className="btn-neu flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-ui font-semibold text-gray-700 dark:text-slate-200 hover:text-[#7B0209] h-10 cursor-pointer"
-                    title="Editar busca no Hub de Artefatos"
-                  >
-                    <SlidersHorizontal className="w-3.5 h-3.5 text-[#7B0209]" />
-                    <span>Editar busca</span>
-                  </button>
                   <button 
                     onClick={() => { setExportSource('cards'); setShowExportModal(true); }}
                     className="btn-neu flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-ui font-semibold text-bradesco-red hover:text-bradesco-red-hover h-10 cursor-pointer"

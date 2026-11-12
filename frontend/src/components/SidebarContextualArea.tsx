@@ -14,6 +14,33 @@ import {
   FilterMultiSelectSearchable 
 } from './SidebarFilterPopover';
 
+/** Filtros de qualidade dos Cards (valem só para mapas) */
+export interface CardQualityFilters {
+  homologacao: 'todas' | 'HOMOLOGADO' | 'PARCIAL' | 'NAO_HOMOLOGADO';
+  mensuracao: 'todas' | 'GA4' | 'GA3' | 'HIBRIDO';
+  statusTela: 'todos' | 'CORREÇÃO' | 'NOVO' | 'EXCLUIR' | 'DESCONTINUAR';
+  produto: string;
+  divergente: boolean;
+}
+
+export const DEFAULT_CARD_QUALITY_FILTERS: CardQualityFilters = {
+  homologacao: 'todas',
+  mensuracao: 'todas',
+  statusTela: 'todos',
+  produto: 'todos',
+  divergente: false,
+};
+
+export function countCardQualityFilters(f: CardQualityFilters): number {
+  return (
+    (f.homologacao !== 'todas' ? 1 : 0) +
+    (f.mensuracao !== 'todas' ? 1 : 0) +
+    (f.statusTela !== 'todos' ? 1 : 0) +
+    (f.produto !== 'todos' ? 1 : 0) +
+    (f.divergente ? 1 : 0)
+  );
+}
+
 export interface SidebarContextualAreaProps {
   currentRouteId: string;
 
@@ -31,6 +58,9 @@ export interface SidebarContextualAreaProps {
   onCardYearChange: (val: string) => void;
   availableResponsibles: string[];
   availableYears: string[];
+  cardQuality: CardQualityFilters;
+  onCardQualityChange: (val: CardQualityFilters) => void;
+  availableProducts: string[];
   isCardFilterActive: boolean;
   onResetCardFilters: () => void;
 
@@ -105,6 +135,9 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
   cardResponsible,
   onCardResponsibleChange,
   cardYear,
+  cardQuality,
+  onCardQualityChange,
+  availableProducts,
   onCardYearChange,
   availableResponsibles,
   availableYears,
@@ -165,6 +198,8 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
     if (cardArtifactType !== 'todos') activeFiltersCount++;
     if (cardResponsible !== 'todos') activeFiltersCount++;
     if (cardYear !== 'todas') activeFiltersCount++;
+    activeFiltersCount += countCardQualityFilters(cardQuality);
+    const setQuality = (patch: Partial<CardQualityFilters>) => onCardQualityChange({ ...cardQuality, ...patch });
 
     const sortOptions = [
       ...(hasActiveSearch || cardSort === 'relevancia'
@@ -252,6 +287,72 @@ export const SidebarContextualArea: React.FC<SidebarContextualAreaProps> = ({
               { value: 'nos', label: 'Nós' },
             ]}
           />
+
+          {/* Qualidade do mapa: ao escolher qualquer opção abaixo, só mapas aparecem */}
+          <FilterSegmentedRow
+            label="Homologação"
+            value={cardQuality.homologacao}
+            onChange={(v) => setQuality({ homologacao: v })}
+            options={[
+              { value: 'todas', label: 'Todas' },
+              { value: 'HOMOLOGADO', label: 'Homologado' },
+              { value: 'PARCIAL', label: 'Parcial' },
+              { value: 'NAO_HOMOLOGADO', label: 'Não homologado' },
+            ]}
+          />
+
+          <FilterSegmentedRow
+            label="Tem telas em"
+            value={cardQuality.statusTela}
+            onChange={(v) => setQuality({ statusTela: v })}
+            options={[
+              { value: 'todos', label: 'Qualquer' },
+              { value: 'CORREÇÃO', label: 'Correção' },
+              { value: 'NOVO', label: 'Novo' },
+              { value: 'EXCLUIR', label: 'Excluir' },
+              { value: 'DESCONTINUAR', label: 'Descontinuar' },
+            ]}
+          />
+
+          <FilterSegmentedRow
+            label="Mensuração"
+            value={cardQuality.mensuracao}
+            onChange={(v) => setQuality({ mensuracao: v })}
+            options={[
+              { value: 'todas', label: 'Todas' },
+              { value: 'GA4', label: 'GA4' },
+              { value: 'GA3', label: 'Universal' },
+              { value: 'HIBRIDO', label: 'Híbrido' },
+            ]}
+          />
+
+          <FilterSearchableSingle
+            label="Produto"
+            options={availableProducts}
+            value={cardQuality.produto}
+            onChange={(v) => setQuality({ produto: v })}
+            allOptionLabel="Todos os produtos"
+            placeholder="Buscar produto..."
+          />
+
+          <div className="space-y-1.5">
+            <span className="text-xs font-ui font-semibold text-omni-ink-secondary block">Situação</span>
+            <div>
+              <button
+                type="button"
+                onClick={() => setQuality({ divergente: !cardQuality.divergente })}
+                aria-pressed={cardQuality.divergente}
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-ui font-medium border transition-colors cursor-pointer flex items-center gap-1 ${
+                  cardQuality.divergente
+                    ? 'bg-red-50 dark:bg-red-950/40 text-[#7B0209] border-[#7B0209]/40 font-semibold'
+                    : 'bg-gray-50 dark:bg-slate-800 text-gray-700 dark:text-slate-300 border-gray-200 dark:border-slate-700 hover:bg-gray-100'
+                }`}
+              >
+                <AlertTriangle className="w-3 h-3 text-[#7B0209]" />
+                Só status divergente
+              </button>
+            </div>
+          </div>
 
           {/* Responsável */}
           <FilterSearchableSingle
