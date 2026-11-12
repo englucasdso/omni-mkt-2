@@ -288,7 +288,20 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
 
       const res = await searchWorkerClient.searchContent(q, 500);
       const filteredIds = Array.from(new Set(res.results.map((r) => String(r.artifactId))));
-      onApplyToCards?.(q, filteredIds, { mode: 'conteudo' });
+      // Selo do card: diz por que o artefato apareceu (ex.: "GTM: GTM-607694")
+      const contentMatches: Record<string, ContentMatchSummary> = {};
+      for (const r of res.results as ContentSearchResult[]) {
+        const id = String(r.artifactId);
+        if (contentMatches[id]) continue;
+        contentMatches[id] = {
+          artifactId: id,
+          matchType: r.matchType,
+          score: r.score,
+          matchedFields: r.matchedFields || [],
+          label: r.matchType === 'METADATA' && r.matchedValue ? r.matchedValue : getContentMatchLabel(r.matchType),
+        };
+      }
+      onApplyToCards?.(q, filteredIds, { mode: 'conteudo', contentMatches });
     } catch (err) {
       console.error('[SearchCenter] Content search error:', err);
       // Fallback: match in inventory

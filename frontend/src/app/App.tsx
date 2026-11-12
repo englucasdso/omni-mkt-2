@@ -644,6 +644,20 @@ export default function App() {
     setAppState("results");
   }, [fullInventory]);
 
+  // Insights → abre um conjunto de artefatos nos Cards ou no Inventário
+  const handleInsightDrillDown = useCallback((label: string, ids: string[], target: 'cards' | 'inventario') => {
+    if (ids.length === 0) return;
+    if (target === 'cards') {
+      handleApplyToCards(label, ids, { mode: 'conteudo', queryKind: 'insight' });
+      return;
+    }
+    setTableFilter("");
+    setInventorySelection({ label, ids: new Set(ids) });
+    setResults(fullInventory);
+    setActiveSearch(null);
+    setAppState("inventory_table");
+  }, [handleApplyToCards, fullInventory]);
+
   // Estados e controle exclusivos da tela de Cards
   const [cardSearch, setCardSearch] = useState("");
   const [cardSort, setCardSort] = useState<"relevancia" | "recentes" | "antigos" | "az" | "za">("recentes");
@@ -1170,6 +1184,9 @@ export default function App() {
 
   const debouncedTableFilter = useDebouncedSearch(tableFilter, 150);
 
+  // Seleção vinda do Insights (ex.: "Mapas com telas em Correção") aplicada no Inventário
+  const [inventorySelection, setInventorySelection] = useState<{ label: string; ids: Set<string> } | null>(null);
+
   // Índice textual leve montado UMA ÚNICA VEZ quando os resultados mudarem e a aba de inventário estiver ativa
   const indexedInventory = useMemo(() => {
     if (appState !== 'inventory_table') return [];
@@ -1186,6 +1203,10 @@ export default function App() {
   // Inventory Logic - Computed Filtered & Sorted Results
   const filteredInventory = useMemo(() => {
     let list = indexedInventory;
+
+    if (inventorySelection) {
+      list = list.filter(({ artifact: i }) => inventorySelection.ids.has(String(i.id)));
+    }
 
     // Secondary Detailed Filters
     if (onlyWithoutResponsible) {
@@ -1269,7 +1290,7 @@ export default function App() {
     }
 
     return list.map(({ artifact }) => artifact);
-  }, [indexedInventory, debouncedTableFilter, inventoryFilters, inventorySort, onlyDivergent, onlyWithoutResponsible, onlyWithoutSubproduct]);
+  }, [inventorySelection, indexedInventory, debouncedTableFilter, inventoryFilters, inventorySort, onlyDivergent, onlyWithoutResponsible, onlyWithoutSubproduct]);
 
   const inventorySummary = useMemo(() => {
     return {
@@ -1368,6 +1389,7 @@ export default function App() {
 
   const resetInventoryFilters = () => {
     setTableFilter("");
+    setInventorySelection(null);
     setInventoryFilters({
       tipo_mapa: [],
       produto: [],
@@ -1799,6 +1821,7 @@ export default function App() {
               <CanonicalInsightsDashboard 
                 artifacts={fullInventory.length > 0 ? fullInventory : results}
                 onOpenMap={(art) => setDetailModalItem(art)}
+                onDrillDown={handleInsightDrillDown}
                 onFilterByProduct={(prod) => {
                   setInventoryFilters(f => ({ ...f, produto: [prod] }));
                   setAppState("inventory_table");
@@ -1903,7 +1926,9 @@ export default function App() {
               title="Artefatos"
               subtitle={
                 activeSearch ? (
-                  activeSearch.mode === 'conteudo' ? (
+                  activeSearch.mode === 'conteudo' && activeSearch.queryKind === 'insight' ? (
+                    `Do Insights: ${activeSearch.query} | ${totalCardsCount} ${totalCardsCount === 1 ? 'artefato' : 'artefatos'}`
+                  ) : activeSearch.mode === 'conteudo' ? (
                     activeSearch.query ? (
                       `Busca por conteúdo: ${totalCardsCount} ${totalCardsCount === 1 ? 'artefato encontrado' : 'artefatos encontrados'} para "${activeSearch.query}"`
                     ) : (
@@ -2090,6 +2115,24 @@ export default function App() {
                   </button>
                 }
               />
+
+              {inventorySelection && (
+                <div className="mb-4 flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-omni-bordo/20 bg-red-50/40">
+                  <p className="text-xs text-omni-ink">
+                    <span className="text-omni-muted">Do Insights:</span>{' '}
+                    <span className="font-semibold">{inventorySelection.label}</span>{' '}
+                    <span className="text-omni-muted tabular-nums">({inventorySelection.ids.size})</span>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setInventorySelection(null)}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-omni-bordo hover:underline cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    Ver inventário inteiro
+                  </button>
+                </div>
+              )}
 
               {/* Quando não houver resultados no Inventário */}
               {filteredInventory.length === 0 ? (

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getArtifactMetadata } from '../domain/artifacts/artifactMetadata';
 import { Artifact } from '../types';
 
 /**
@@ -104,6 +105,8 @@ export function buildArtifactSearchableText(artifact: Artifact): string {
   if (artifact.responsavel) parts.push(artifact.responsavel);
   if (artifact.artifact_type) parts.push(artifact.artifact_type);
   if (artifact.measurement_class) parts.push(artifact.measurement_class);
+  // Metadados do cabeçalho: task, GTM, GA4 Stream ID, Firebase, domínio...
+  for (const meta of getArtifactMetadata(artifact)) parts.push(meta.value);
 
   if (artifact.parameter_summary && artifact.parameter_summary.length > 0) {
     for (let i = 0; i < artifact.parameter_summary.length; i++) {

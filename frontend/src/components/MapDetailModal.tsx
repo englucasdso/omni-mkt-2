@@ -13,6 +13,8 @@ import { formatUltimaSincronizacao } from '../utils/helpers';
 import { isMap as checkIsMap, isDocumentation, getArtifactTypeLabel } from '../domain/artifacts';
 import { resolveMeasurementClass, getMeasurementLabel } from '../domain/measurement';
 import { getMapStatusMetrics } from '../domain/status';
+import { findArtifactValueIssues, findPatternIssues } from '../domain/quality/valueQuality';
+import { HoverHint } from './HoverHint';
 
 interface MapDetailModalProps {
   item: Artifact | null;
@@ -121,6 +123,10 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
   const parameters = item.parameter_summary || [];
   const patterns = item.pattern_summary || [];
   const header = item.header || {};
+  // Alertas calculados no próprio mapa (sem IA): valores parecidos e padrões com uma única ocorrência
+  const valueIssues = findArtifactValueIssues(item);
+  const patternIssues = findPatternIssues(patterns as any);
+  const valueIssueCount = Array.from(valueIssues.values()).reduce((acc, m) => acc + m.size, 0);
   const isDoc = isDocumentation(item);
   const isMap = checkIsMap(item);
   
@@ -160,10 +166,10 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
   const isFigmaLink = figmaRaw && figmaRaw !== '-' && figmaRaw.trim() !== '' && (figmaRaw.startsWith('http://') || figmaRaw.startsWith('https://'));
 
   const tabs = [
-    { id: 'telas', label: `Telas (${screens.length})`, icon: Layers },
-    { id: 'parametros', label: `Parâmetros (${parameters.length})`, icon: Tag },
-    { id: 'padroes', label: `Padrões (${patterns.length})`, icon: Code2 },
-    { id: 'detalhes', label: 'Detalhes', icon: FileText }
+    { id: 'telas', label: 'Telas', icon: Layers, alerts: 0 },
+    { id: 'parametros', label: 'Parâmetros', icon: Tag, alerts: valueIssueCount },
+    { id: 'padroes', label: 'Padrões', icon: Code2, alerts: patternIssues.size },
+    { id: 'detalhes', label: 'Detalhes', icon: FileText, alerts: 0 }
   ] as const;
 
   return (
@@ -332,6 +338,13 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                 >
                   <Icon className="w-3.5 h-3.5 shrink-0" />
                   {tab.label}
+                  {tab.alerts > 0 && (
+                    <span
+                      className="w-1.5 h-1.5 rounded-full bg-amber-500"
+                      title="Tem alerta para conferir"
+                      aria-label="Tem alerta para conferir"
+                    />
+                  )}
                 </button>
               );
             })}
@@ -491,6 +504,7 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                 </p>
               </div>
 
+
               {parameters.length === 0 ? (
                 <div className="p-12 text-center text-gray-400 dark:text-slate-500">
                   <Tag className="w-10 h-10 mx-auto mb-3 opacity-30" />
@@ -510,7 +524,11 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                   <div className="divide-y divide-gray-100 dark:divide-slate-800">
                     {parameters.map((param, pIdx) => {
                       const isExpanded = !!expandedParams[param.name];
-                      const distinctValues = param.distinct_values || [];
+                      const paramIssues = valueIssues.get(param.name);
+                      // Valores com possível erro aparecem primeiro
+                      const distinctValues = [...(param.distinct_values || [])].sort(
+                        (a, b) => Number(!!paramIssues?.has(b)) - Number(!!paramIssues?.has(a))
+                      );
 
                       return (
                         <div key={param.name || pIdx} className="transition-colors">
@@ -519,8 +537,15 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                             onClick={() => toggleParam(param.name)}
                             className="w-full grid grid-cols-12 gap-3 px-4 py-3 items-center text-left hover:bg-gray-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
                           >
-                            <div className="col-span-6 sm:col-span-7 font-mono text-xs font-semibold text-gray-900 dark:text-slate-100 truncate">
-                              {param.name}
+                            <div className="col-span-6 sm:col-span-7 font-mono text-xs font-semibold text-gray-900 dark:text-slate-100 truncate flex items-center gap-2">
+                              <span className="truncate">{param.name}</span>
+                              {paramIssues && (
+                                <span
+                                  className="shrink-0 w-1.5 h-1.5 rounded-full bg-amber-500"
+                                  title={`${paramIssues.size} ${paramIssues.size === 1 ? 'valor pode ser' : 'valores podem ser'} erro de digitação`}
+                                  aria-label="Possível erro de digitação"
+                                />
+                              )}
                             </div>
                             <div className="col-span-3 sm:col-span-2 text-center text-xs font-ui text-gray-600 dark:text-slate-300">
                               {param.occurrences}x
@@ -540,15 +565,29 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                                 Valores Distintos ({distinctValues.length}):
                               </p>
                               {distinctValues.length > 0 ? (
-                                <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto custom-scrollbar p-1">
-                                  {distinctValues.map((val, vIdx) => (
-                                    <span 
-                                      key={vIdx}
-                                      className="px-2 py-0.5 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 text-[11px] rounded border border-gray-200 dark:border-slate-700 font-mono"
-                                    >
-                                      {val === '' ? '"" (vazio)' : val}
-                                    </span>
-                                  ))}
+                                <div className="flex flex-wrap gap-1.5 p-1">
+                                  {distinctValues.map((val, vIdx) => {
+                                    const issue = paramIssues?.get(val);
+                                    const chip = (
+                                      <span 
+                                        key={vIdx}
+                                        tabIndex={issue ? 0 : undefined}
+                                        className={`px-2 py-0.5 text-[11px] rounded border font-mono inline-flex items-center gap-1 ${
+                                          issue
+                                            ? 'bg-amber-50 text-amber-900 border-amber-300 cursor-help'
+                                            : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 border-gray-200 dark:border-slate-700'
+                                        }`}
+                                      >
+                                        {issue && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden="true" />}
+                                        {val === '' ? '"" (vazio)' : val}
+                                      </span>
+                                    );
+                                    return issue ? (
+                                      <HoverHint key={vIdx} hint={issue.message}>
+                                        {chip}
+                                      </HoverHint>
+                                    ) : chip;
+                                  })}
                                 </div>
                               ) : (
                                 <p className="text-xs text-gray-400 italic">Nenhum valor explícito registrado.</p>
@@ -580,6 +619,7 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                 <div className="space-y-3">
                   {patterns.map((pat, ptIdx) => {
                     const fields = pat.signature || [];
+                    const patIssue = patternIssues.get(pat.pattern_id);
                     return (
                       <div 
                         key={pat.pattern_id || ptIdx}
@@ -596,7 +636,35 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                               </span>
                             )}
                           </div>
-                          <span className="text-xs font-ui text-gray-500 dark:text-slate-400">
+                          <span className="flex items-center gap-2 text-xs font-ui text-gray-500 dark:text-slate-400">
+                            {patIssue && (
+                              <HoverHint
+                                align="right"
+                                hint={
+                                  <>
+                                    <span className="block">{patIssue.message}</span>
+                                    {patIssue.missing.length > 0 && (
+                                      <span className="block mt-1">
+                                        <span className="text-omni-muted">Falta:</span> <span className="font-mono">{patIssue.missing.join(', ')}</span>
+                                      </span>
+                                    )}
+                                    {patIssue.extra.length > 0 && (
+                                      <span className="block">
+                                        <span className="text-omni-muted">Sobra:</span> <span className="font-mono">{patIssue.extra.join(', ')}</span>
+                                      </span>
+                                    )}
+                                  </>
+                                }
+                              >
+                                <span
+                                  tabIndex={0}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-[10.5px] font-medium text-amber-800 cursor-help"
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden="true" />
+                                  Conferir
+                                </span>
+                              </HoverHint>
+                            )}
                             {pat.count}x {pat.count === 1 ? 'ocorrência' : 'ocorrências'} · presente em {pat.screens_count} {pat.screens_count === 1 ? 'tela' : 'telas'}
                           </span>
                         </div>
@@ -747,30 +815,6 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                 </div>
               </div>
 
-              {/* Origem dos campos técnicos (Dropdown recolhido por padrão) */}
-              <details className="border border-gray-200 dark:border-slate-800 rounded-xl p-4 bg-gray-50/50 dark:bg-slate-800/30 group">
-                <summary className="cursor-pointer text-xs font-semibold text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200 flex items-center justify-between select-none">
-                  <span>Ver origem dos campos</span>
-                  <ChevronDown className="w-4 h-4 group-open:rotate-180 transition-transform text-gray-400" />
-                </summary>
-                <div className="mt-3 space-y-2 pt-3 border-t border-gray-200 dark:border-slate-700 text-xs text-gray-500 dark:text-slate-400">
-                  {Object.entries(header).length === 0 ? (
-                    <p className="italic text-gray-400">Nenhum metadado de auditoria disponível.</p>
-                  ) : (
-                    Object.entries(header).map(([key, field]) => {
-                      if (!field || typeof field !== 'object') return null;
-                      return (
-                        <div key={key} className="flex flex-wrap items-center justify-between gap-2 py-1 border-b border-gray-100 dark:border-slate-800/50 last:border-0">
-                          <span className="font-mono text-gray-700 dark:text-slate-300 font-medium">{key}:</span>
-                          <span className="text-[11px]">
-                            Rótulo original: <em className="text-gray-700 dark:text-slate-300">"{field.raw_label || '-'}"</em> ({field.source || 'tabela'})
-                          </span>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </details>
             </div>
           )}
         </div>
