@@ -554,19 +554,9 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
           className={`w-full bg-white rounded-[14px] border transition-all duration-200 px-5 shadow-neu-card ${
             mode === 'parametros' ? 'py-3.5 flex items-start gap-3.5' : 'min-h-[54px] flex items-center gap-3.5'
           } ${
-            isFocused
-              ? 'border-omni-bordo/40 ring-2 ring-omni-rubi/30 shadow-[0_10px_30px_rgba(123,2,9,0.12)]'
-              : 'border-omni-line hover:border-gray-300'
+            isFocused ? 'border-gray-300' : 'border-omni-line hover:border-gray-300'
           }`}
         >
-          <div className={`shrink-0 ${mode === 'parametros' ? 'pt-1 text-omni-bordo' : 'text-omni-muted'}`}>
-            {mode === 'parametros' ? (
-              <Code2 className="w-5 h-5 text-omni-bordo" />
-            ) : (
-              <Search className="w-5 h-5" />
-            )}
-          </div>
-
           {mode === 'parametros' ? (
             <textarea
               ref={textareaRef}
@@ -633,17 +623,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
               mode === 'parametros' ? 'mt-0.5' : ''
             }`}
           >
-            {mode === 'pergunta' ? (
-              <>
-                <MessageCircleQuestion className="w-3.5 h-3.5" />
-                <span>Perguntar</span>
-              </>
-            ) : (
-              <>
-                <Search className="w-3.5 h-3.5" />
-                <span>Buscar</span>
-              </>
-            )}
+            {mode === 'pergunta' ? 'Perguntar' : 'Buscar'}
           </button>
         </div>
       </div>
