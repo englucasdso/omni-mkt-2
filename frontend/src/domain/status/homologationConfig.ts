@@ -24,9 +24,9 @@ export const HOMOLOGATION_CONFIGS: Record<HomologationStatus, HomologationConfig
   PARCIAL: {
     status: 'PARCIAL',
     label: 'Parcial',
-    badgeClasses: 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800',
-    barClass: 'bg-amber-500',
-    textClass: 'text-amber-700 dark:text-amber-400',
+    badgeClasses: 'bg-yellow-50 text-yellow-800 border-yellow-300 dark:bg-yellow-950/40 dark:text-yellow-300 dark:border-yellow-800',
+    barClass: 'bg-yellow-400',
+    textClass: 'text-yellow-700 dark:text-yellow-400',
   },
   NAO_HOMOLOGADO: {
     status: 'NAO_HOMOLOGADO',

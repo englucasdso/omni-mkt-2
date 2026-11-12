@@ -78,12 +78,12 @@ export const STATUS_CONFIGS: Record<OfficialStatus, StatusStyleConfig> = {
   NOVO: {
     status: 'NOVO',
     label: 'Novo',
-    bg: 'bg-amber-50 dark:bg-amber-950/40',
-    text: 'text-amber-800 dark:text-amber-300',
-    border: 'border-amber-200 dark:border-amber-800',
-    badgeBg: 'bg-amber-500',
-    hex: '#f59e0b',
-    chartColor: '#f59e0b'
+    bg: 'bg-yellow-50 dark:bg-yellow-950/40',
+    text: 'text-yellow-800 dark:text-yellow-300',
+    border: 'border-yellow-300 dark:border-yellow-800',
+    badgeBg: 'bg-yellow-400',
+    hex: '#eab308',
+    chartColor: '#eab308'
   },
   EXCLUIR: {
     status: 'EXCLUIR',
