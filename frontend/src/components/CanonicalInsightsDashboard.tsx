@@ -206,8 +206,13 @@ interface Segment {
   label: string;
   value: number;
   color: string;
+  /** Preenchimento especial (ex.: listras do Híbrido); substitui a cor sólida */
+  background?: string;
   ids?: string[];
 }
+
+/** Híbrido = GA4 + Universal Analytics: listras com as duas cores. */
+const HYBRID_BACKGROUND = `repeating-linear-gradient(135deg, ${MEASUREMENT_CONFIGS.GA4.hex} 0 5px, ${MEASUREMENT_CONFIGS.GA3.hex} 5px 10px)`;
 
 type Drill = (label: string, ids: string[] | undefined, e: React.MouseEvent) => void;
 
@@ -226,7 +231,7 @@ const StackedBar: React.FC<{ segments: Segment[]; total: number; unit: string; c
         .map((s) => (
           <div
             key={s.key}
-            style={{ width: `${(s.value / Math.max(total, 1)) * 100}%`, background: s.color }}
+            style={{ width: `${(s.value / Math.max(total, 1)) * 100}%`, background: s.background || s.color }}
             className="h-full"
             title={`${s.label}: ${fmt(s.value)} ${unit} (${pct(s.value, total)}%)`}
           />
@@ -245,7 +250,7 @@ const StackedBar: React.FC<{ segments: Segment[]; total: number; unit: string; c
                 clickable ? 'hover:bg-omni-mist cursor-pointer' : 'cursor-default'
               }`}
             >
-              <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: s.color }} aria-hidden="true" />
+              <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: s.background || s.color }} aria-hidden="true" />
               <span className="text-omni-ink-secondary">{s.label}</span>
               <span className="font-semibold text-omni-ink tabular-nums">{fmt(s.value)}</span>
               <span className="text-omni-muted tabular-nums">({pct(s.value, total)}%)</span>
@@ -616,6 +621,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
     label: MEASUREMENT_CONFIGS[k].label,
     value: stats.byMeasurement[k].length,
     color: MEASUREMENT_CONFIGS[k].hex,
+    background: k === 'HIBRIDO' ? HYBRID_BACKGROUND : undefined,
     ids: stats.byMeasurement[k],
   })).filter((s) => s.key !== 'NAO_CLASSIFICADO' || s.value > 0);
 

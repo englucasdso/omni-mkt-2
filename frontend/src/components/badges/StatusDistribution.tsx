@@ -35,14 +35,16 @@ export const StatusDistribution: React.FC<StatusDistributionProps> = ({ counts, 
               key={s}
               type={Tag === 'button' ? 'button' : undefined}
               onClick={Tag === 'button' ? (e: React.MouseEvent) => onSelect!(s, e) : undefined}
-              className={`p-3 rounded-xl border text-center ${cfg.bg} ${cfg.text} ${cfg.border} ${
+              className={`px-3 py-2 rounded-xl border text-center ${cfg.bg} ${cfg.text} ${cfg.border} ${
                 Tag === 'button' ? 'cursor-pointer hover:brightness-95 hover:shadow-sm transition-all' : ''
               }`}
               title={`${cfg.label}: ${value} telas (${pct}%)`}
             >
-              <span className="text-lg font-heading font-bold block tabular-nums">{value.toLocaleString('pt-BR')}</span>
-              <span className="text-[11px] font-medium">{cfg.label}</span>
-              {showBar && <span className="block text-[10.5px] opacity-75 tabular-nums">{pct}%</span>}
+              <span className="flex items-baseline justify-center gap-1.5 leading-tight">
+                <span className="text-base font-heading font-bold tabular-nums">{value.toLocaleString('pt-BR')}</span>
+                {showBar && <span className="text-[11px] opacity-75 tabular-nums">{pct}%</span>}
+              </span>
+              <span className="block text-[11px] font-medium leading-tight">{cfg.label}</span>
             </Tag>
           );
         })}

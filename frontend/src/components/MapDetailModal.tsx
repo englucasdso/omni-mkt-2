@@ -279,8 +279,8 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
               </div>
               <span className="text-gray-300 dark:text-slate-700">|</span>
               <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                <span className="font-bold text-amber-700 dark:text-amber-400">{newScreens}</span>
+                <span className="w-2 h-2 rounded-full bg-yellow-400 shrink-0" />
+                <span className="font-bold text-yellow-700 dark:text-yellow-400">{newScreens}</span>
                 <span>{newScreens === 1 ? 'nova' : 'novas'}</span>
               </div>
               {deleteScreens > 0 && (
