@@ -726,7 +726,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
       <Panel title="Status das telas" hint={`${fmt(stats.totalScreens)} telas | clique para ver os mapas`}>
         <StatusDistribution
           counts={stats.screenStatus}
-          showBar
+          showPercent
           onSelect={(status, e) => openDrill(`Mapas com telas em ${STATUS_CONFIGS[status].label}`, stats.mapsByStatus[status], e)}
         />
       </Panel>
@@ -741,11 +741,11 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
               type="button"
               disabled={!clickable}
               onClick={(e) => openDrill(label.charAt(0).toUpperCase() + label.slice(1), ids, e)}
-              className={`panel p-5 flex gap-3 min-w-0 text-left ${clickable ? 'cursor-pointer hover:border-amber-300' : 'cursor-default'}`}
+              className={`group panel p-5 flex gap-3 min-w-0 text-left transition-colors ${clickable ? 'cursor-pointer hover:border-omni-bordo/30' : 'cursor-default'}`}
             >
               <div
-                className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border ${
-                  value > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border bg-gray-50 border-gray-200 text-gray-400 transition-colors ${
+                  clickable ? 'group-hover:bg-red-50 group-hover:border-omni-bordo/30 group-hover:text-omni-bordo' : ''
                 }`}
               >
                 {value > 0 ? <Icon className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
@@ -854,39 +854,62 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
       {/* 8. Atualização da documentação */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <Panel title="Idade da documentação" hint={`${fmt(freshness.total)} mapas e documentações`} className="lg:col-span-5">
-          <div className="flex h-3 w-full rounded-full overflow-hidden bg-gray-100 gap-[2px]" aria-hidden="true">
-            {freshness.buckets
-              .filter((b) => b.count > 0)
-              .map((b) => (
-                <div key={b.id} className={b.colorClass} style={{ width: `${b.percent}%` }} title={`${b.label}: ${b.count}`} />
-              ))}
-          </div>
-          <ul className="space-y-0.5">
-            {freshness.buckets.map((b) => {
-              const ids = freshnessIds[b.id] || [];
-              const clickable = Boolean(onDrillDown && ids.length);
-              return (
-                <li key={b.id}>
-                  <button
-                    type="button"
-                    disabled={!clickable}
-                    onClick={(e) => openDrill(`Atualização: ${b.label}`, ids, e)}
-                    className={`w-full flex items-center justify-between text-xs py-1.5 px-2 -mx-2 rounded-md ${
-                      clickable ? 'hover:bg-omni-mist cursor-pointer' : 'cursor-default'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2 text-omni-ink-secondary">
-                      <span className={`w-2.5 h-2.5 rounded-sm ${b.colorClass}`} aria-hidden="true" />
-                      {b.label}
+          {(() => {
+            // Aging: colunas na ordem da idade; altura = quantidade. Cor neutra, vermelho no hover.
+            const SHORT: Record<string, string> = {
+              ATE_30: 'Até 30',
+              DE_31_A_90: '31 a 90',
+              DE_91_A_180: '91 a 180',
+              ACIMA_180: 'Mais de 180',
+              SEM_DATA: 'Sem data',
+            };
+            const max = Math.max(...freshness.buckets.map((b) => b.count), 1);
+            return (
+              <div>
+                <div className="flex items-end gap-3 h-44 border-b border-omni-line">
+                  {freshness.buckets.map((b) => {
+                    const ids = freshnessIds[b.id] || [];
+                    const clickable = Boolean(onDrillDown && ids.length);
+                    const isUndated = b.id === 'SEM_DATA';
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        disabled={!clickable}
+                        onClick={(e) => openDrill(`Atualização: ${b.label}`, ids, e)}
+                        title={`${b.label}: ${fmt(b.count)} (${b.percent}%)`}
+                        className={`group flex-1 h-full flex flex-col items-center justify-end gap-1 ${
+                          isUndated ? 'ml-2 pl-3 border-l border-dashed border-omni-line' : ''
+                        } ${clickable ? 'cursor-pointer' : 'cursor-default'}`}
+                      >
+                        <span className="text-xs font-semibold text-omni-ink tabular-nums leading-none">{fmt(b.count)}</span>
+                        <span className="text-[10.5px] text-omni-muted tabular-nums leading-none">{b.percent}%</span>
+                        <span
+                          className={`w-full max-w-[44px] rounded-t-md transition-colors ${
+                            isUndated ? 'bg-gray-300' : 'bg-slate-500'
+                          } ${clickable ? 'group-hover:bg-omni-bordo' : ''}`}
+                          style={{ height: `${Math.max((b.count / max) * 100, b.count > 0 ? 3 : 0)}%`, maxHeight: 'calc(100% - 32px)' }}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-3 pt-2">
+                  {freshness.buckets.map((b) => (
+                    <span
+                      key={b.id}
+                      className={`flex-1 text-center text-[11px] text-omni-ink-secondary leading-tight ${
+                        b.id === 'SEM_DATA' ? 'ml-2 pl-3' : ''
+                      }`}
+                    >
+                      {SHORT[b.id] || b.label}
                     </span>
-                    <span className="text-omni-muted tabular-nums">
-                      <span className="font-semibold text-omni-ink">{fmt(b.count)}</span> ({b.percent}%)
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+                  ))}
+                </div>
+                <p className="pt-2 text-center text-[11px] text-omni-muted">dias desde a última atualização</p>
+              </div>
+            );
+          })()}
         </Panel>
 
         <Panel title="Atualizados recentemente" className="lg:col-span-7">

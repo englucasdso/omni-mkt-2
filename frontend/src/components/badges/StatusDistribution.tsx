@@ -5,6 +5,8 @@ interface StatusDistributionProps {
   counts: Record<OfficialStatus, number>;
   /** Mostra a barra empilhada acima dos blocos (proporção de cada status) */
   showBar?: boolean;
+  /** Mostra o percentual de cada status ao lado do número */
+  showPercent?: boolean;
   /** Quando informado, cada bloco vira um botão (ex.: abrir os mapas daquele status) */
   onSelect?: (status: OfficialStatus, event: React.MouseEvent) => void;
 }
@@ -13,7 +15,7 @@ interface StatusDistributionProps {
  * Distribuição padrão dos 5 status oficiais das telas, com as cores de STATUS_CONFIGS.
  * Usada em Por produto e em Insights, para o mesmo dado ter a mesma cara.
  */
-export const StatusDistribution: React.FC<StatusDistributionProps> = ({ counts, showBar = false, onSelect }) => {
+export const StatusDistribution: React.FC<StatusDistributionProps> = ({ counts, showBar = false, showPercent = showBar, onSelect }) => {
   const total = OFFICIAL_STATUSES.reduce((acc, s) => acc + (counts[s] || 0), 0);
   return (
     <div className="space-y-3">
@@ -42,7 +44,7 @@ export const StatusDistribution: React.FC<StatusDistributionProps> = ({ counts, 
             >
               <span className="flex items-baseline justify-center gap-1.5 leading-tight">
                 <span className="text-base font-heading font-bold tabular-nums">{value.toLocaleString('pt-BR')}</span>
-                {showBar && <span className="text-[11px] opacity-75 tabular-nums">{pct}%</span>}
+                {showPercent && <span className="text-[11px] opacity-75 tabular-nums">{pct}%</span>}
               </span>
               <span className="block text-[11px] font-medium leading-tight">{cfg.label}</span>
             </Tag>
