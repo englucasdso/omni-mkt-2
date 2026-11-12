@@ -20,6 +20,10 @@ import { AlertCircle } from 'lucide-react';
 import { Artifact } from '../types';
 import { isMap, isDocumentation, isRoot, isCataloged } from '../domain/artifacts';
 
+// Pontos de ancoragem das linhas: invisíveis e sem arrastar.
+// O OMNI só lê a árvore; não existe criar ligação manual entre os cartões.
+const HIDDEN_HANDLE = '!w-px !h-px !min-w-0 !min-h-0 !bg-transparent !border-0 !opacity-0 !pointer-events-none';
+
 // ==========================================
 // Custom Nodes
 // ==========================================
@@ -38,7 +42,7 @@ const ProdutoNode = React.memo(({ data }: any) => {
   const isSelected = data.isSelected;
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800 opacity-0" />
+      <Handle type="target" position={Position.Top} className={HIDDEN_HANDLE} isConnectable={false} />
       <div
         role="button"
         tabIndex={0}
@@ -55,7 +59,7 @@ const ProdutoNode = React.memo(({ data }: any) => {
         <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Produto</span>
         <h4 className="text-base font-heading font-bold text-gray-900 dark:text-slate-50 tracking-tight leading-tight line-clamp-2 group-hover:text-[#7B0209] transition-colors">{data.label}</h4>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-[#7B0209] !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="source" position={Position.Bottom} className={HIDDEN_HANDLE} isConnectable={false} />
     </>
   );
 });
@@ -64,7 +68,7 @@ const SubprodutoNode = React.memo(({ data }: any) => {
   const isSelected = data.isSelected;
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="target" position={Position.Top} className={HIDDEN_HANDLE} isConnectable={false} />
       <div
         role="button"
         tabIndex={0}
@@ -81,7 +85,7 @@ const SubprodutoNode = React.memo(({ data }: any) => {
         <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Subproduto</span>
         <h4 className="text-sm font-heading font-bold text-gray-800 dark:text-slate-100 tracking-tight line-clamp-2 group-hover:text-[#E30328] transition-colors">{data.label}</h4>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="source" position={Position.Bottom} className={HIDDEN_HANDLE} isConnectable={false} />
     </>
   );
 });
@@ -90,7 +94,7 @@ const CategoriaNode = React.memo(({ data }: any) => {
   const isSelected = data.isSelected;
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="target" position={Position.Top} className={HIDDEN_HANDLE} isConnectable={false} />
       <div
         role="button"
         tabIndex={0}
@@ -107,7 +111,7 @@ const CategoriaNode = React.memo(({ data }: any) => {
         <span className="text-[9px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Categoria</span>
         <h4 className="text-xs font-heading font-bold text-gray-800 dark:text-slate-100 tracking-tight line-clamp-2 transition-colors">{data.label}</h4>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="source" position={Position.Bottom} className={HIDDEN_HANDLE} isConnectable={false} />
     </>
   );
 });
@@ -116,7 +120,7 @@ const MapaNode = React.memo(({ data }: any) => {
   const isSelected = data.isSelected;
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="target" position={Position.Top} className={HIDDEN_HANDLE} isConnectable={false} />
       <div 
         role="button"
         tabIndex={0}
@@ -149,7 +153,8 @@ const MapaNode = React.memo(({ data }: any) => {
       <Handle 
         type="source" 
         position={Position.Bottom} 
-        className={`!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800 ${data.hasChildren ? '' : 'opacity-0'}`} 
+        className={HIDDEN_HANDLE}
+        isConnectable={false}
       />
     </>
   );
@@ -159,7 +164,7 @@ const DocumentoNode = React.memo(({ data }: any) => {
   const isSelected = data.isSelected;
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="target" position={Position.Top} className={HIDDEN_HANDLE} isConnectable={false} />
       <div 
         role="button"
         tabIndex={0}
@@ -192,7 +197,8 @@ const DocumentoNode = React.memo(({ data }: any) => {
       <Handle 
         type="source" 
         position={Position.Bottom} 
-        className={`!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800 ${data.hasChildren ? '' : 'opacity-0'}`} 
+        className={HIDDEN_HANDLE}
+        isConnectable={false}
       />
     </>
   );
@@ -589,6 +595,7 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        nodesConnectable={false}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
