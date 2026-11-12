@@ -106,10 +106,10 @@ export const AppShell: React.FC<AppShellProps> = ({
         lastSync={lastSync}
       />
 
-      {/* Área Principal: recuo dinâmico baseado na variável CSS --sidebar-width (248px ou 72px) */}
+      {/* Área Principal: recua só a faixa de ícones (72px); o menu aberto passa por cima */}
       <div 
         className="flex flex-col flex-1 min-w-0 w-full min-h-screen transition-[padding] duration-200"
-        style={{ paddingLeft: 'var(--sidebar-width, 248px)' }}
+        style={{ paddingLeft: 'var(--sidebar-width, 72px)' }}
       >
         {/* Mobile Header Bar: 56px em degradê omni-gradient com hambúrguer e logo */}
         <div className="md:hidden flex items-center justify-between px-4 h-14 bg-omni-gradient text-white sticky top-0 z-30 shadow-md">

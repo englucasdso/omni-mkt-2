@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ROUTES } from '../app/routes';
 import { 
   LayoutList, 
@@ -10,9 +10,7 @@ import {
   RefreshCw,
   X,
   Route,
-  Search,
-  ChevronLeft,
-  ChevronRight
+  Search
 } from 'lucide-react';
 import { formatUltimaSincronizacao } from '../utils/helpers';
 
@@ -53,9 +51,13 @@ interface AppSidebarProps {
   onCloseMobile?: () => void;
   onSyncClick?: () => void;
   lastSync?: string | null;
-  isCollapsed?: boolean;
-  onToggleCollapse?: (collapsed: boolean) => void;
 }
+
+// Menu que abre ao passar o mouse (expand on hover): fica como faixa de ícones
+// e abre por cima do conteúdo, sem empurrar a página.
+const RAIL_WIDTH = '72px';
+const OPEN_DELAY_MS = 80; // evita abrir quando o mouse só atravessa a faixa
+const CLOSE_DELAY_MS = 180; // evita fechar ao escorregar um pouco para fora
 
 export const AppSidebar: React.FC<AppSidebarProps> = ({
   currentRouteId,
@@ -66,39 +68,26 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   onCloseMobile,
   onSyncClick,
   lastSync,
-  isCollapsed: controlledCollapsed,
-  onToggleCollapse
 }) => {
-  // Estado de recolhimento com persistência em localStorage (omni.sidebar.collapsed)
-  const [internalCollapsed, setInternalCollapsed] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('omni.sidebar.collapsed');
-      return saved === 'true';
-    } catch {
-      return false;
-    }
-  });
+  const [isExpanded, setIsExpanded] = useState(false);
+  const timerRef = useRef<number | null>(null);
 
-  const isCollapsed = controlledCollapsed !== undefined ? controlledCollapsed : internalCollapsed;
-
-  const handleToggle = () => {
-    const next = !isCollapsed;
-    try {
-      localStorage.setItem('omni.sidebar.collapsed', String(next));
-    } catch (e) {
-      console.warn('Erro ao salvar omni.sidebar.collapsed:', e);
-    }
-    setInternalCollapsed(next);
-    if (onToggleCollapse) {
-      onToggleCollapse(next);
-    }
+  const schedule = (open: boolean) => {
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(() => setIsExpanded(open), open ? OPEN_DELAY_MS : CLOSE_DELAY_MS);
   };
 
-  // Mantém a variável CSS --sidebar-width sincronizada com o estado
+  useEffect(() => () => {
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+  }, []);
+
+  // No computador o menu vive como faixa de ícones; no celular abre pelo botão de menu
+  const isCollapsed = !isExpanded;
+
+  // A página sempre reserva só a faixa de ícones: o menu aberto passa por cima
   useEffect(() => {
-    const width = isCollapsed ? '72px' : '248px';
-    document.documentElement.style.setProperty('--sidebar-width', width);
-  }, [isCollapsed]);
+    document.documentElement.style.setProperty('--sidebar-width', RAIL_WIDTH);
+  }, []);
 
   // Tecla Escape para fechar mobile
   useEffect(() => {
@@ -111,7 +100,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isMobileOpen, onCloseMobile]);
 
-  const sidebarWidthClass = isCollapsed ? 'md:w-[72px]' : 'md:w-[248px]';
+  const sidebarWidthClass = isCollapsed ? 'md:w-[72px]' : 'md:w-[248px] md:shadow-2xl';
 
   return (
     <>
@@ -126,7 +115,14 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
       {/* Main Sidebar: fundo omni-gradient, texto branco, largura 248px ou 72px */}
       <aside
-        className={`fixed top-0 left-0 h-screen z-40 bg-omni-gradient text-white transition-[width,transform] duration-200 ease-in-out flex flex-col select-none shadow-xl
+        onMouseEnter={() => schedule(true)}
+        onMouseLeave={() => schedule(false)}
+        onFocus={() => schedule(true)}
+        onBlur={(e) => {
+          // Teclado: fecha quando o foco sai do menu
+          if (!e.currentTarget.contains(e.relatedTarget as globalThis.Node | null)) schedule(false);
+        }}
+        className={`fixed top-0 left-0 h-screen z-40 bg-omni-gradient text-white transition-[width,transform,box-shadow] duration-200 ease-in-out flex flex-col select-none shadow-xl overflow-x-hidden
           ${isMobileOpen ? 'translate-x-0 w-[248px]' : '-translate-x-full md:translate-x-0'}
           ${sidebarWidthClass}
         `}
@@ -280,7 +276,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           ))}
         </nav>
 
-        {/* 4. Rodapé (borda branco/10): Sincronização & Recolher Menu */}
+        {/* 4. Rodapé (borda branco/10): Sincronização */}
         <div className="shrink-0 border-t border-white/10 p-2 space-y-1">
           {/* Atualizar do Confluence */}
           <button
@@ -304,27 +300,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                   {formatUltimaSincronizacao(lastSync)}
                 </span>
               </div>
-            )}
-          </button>
-
-          {/* Recolher / Expandir Menu (Desktop) */}
-          <button
-            type="button"
-            onClick={handleToggle}
-            title={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
-            className={`hidden md:flex w-full h-9 rounded-lg items-center text-white/70 hover:bg-white/[0.07] hover:text-white transition-colors cursor-pointer
-              ${isCollapsed ? 'justify-center px-0' : 'px-3 gap-3'}
-            `}
-          >
-            {isCollapsed ? (
-              <ChevronRight className="w-4 h-4 shrink-0" />
-            ) : (
-              <>
-                <ChevronLeft className="w-4 h-4 shrink-0" />
-                <span className="text-xs font-ui font-medium truncate">
-                  Recolher menu
-                </span>
-              </>
             )}
           </button>
         </div>
