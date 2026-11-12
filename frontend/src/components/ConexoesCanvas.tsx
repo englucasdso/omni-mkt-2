@@ -9,6 +9,7 @@ import {
   useNodesState,
   useEdgesState,
   useReactFlow,
+  useNodesInitialized,
   Node,
   Edge,
   ReactFlowProvider
@@ -283,6 +284,8 @@ interface ConexoesCanvasInnerProps {
   data: Artifact[];
   selectedItemId?: string | null;
   targetArtifactId?: string | null;
+  /** Muda a cada pedido de "Acessar na árvore", para recentralizar mesmo no mesmo mapa */
+  targetRequestKey?: number;
   onClearTargetArtifactId?: () => void;
   onOpenMap?: (map: Artifact) => void;
   onOpenItem?: (item: Artifact) => void;
@@ -292,12 +295,18 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
   data,
   selectedItemId,
   targetArtifactId,
+  targetRequestKey,
   onClearTargetArtifactId,
   onOpenMap,
   onOpenItem,
   onSelectItem
 }) => {
   const reactFlowInstance = useReactFlow();
+  // Verdadeiro quando todos os nós já foram desenhados e medidos na tela
+  const nodesInitialized = useNodesInitialized();
+  // Nó que a câmera deve centralizar assim que a árvore estiver desenhada
+  const [centerRequestId, setCenterRequestId] = useState<string | null>(null);
+  const lastProcessedKeyRef = useRef<number | undefined>(undefined);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   
@@ -349,6 +358,9 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
     return { roots: topLevel, byParent: mapByParent, byId: mapById };
   }, [data]);
 
+  const selectedItemIdRef = useRef(selectedItemId);
+  selectedItemIdRef.current = selectedItemId;
+
   const onSelectItemRef = useRef(onSelectItem);
   useEffect(() => {
     onSelectItemRef.current = onSelectItem;
@@ -362,7 +374,8 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
       return;
     }
 
-    if (lastProcessedTargetIdRef.current === targetArtifactId) {
+    // Mesmo alvo e mesmo pedido: nada a fazer. Um novo pedido para o mesmo mapa recentraliza.
+    if (lastProcessedTargetIdRef.current === targetArtifactId && lastProcessedKeyRef.current === targetRequestKey) {
       return;
     }
 
@@ -373,6 +386,7 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
     }
 
     lastProcessedTargetIdRef.current = targetArtifactId;
+    lastProcessedKeyRef.current = targetRequestKey;
     setIsTargetNotFound(false);
 
     // Collect all ancestors up to the root
@@ -393,7 +407,7 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
       onSelectItemRef.current(targetArtifactId);
     }
     setPendingCenterNodeId(targetArtifactId);
-  }, [targetArtifactId, byId, data.length]);
+  }, [targetArtifactId, targetRequestKey, byId, data.length]);
 
   // 2. Action Handlers
   const handleToggle = useCallback((nodeId: string) => {
@@ -490,31 +504,42 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
     if (newNodes.length === 0) return;
 
     const currentReactFlowNodes = reactFlowInstance.getNodes();
-    const layouted = getDagreLayout(newNodes, newEdges, lastClickedNode, currentReactFlowNodes);
+    // Mantém o destaque do item selecionado quando a árvore é redesenhada
+    const selectedId = selectedItemIdRef.current;
+    const layouted = getDagreLayout(newNodes, newEdges, lastClickedNode, currentReactFlowNodes).map(n =>
+      n.id === selectedId ? { ...n, data: { ...n.data, isSelected: true } } : n
+    );
     
     setNodes(layouted);
     setEdges(newEdges);
     
     if (pendingCenterNodeId) {
-      const targetNode = layouted.find(n => n.id === pendingCenterNodeId);
-      if (targetNode) {
+      if (layouted.some(n => n.id === pendingCenterNodeId)) {
         setPendingCenterNodeId(null);
         setIsFirstRender(false);
-        setTimeout(() => {
-          reactFlowInstance.setCenter(
-            targetNode.position.x + 150,
-            targetNode.position.y + 40,
-            { zoom: 1.0, duration: 800 }
-          );
-        }, 80);
+        // A centralização acontece no efeito abaixo, depois que a árvore estiver desenhada
+        setCenterRequestId(pendingCenterNodeId);
       }
-    } else if (isFirstRender) {
+    } else if (isFirstRender && (!targetArtifactId || isTargetNotFound)) {
+      // "Mostrar tudo" só quando ninguém pediu um mapa específico.
+      // Antes rodava junto com a centralização e, por terminar depois, deixava a árvore afastada.
       setTimeout(() => {
         reactFlowInstance.fitView({ padding: 0.3, duration: 800, minZoom: 0.1, maxZoom: 1 });
       }, 50);
       setIsFirstRender(false);
     }
-  }, [newNodes, newEdges, reactFlowInstance, isFirstRender, pendingCenterNodeId]);
+  }, [newNodes, newEdges, reactFlowInstance, isFirstRender, pendingCenterNodeId, targetArtifactId, isTargetNotFound]);
+
+  // Centraliza o mapa pedido só quando os nós já estão desenhados e medidos
+  useEffect(() => {
+    if (!centerRequestId || !nodesInitialized) return;
+    const node = reactFlowInstance.getNode(centerRequestId);
+    if (!node) return;
+    const width = node.measured?.width ?? node.width ?? 320;
+    const height = node.measured?.height ?? node.height ?? 82;
+    setCenterRequestId(null);
+    reactFlowInstance.setCenter(node.position.x + width / 2, node.position.y + height / 2, { zoom: 1, duration: 700 });
+  }, [centerRequestId, nodesInitialized, nodes, reactFlowInstance]);
 
 
   // Update selection without triggering layout recalculation
@@ -600,6 +625,7 @@ export interface ConexoesCanvasProps {
   data: Artifact[];
   selectedItemId?: string | null;
   targetArtifactId?: string | null;
+  targetRequestKey?: number;
   onClearTargetArtifactId?: () => void;
   onOpenMap?: (map: Artifact) => void;
   onOpenItem?: (item: Artifact) => void;

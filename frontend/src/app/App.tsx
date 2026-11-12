@@ -77,6 +77,7 @@ const GraphView = ({
   data, 
   isEmbedded = false, 
   targetArtifactId,
+  targetRequestKey,
   onClearTargetArtifactId,
   onClose, 
   onOpenMap 
@@ -84,6 +85,7 @@ const GraphView = ({
   data: Artifact[], 
   isEmbedded?: boolean, 
   targetArtifactId?: string | null,
+  targetRequestKey?: number,
   onClearTargetArtifactId?: () => void,
   onClose?: () => void, 
   onOpenMap?: (item: Artifact) => void 
@@ -112,6 +114,7 @@ const GraphView = ({
         data={data} 
         selectedItemId={selectedItemId} 
         targetArtifactId={targetArtifactId}
+        targetRequestKey={targetRequestKey}
         onClearTargetArtifactId={onClearTargetArtifactId}
         onSelectItem={handleSelectItem} 
         onOpenItem={handleOpenItem}
@@ -449,11 +452,14 @@ export default function App() {
   const [detailModalItem, setDetailModalItem] = useState<Artifact | null>(null);
   const [detailTarget, setDetailTarget] = useState<{ screenId?: string; snippetIndex?: number } | null>(null);
   const [conexoesTargetArtifactId, setConexoesTargetArtifactId] = useState<string | null>(null);
+  // Conta os pedidos de "Acessar na árvore": pedir de novo o mesmo mapa também recentraliza
+  const [conexoesTargetRequest, setConexoesTargetRequest] = useState(0);
 
   const handleViewInTree = useCallback((artifactId: string) => {
     setDetailModalItem(null);
     setDetailTarget(null);
     setConexoesTargetArtifactId(artifactId);
+    setConexoesTargetRequest((n) => n + 1);
     navigate(`${ROUTES.graph}?artifactId=${encodeURIComponent(artifactId)}`);
   }, [navigate]);
 
@@ -1874,6 +1880,7 @@ export default function App() {
                   data={fullInventory && fullInventory.length > 0 ? fullInventory : results} 
                   isEmbedded={true}
                   targetArtifactId={conexoesTargetArtifactId}
+                  targetRequestKey={conexoesTargetRequest}
                   onClearTargetArtifactId={handleClearConexoesTarget}
                   onOpenMap={handleOpenMapDetail}
                 />
