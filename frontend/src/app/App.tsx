@@ -15,12 +15,12 @@ import React, { useState, useEffect, useRef, useMemo, useCallback, useDeferredVa
 import { ExportDialog } from "../components/export/ExportDialog";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
-import { X, AlertTriangle, Target, Network, Filter, CheckCircle2, AlertCircle, Clock, User, Info, Shield, LogOut, Trash2, Plus, Settings, Landmark, LayoutList, RefreshCw, Check, Loader2, KeyRound, Activity, ArrowRight, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, Sparkles, FileText, Layers, Tag, Code2, Eye, ArrowUpDown, Calendar, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { X, AlertTriangle, Target, Network, Filter, CheckCircle2, AlertCircle, Clock, User, Info, Shield, LogOut, Trash2, Plus, Settings, Landmark, LayoutList, RefreshCw, Check, Loader2, KeyRound, Activity, ArrowRight, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, Sparkles, MessageCircleQuestion, FileText, Layers, Tag, Code2, Eye, ArrowUpDown, Calendar, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { ConexoesCanvas } from "../components/ConexoesCanvas";
 import { JourneysCanvas } from "../components/JourneysCanvas";
 import { JourneysSidebarFilters } from "../components/JourneysSidebarFilters";
 import { fetchInventory, searchContent, fetchUsers, createUser, updateUser, deleteUser } from "../services/api";
-import { Artifact, SearchResponse, User as UserType, UserRole, UserStatus, ActiveSearch, ParameterArtifactGroupSummary, ContentMatchSummary } from "../types";
+import { Artifact, SearchResponse, User as UserType, UserRole, UserStatus, ActiveSearch, ParameterArtifactGroupSummary, ContentMatchSummary, QuestionMatchSummary } from "../types";
 import { normalizar, formatDataBR } from "../utils/helpers";
 import { 
   buildArtifactSearchableText, 
@@ -559,31 +559,34 @@ export default function App() {
     }
   }, [appState, fullInventory.length, results.length]);
 
-  useEffect(() => {
-    const mainCatalogStates = ["inventory_table", "results", "produtos_analise", "parametros_analise", "insights", "graph"];
-    if (mainCatalogStates.includes(appState) && results.length === 0 && !loading && !isSearchingRef.current && (query === "" || query === "inventario")) {
-      executeSearch("inventario");
-    }
-  }, [appState, results.length, loading]);
-
   // Estado centralizado da busca ativa (ActiveSearch)
   const [activeSearch, setActiveSearch] = useState<ActiveSearch | null>(null);
   const [searchSessionId, setSearchSessionId] = useState(0);
+
+  useEffect(() => {
+    const mainCatalogStates = ["inventory_table", "results", "produtos_analise", "parametros_analise", "insights", "graph"];
+    // Uma busca que voltou vazia é um resultado legítimo: não recarregar a base inteira por cima dela
+    if (mainCatalogStates.includes(appState) && results.length === 0 && !loading && !isSearchingRef.current && !activeSearch && (query === "" || query === "inventario")) {
+      executeSearch("inventario");
+    }
+  }, [appState, results.length, loading, activeSearch]);
 
   // Callback de transporte de resultados para a tela de Cards
   const handleApplyToCards = useCallback((
     searchQuery: string,
     filteredIds: string[],
     meta?: {
-      mode: 'conteudo' | 'parametros' | 'ia';
+      mode: 'conteudo' | 'parametros' | 'pergunta';
       parameterCriteria?: any[];
-      aiQuestion?: string;
+      questionText?: string;
       scope?: 'SNIPPET' | 'SCREEN';
       operator?: 'AND' | 'OR';
       parameterGroups?: Record<string, ParameterArtifactGroupSummary>;
       contentMatches?: Record<string, ContentMatchSummary>;
       matchedTerms?: string[];
       queryKind?: string;
+      questionMessage?: string;
+      questionMatches?: Record<string, QuestionMatchSummary>;
     }
   ) => {
     // 1. Receber filteredIds
@@ -618,13 +621,15 @@ export default function App() {
       timestamp: Date.now(),
       filteredIds: uniqueIds,
       parameterCriteria: meta?.parameterCriteria,
-      aiQuestion: meta?.aiQuestion,
+      questionText: meta?.questionText,
       scope: meta?.scope,
       operator: meta?.operator,
       parameterGroups: meta?.parameterGroups,
       contentMatches: meta?.contentMatches,
       matchedTerms: meta?.matchedTerms,
       queryKind: meta?.queryKind,
+      questionMessage: meta?.questionMessage,
+      questionMatches: meta?.questionMatches,
     };
     setActiveSearch(newActiveSearch);
 
@@ -1792,7 +1797,7 @@ export default function App() {
               className="summary pb-20"
             >
               <CanonicalInsightsDashboard 
-                artifacts={results}
+                artifacts={fullInventory.length > 0 ? fullInventory : results}
                 onOpenMap={(art) => setDetailModalItem(art)}
                 onFilterByProduct={(prod) => {
                   setInventoryFilters(f => ({ ...f, produto: [prod] }));
@@ -1907,7 +1912,7 @@ export default function App() {
                   ) : activeSearch.mode === 'parametros' ? (
                     `Busca por parâmetros: ${totalCardsCount} ${totalCardsCount === 1 ? 'artefato encontrado' : 'artefatos encontrados'}${activeSearch.query ? ` para "${activeSearch.query}"` : ''}`
                   ) : (
-                    `Busca por IA: ${totalCardsCount} ${totalCardsCount === 1 ? 'artefato encontrado' : 'artefatos encontrados'} para "${activeSearch.aiQuestion || activeSearch.query}"`
+                    `Pergunta: ${totalCardsCount} ${totalCardsCount === 1 ? 'artefato encontrado' : 'artefatos encontrados'} para "${activeSearch.questionText || activeSearch.query}"`
                   )
                 ) : (
                   "Todos os artefatos sincronizados. Use Nova busca para encontrar por nome, parâmetro ou pergunta."
@@ -1935,6 +1940,14 @@ export default function App() {
                 </div>
               }
             />
+
+            {/* Fazer uma pergunta: o que foi procurado */}
+            {activeSearch?.mode === 'pergunta' && activeSearch.questionMessage && (
+              <div className="panel p-4 flex items-start gap-2.5">
+                <MessageCircleQuestion className="w-4 h-4 text-omni-bordo shrink-0 mt-0.5" />
+                <p className="text-sm text-omni-ink leading-relaxed">{activeSearch.questionMessage}</p>
+              </div>
+            )}
 
             {/* Âncora para rolagem suave ao trocar de página */}
             <div ref={cardsListRef} className="scroll-mt-6" />

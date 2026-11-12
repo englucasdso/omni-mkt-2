@@ -11,602 +11,392 @@ import {
   useEdgesState,
   useReactFlow,
   ReactFlowProvider,
-  MarkerType
+  MarkerType,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import dagre from 'dagre';
-import { Artifact, ScreenItem } from '../types';
-import { 
-  Loader2, 
-  Search, 
-  BrainCircuit, 
-  Info, 
-  ExternalLink, 
-  ChevronLeft, 
-  ChevronRight, 
-  Sparkles,
-  AlertTriangle,
-  RotateCcw
+import { Artifact } from '../types';
+import { StatusBadge } from './badges/StatusBadge';
+import { buildLocalJourney } from '../domain/journey/localJourney';
+import {
+  Search,
+  BrainCircuit,
+  Info,
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+  Code2,
 } from 'lucide-react';
 
-// --- CUSTOM NODES ---
+// --- Medidas do layout ---------------------------------------------------------
+
+const CARD_WIDTH = 300;
+const CARD_HEIGHT = 214;
+const CARD_HEIGHT_WITH_CODE = 340;
+const STAGE_HEADER = 44;
+const STAGE_PADDING = 20;
+
+// --- Nós ---------------------------------------------------------------------
+
+function paramChips(snippet: any): Array<{ name: string; value: string }> {
+  const params: any[] = snippet?.parameters || [];
+  return params
+    .filter((p) => p?.name && !/^event$/i.test(p.name))
+    .slice(0, 3)
+    .map((p) => ({
+      name: String(p.name),
+      value: String(p.normalized_value ?? p.value ?? '').slice(0, 28),
+    }));
+}
 
 const ScreenNode = React.memo(({ data, selected }: any) => {
-  const isAmbiguous = data.confidence === 'AMBIGUO';
-  const isAi = data.isAiGenerated;
   const snippets: any[] = data.screen?.snippets || [];
   const snippetCount = snippets.length;
+  const isException = data.stageKind === 'exception';
 
   const [currentSnippetIdx, setCurrentSnippetIdx] = useState(() => {
     const pref = Number(data.preferredSnippetIndex);
-    if (!isNaN(pref) && pref >= 0 && pref < snippetCount) return pref;
-    return 0;
+    return !isNaN(pref) && pref >= 0 && pref < snippetCount ? pref : 0;
   });
 
-  // Atualiza snippet se o índice preferido mudar
   useEffect(() => {
     const pref = Number(data.preferredSnippetIndex);
-    if (!isNaN(pref) && pref >= 0 && pref < snippetCount) {
-      setCurrentSnippetIdx(pref);
-    }
+    if (!isNaN(pref) && pref >= 0 && pref < snippetCount) setCurrentSnippetIdx(pref);
   }, [data.preferredSnippetIndex, snippetCount]);
 
-  const currentSnippet = snippets[currentSnippetIdx] || snippets[0] || null;
-  const currentEvent = currentSnippet?.event_normalized 
-    || currentSnippet?.base_key 
-    || currentSnippet?.event_raw 
-    || (snippetCount > 0 ? 'evento' : 'Sem snippet catalogado');
+  const snippet = snippets[currentSnippetIdx] || snippets[0] || null;
+  const eventName = snippet?.event_raw || snippet?.event_normalized || snippet?.base_key || '';
+  const chips = paramChips(snippet);
+  const rawIdx = data.screen?.screen_index ?? data.screenIndex;
+  const screenNumber = Number.isInteger(rawIdx) ? rawIdx + 1 : '?';
 
-  const rawCode = currentSnippet?.raw_code || '';
-
-  const handlePrevSnippet = (e: React.MouseEvent) => {
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
+  const openSnippet = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentSnippetIdx(prev => (prev > 0 ? prev - 1 : snippetCount - 1));
-  };
-
-  const handleNextSnippet = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrentSnippetIdx(prev => (prev < snippetCount - 1 ? prev + 1 : 0));
-  };
-
-  const handleOpenSnippet = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (data.onOpenSnippet) {
-      data.onOpenSnippet(currentSnippetIdx);
-    } else if (data.onOpenScreen) {
-      data.onOpenScreen();
-    }
+    data.onOpenSnippet?.(currentSnippetIdx);
   };
 
   return (
     <>
-      <Handle 
-        type="target" 
-        position={Position.Left} 
-        className="!w-3 !h-3 !bg-gray-400 !border-2 !border-white dark:!border-slate-900" 
-      />
-      <div 
-        className={`p-4 rounded-xl border-2 bg-white dark:bg-slate-900 shadow-md w-[360px] transition-all cursor-pointer flex flex-col ${
-          selected 
-            ? 'border-[#7B0209] ring-2 ring-[#7B0209]/20 shadow-lg scale-[1.01]' 
-            : 'border-gray-200 dark:border-slate-800 hover:border-[#7B0209]/60'
+      <Handle id="l" type="target" position={Position.Left} className="!w-2 !h-2 !bg-omni-line !border-2 !border-white" />
+      <Handle id="t" type="target" position={Position.Top} className="!w-2 !h-2 !bg-omni-line !border-2 !border-white" />
+      <div
+        className={`rounded-xl border bg-white shadow-sm transition-all cursor-pointer flex flex-col overflow-hidden ${
+          selected
+            ? 'border-omni-bordo ring-2 ring-omni-bordo/25 shadow-md'
+            : isException
+            ? 'border-red-200 hover:border-red-400'
+            : 'border-omni-line hover:border-omni-bordo/50'
         }`}
-        onClick={() => data.onOpenScreen && data.onOpenScreen()}
+        style={{ width: CARD_WIDTH, height: data.showCode ? CARD_HEIGHT_WITH_CODE : CARD_HEIGHT }}
+        onClick={() => data.onOpenSnippet?.(currentSnippetIdx)}
+        title="Abrir esta tela no detalhe do mapa"
       >
-        {/* Cabeçalho do Nó */}
-        <div className="flex justify-between items-center mb-2.5">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 px-2.5 py-1 rounded-md">
-              Etapa #{(() => {
-                const rawIdx = data.screen?.screen_index ?? data.screenIndex;
-                return Number.isInteger(rawIdx) ? rawIdx + 1 : '?';
-              })()}
-            </span>
-            {data.screen?.screen_id && (
-              <span className="text-[10px] font-mono text-gray-400 dark:text-slate-500 truncate max-w-[120px]">
-                {data.screen.screen_id}
-              </span>
-            )}
+        <div className={`h-1 ${isException ? 'bg-red-400' : 'bg-omni-bordo/70'}`} />
+        <div className="p-3 flex flex-col gap-2 flex-1 min-h-0">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold text-omni-ink-secondary tabular-nums">Tela {screenNumber}</span>
+            {data.screen?.status && <StatusBadge status={data.screen.status} className="!text-[10px] !px-1.5" />}
           </div>
-          
-          <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
-            isAi 
-              ? isAmbiguous ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-              : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-          }`}>
-            {isAi ? data.confidence : 'DOCUMENTAL'}
-          </span>
-        </div>
-        
-        {/* Instrução da Tela */}
-        <h4 className="text-xs font-semibold text-gray-900 dark:text-slate-100 leading-snug mb-3 line-clamp-2">
-          {data.summary || 'Tela sem instrução especificada'}
-        </h4>
-        
-        {/* Bloco de Evento Principal */}
-        <div className="bg-gray-50 dark:bg-slate-800/80 rounded-lg p-2.5 mb-2.5 border border-gray-100 dark:border-slate-800">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[9px] text-gray-400 dark:text-slate-400 font-bold uppercase tracking-wider">
-              Evento Principal
-            </span>
+
+          <h4 className="text-[13px] font-semibold text-omni-ink leading-snug line-clamp-2 min-h-[34px]">
+            {data.summary || 'Tela sem instrução'}
+          </h4>
+
+          <div className="flex items-center justify-between gap-2 min-h-[22px]">
+            {eventName ? (
+              <span className="text-[11px] font-mono font-semibold text-omni-bordo truncate" title={eventName}>
+                {eventName}
+              </span>
+            ) : (
+              <span className="text-[11px] text-omni-muted italic">Sem snippet</span>
+            )}
             {snippetCount > 1 && (
-              <div className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-slate-400">
+              <div className="nodrag flex items-center gap-0.5 text-[10px] text-omni-muted shrink-0" onClick={stop}>
                 <button
                   type="button"
-                  onClick={handlePrevSnippet}
-                  className="p-0.5 hover:bg-gray-200 dark:hover:bg-slate-700 rounded transition-colors cursor-pointer"
-                  title="Snippet anterior"
+                  onClick={() => setCurrentSnippetIdx((p) => (p > 0 ? p - 1 : snippetCount - 1))}
+                  className="p-0.5 hover:bg-omni-mist rounded cursor-pointer"
+                  aria-label="Snippet anterior"
                 >
                   <ChevronLeft className="w-3 h-3" />
                 </button>
-                <span>{currentSnippetIdx + 1} de {snippetCount}</span>
+                <span className="tabular-nums">
+                  {currentSnippetIdx + 1}/{snippetCount}
+                </span>
                 <button
                   type="button"
-                  onClick={handleNextSnippet}
-                  className="p-0.5 hover:bg-gray-200 dark:hover:bg-slate-700 rounded transition-colors cursor-pointer"
-                  title="Próximo snippet"
+                  onClick={() => setCurrentSnippetIdx((p) => (p < snippetCount - 1 ? p + 1 : 0))}
+                  className="p-0.5 hover:bg-omni-mist rounded cursor-pointer"
+                  aria-label="Próximo snippet"
                 >
                   <ChevronRight className="w-3 h-3" />
                 </button>
               </div>
             )}
           </div>
-          <span className="block text-xs font-mono font-bold text-[#7B0209] dark:text-red-400 truncate">
-            {currentEvent}
-          </span>
-        </div>
-        
-        {/* Bloco de Código com Rolagem Vertical Controlada */}
-        {rawCode ? (
-          <div 
-            className="nodrag nowheel max-h-36 overflow-y-auto custom-scrollbar bg-slate-950 text-slate-100 p-2.5 rounded-lg border border-slate-800 text-[10px] font-mono whitespace-pre-wrap break-words [overflow-wrap:anywhere] mb-2.5"
-            onClick={handleOpenSnippet}
-            title="Clique para abrir este snippet no modal"
-          >
-            <pre className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] m-0 font-mono text-emerald-400">
-              {rawCode}
-            </pre>
-          </div>
-        ) : (
-          <div className="bg-gray-50/50 dark:bg-slate-900/50 p-2 rounded text-[10px] text-gray-400 italic mb-2.5">
-            Nenhum código dataLayer nesta etapa.
-          </div>
-        )}
-        
-        {/* Rodapé do Nó */}
-        <div className="flex justify-between items-center text-[10px] text-gray-500 dark:text-slate-400 pt-1 border-t border-gray-100 dark:border-slate-800/80">
-          <span>{snippetCount} {snippetCount === 1 ? 'snippet' : 'snippets'}</span>
+
+          {!data.showCode && chips.length > 0 && (
+            <div className="flex flex-wrap gap-1 max-h-[44px] overflow-hidden">
+              {chips.map((c) => (
+                <span
+                  key={c.name}
+                  className="max-w-full truncate text-[10px] font-mono px-1.5 py-0.5 rounded bg-omni-mist border border-omni-line text-omni-ink-secondary"
+                  title={`${c.name}: ${c.value}`}
+                >
+                  {c.name}: {c.value || '—'}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {data.showCode && snippet?.raw_code && (
+            <div
+              className="nodrag nowheel max-h-[136px] overflow-y-auto custom-scrollbar bg-slate-950 rounded-lg p-2 text-[10px]"
+              onClick={openSnippet}
+            >
+              <pre className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] m-0 font-mono text-emerald-300">
+                {snippet.raw_code}
+              </pre>
+            </div>
+          )}
+
           <button
             type="button"
-            onClick={handleOpenSnippet}
-            className="text-[10px] font-semibold text-[#7B0209] hover:underline flex items-center gap-1 cursor-pointer"
+            onClick={openSnippet}
+            className="nodrag mt-auto self-start text-[11px] font-semibold text-omni-bordo hover:underline inline-flex items-center gap-1 cursor-pointer"
           >
-            Ver snippet completo <ExternalLink className="w-2.5 h-2.5" />
+            Abrir tela <ExternalLink className="w-3 h-3" />
           </button>
         </div>
       </div>
-      <Handle 
-        type="source" 
-        position={Position.Right} 
-        className="!w-3 !h-3 !bg-[#7B0209] !border-2 !border-white dark:!border-slate-900" 
-      />
+      <Handle id="r" type="source" position={Position.Right} className="!w-2 !h-2 !bg-omni-bordo !border-2 !border-white" />
+      <Handle id="b" type="source" position={Position.Bottom} className="!w-2 !h-2 !bg-omni-bordo !border-2 !border-white" />
     </>
   );
 });
 
-const DecisionNode = React.memo(({ data, selected }: any) => {
+const StageNode = React.memo(({ data }: any) => {
+  const isException = data.kind === 'exception';
   return (
-    <>
-      <Handle 
-        type="target" 
-        position={Position.Left} 
-        className="!w-2.5 !h-2.5 !bg-amber-500 !border-2 !border-white dark:!border-slate-900" 
-      />
-      <div 
-        className="w-[120px] h-[120px] relative flex items-center justify-center cursor-pointer select-none group"
-        onClick={data.onClick}
-      >
-        {/* Losango visível com dimensões adequadas (84px * sqrt(2) ≈ 119px) */}
-        <div className={`w-[84px] h-[84px] absolute rotate-45 rounded-lg border-2 transition-all ${
-          selected 
-            ? 'border-[#7B0209] bg-amber-100 dark:bg-amber-900/80 ring-2 ring-[#7B0209]/40 shadow-lg' 
-            : 'border-amber-500 bg-amber-50 dark:bg-amber-950/70 hover:border-[#7B0209] shadow-md'
-        }`} />
-
-        {/* Conteúdo interno desrotacionado */}
-        <div className="relative z-10 w-[80px] text-center flex flex-col items-center justify-center p-1">
-          <span className="text-[8px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 mb-0.5">
-            {data.confidence || 'DECISÃO'}
-          </span>
-          <p className="text-[9px] font-semibold text-gray-800 dark:text-slate-100 line-clamp-3 leading-tight">
-            {data.condition || 'Condição de desvio'}
-          </p>
-        </div>
-
-        {/* Tooltip com Rationale detalhado ao passar o mouse */}
-        {data.rationale && (
-          <div className="absolute top-[125px] left-1/2 -translate-x-1/2 w-52 bg-slate-900 text-white text-[10px] p-2.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl border border-slate-700">
-            <p className="font-bold text-amber-300 mb-1">Inferência de Decisão</p>
-            <p className="leading-relaxed text-slate-200">{data.rationale}</p>
-          </div>
-        )}
+    <div
+      className={`w-full h-full rounded-2xl border ${
+        isException ? 'bg-red-50/50 border-red-200 border-dashed' : 'bg-omni-mist/60 border-omni-line'
+      }`}
+    >
+      <div className="px-4 pt-3 flex items-baseline justify-between gap-3">
+        <span className={`text-sm font-semibold ${isException ? 'text-red-800' : 'text-omni-ink'}`}>{data.name}</span>
+        <span className="text-[11px] text-omni-muted tabular-nums shrink-0">
+          {data.count} {data.count === 1 ? 'tela' : 'telas'}
+        </span>
       </div>
-      <Handle 
-        type="source" 
-        position={Position.Right} 
-        className="!w-2.5 !h-2.5 !bg-amber-500 !border-2 !border-white dark:!border-slate-900" 
-      />
-    </>
+      {data.description && <p className="px-4 text-[11px] text-omni-ink-secondary truncate">{data.description}</p>}
+    </div>
   );
 });
 
-const nodeTypes = {
-  screen: ScreenNode,
-  decision: DecisionNode
-};
+const nodeTypes = { screen: ScreenNode, stage: StageNode };
 
-// --- DAGRE LAYOUT ---
+// --- Layout ------------------------------------------------------------------
 
-const getLayoutedElements = (nodes: any[], edges: any[], direction = 'LR') => {
-  const dagreGraph = new dagre.graphlib.Graph();
-  dagreGraph.setDefaultEdgeLabel(() => ({}));
-  
-  const nodeWidth = 360;
-  const nodeHeight = 240;
-  const decisionSize = 130;
-  
-  dagreGraph.setGraph({ rankdir: direction, ranksep: 100, nodesep: 70 });
-  
-  nodes.forEach((node) => {
-    const isDecision = node.type === 'decision';
-    dagreGraph.setNode(node.id, { 
-      width: isDecision ? decisionSize : nodeWidth, 
-      height: isDecision ? decisionSize : nodeHeight 
+interface StageInfo {
+  id: string;
+  name: string;
+  kind?: 'main' | 'exception';
+  description?: string;
+  screenIds: string[];
+}
+
+const COLUMN_GAP = 72;
+const ROW_GAP = 28;
+
+/**
+ * Quadro de etapas: cada etapa é uma coluna (na ordem da jornada) e as telas da
+ * etapa ficam empilhadas de cima para baixo, na ordem do documento.
+ * Telas sem etapa vão para uma coluna "Outras telas".
+ */
+function layoutJourney(nodes: any[], stages: StageInfo[], cardHeight: number) {
+  const screenNodes = nodes.filter((n) => n.type === 'screen');
+  const byScreenId = new Map(screenNodes.map((n) => [String(n.data?.screenId ?? n.data?.screen?.screen_id), n]));
+  const placed = new Set<string>();
+
+  const columns: Array<{ stage: StageInfo; members: any[] }> = [];
+  stages.forEach((st) => {
+    const members = st.screenIds.map((sid) => byScreenId.get(String(sid))).filter((n): n is any => Boolean(n) && !placed.has(n.id));
+    members.forEach((n) => placed.add(n.id));
+    if (members.length) columns.push({ stage: st, members });
+  });
+  const leftovers = screenNodes.filter((n) => !placed.has(n.id));
+  if (leftovers.length) {
+    columns.push({ stage: { id: 'stage-outras', name: 'Outras telas', kind: 'main', screenIds: [] }, members: leftovers });
+  }
+  // Exceções sempre por último, para a fila principal ler da esquerda para a direita
+  columns.sort((a, b) => Number(a.stage.kind === 'exception') - Number(b.stage.kind === 'exception'));
+
+  const columnOf = new Map<string, number>();
+  const laidOut: any[] = [];
+  const frames: any[] = [];
+
+  columns.forEach((col, ci) => {
+    const x = ci * (CARD_WIDTH + STAGE_PADDING * 2 + COLUMN_GAP);
+    col.members.forEach((n, ri) => {
+      columnOf.set(n.id, ci);
+      laidOut.push({
+        ...n,
+        position: { x: x + STAGE_PADDING, y: STAGE_HEADER + ri * (cardHeight + ROW_GAP) },
+        zIndex: 1,
+      });
+    });
+    const height = STAGE_HEADER + col.members.length * (cardHeight + ROW_GAP) - ROW_GAP + STAGE_PADDING;
+    frames.push({
+      id: col.stage.id,
+      type: 'stage',
+      position: { x, y: 0 },
+      style: { width: CARD_WIDTH + STAGE_PADDING * 2, height },
+      data: { name: col.stage.name, kind: col.stage.kind, description: col.stage.description, count: col.members.length },
+      draggable: false,
+      selectable: false,
+      focusable: false,
+      zIndex: 0,
     });
   });
-  
-  edges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target);
-  });
-  
-  dagre.layout(dagreGraph);
-  
-  const layoutedNodes = nodes.map((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id) || { x: 0, y: 0 };
-    const isDecision = node.type === 'decision';
-    const w = isDecision ? decisionSize : nodeWidth;
-    const h = isDecision ? decisionSize : nodeHeight;
-    return {
-      ...node,
-      targetPosition: Position.Left,
-      sourcePosition: Position.Right,
-      position: {
-        x: nodeWithPosition.x - w / 2,
-        y: nodeWithPosition.y - h / 2,
-      },
-    };
-  });
-  
-  return { nodes: layoutedNodes, edges };
-};
 
-// Cache em memória para respostas válidas de IA
-const journeyAiCache = new Map<string, any>();
+  return { nodes: [...frames, ...laidOut], columnOf };
+}
+
+// --- Componente --------------------------------------------------------------
 
 interface JourneysCanvasProps {
   artifacts: Artifact[];
   selectedMapId: string | null;
   onOpenScreen: (map: Artifact, target?: { screenId?: string; snippetIndex?: number }) => void;
-  onSelectScreen?: (screen: any) => void;
 }
 
-const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({ 
-  artifacts, 
-  selectedMapId, 
-  onOpenScreen,
-  onSelectScreen
-}) => {
+const normalizeText = (t: string) =>
+  String(t || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+
+const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({ artifacts, selectedMapId, onOpenScreen }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isAiGenerated, setIsAiGenerated] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [showCode, setShowCode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebouncedSearch(searchQuery, 300);
-  
   const { fitView, setCenter } = useReactFlow();
 
-  const selectedMap = useMemo(() => {
-    return artifacts.find((a: any) => String(a.id) === selectedMapId);
-  }, [artifacts, selectedMapId]);
+  const selectedMap = useMemo(
+    () => artifacts.find((a: any) => String(a.id) === selectedMapId),
+    [artifacts, selectedMapId]
+  );
 
   const screens = useMemo(() => {
     if (!selectedMap || !Array.isArray(selectedMap.screens)) return [];
-    return [...selectedMap.screens].sort((a: any, b: any) => {
-      const idxA = a.screen_index ?? 9999;
-      const idxB = b.screen_index ?? 9999;
-      if (idxA !== idxB) return idxA - idxB;
-      return String(a.screen_id || "").localeCompare(String(b.screen_id || ""));
-    });
+    return [...selectedMap.screens].sort((a: any, b: any) => (a.screen_index ?? 9999) - (b.screen_index ?? 9999));
   }, [selectedMap]);
 
-  // Handler para abertura segura no modal
-  const handleOpenTarget = useCallback((target?: { screenId?: string; snippetIndex?: number }) => {
-    if (!selectedMap) return;
-    if (onOpenScreen) {
-      onOpenScreen(selectedMap, target);
-    } else if (onSelectScreen) {
-      const targetScreen = target?.screenId 
-        ? screens.find(s => String(s.screen_id) === String(target.screenId)) || screens[0]
-        : screens[0];
-      onSelectScreen({ ...targetScreen, belongsToMap: selectedMap });
-    }
-  }, [selectedMap, screens, onOpenScreen, onSelectScreen]);
+  const openTarget = useCallback(
+    (screenId?: string, snippetIndex?: number) => {
+      if (selectedMap) onOpenScreen(selectedMap, { screenId, snippetIndex: snippetIndex ?? 0 });
+    },
+    [selectedMap, onOpenScreen]
+  );
 
-  // Renderiza análise (IA ou fallback estruturado)
-  const renderAnalysis = useCallback((analysis: any, isFromAi: boolean) => {
-    if (!selectedMap) return;
-    
-    const newNodes = (analysis.nodes || []).map((n: any) => {
-      const isDecision = n.kind === 'decision';
-      const screenObj = isDecision ? null : screens.find(s => String(s.screen_id) === String(n.screenId)) || screens[0];
-      
+  // Organização por etapas, calculada a partir do texto das telas
+  const analysis = useMemo(
+    () => (selectedMap && screens.length > 0 ? buildLocalJourney(selectedMap) : null),
+    [selectedMap, screens.length]
+  );
+
+  useEffect(() => setSearchQuery(''), [selectedMap?.id]);
+
+  // Desenha a análise atual
+  useEffect(() => {
+    if (!analysis || !selectedMap) {
+      setNodes([]);
+      setEdges([]);
+      return;
+    }
+    const data = analysis;
+    const stages: StageInfo[] = Array.isArray(data.stages) ? data.stages : [];
+    const stageKindByScreen = new Map<string, string>();
+    stages.forEach((st) => st.screenIds.forEach((sid) => stageKindByScreen.set(String(sid), st.kind || 'main')));
+
+    const flowNodes = (data.nodes || []).map((n: any) => {
+      const screenObj = screens.find((s: any) => String(s.screen_id) === String(n.screenId)) || null;
       return {
         id: n.id,
-        type: n.kind,
-        data: {
-          ...n,
-          isAiGenerated: isFromAi,
-          screen: screenObj,
-          onOpenScreen: () => {
-            if (!isDecision && screenObj) {
-              handleOpenTarget({ 
-                screenId: screenObj.screen_id, 
-                snippetIndex: n.preferredSnippetIndex ?? 0 
-              });
-            }
-          },
-          onOpenSnippet: (snippetIndex: number) => {
-            if (!isDecision && screenObj) {
-              handleOpenTarget({ 
-                screenId: screenObj.screen_id, 
-                snippetIndex 
-              });
-            }
-          },
-          onClick: () => {
-            if (!isDecision && screenObj) {
-              handleOpenTarget({ 
-                screenId: screenObj.screen_id, 
-                snippetIndex: n.preferredSnippetIndex ?? 0 
-              });
-            }
-          }
-        }
-      };
-    });
-    
-    const newEdges = (analysis.edges || []).map((e: any) => {
-      const isAmbiguous = e.confidence === 'AMBIGUO';
-      return {
-        ...e,
-        type: 'smoothstep',
-        animated: isAmbiguous,
-        label: e.label,
-        labelStyle: { fill: '#7B0209', fontWeight: 600, fontSize: 10 },
-        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.95, rx: 4, ry: 4 },
-        style: { 
-          strokeWidth: 2, 
-          stroke: isAmbiguous ? '#fbbf24' : '#7B0209',
-          strokeDasharray: isAmbiguous ? '5,5' : 'none'
-        },
-        markerEnd: { 
-          type: MarkerType.ArrowClosed, 
-          color: isAmbiguous ? '#fbbf24' : '#7B0209' 
-        }
-      };
-    });
-    
-    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(newNodes, newEdges, 'LR');
-    setNodes(layoutedNodes);
-    setEdges(layoutedEdges);
-    setIsAiGenerated(isFromAi);
-
-    // Enquadramento inicial legível: não diminuir os nós até ficarem microscópicos
-    setTimeout(() => {
-      if (layoutedNodes.length <= 3) {
-        fitView({ padding: 0.2, maxZoom: 0.85, duration: 600 });
-      } else {
-        // Enquadrar o início da jornada com zoom legível
-        const firstNode = layoutedNodes[0];
-        if (firstNode && firstNode.position) {
-          setCenter(firstNode.position.x + 360, firstNode.position.y + 120, { zoom: 0.75, duration: 600 });
-        } else {
-          fitView({ padding: 0.2, maxZoom: 0.85, duration: 600 });
-        }
-      }
-    }, 120);
-  }, [selectedMap, screens, setNodes, setEdges, fitView, setCenter, handleOpenTarget]);
-
-  // Renderiza sequência documental inicial (baseline)
-  const renderDeterministic = useCallback(() => {
-    if (!selectedMap) return;
-    const newNodes: any[] = [];
-    const newEdges: any[] = [];
-    
-    screens.forEach((screen, i) => {
-      const id = `journey-screen-${selectedMap.id}-${screen.screen_id || i}`;
-      newNodes.push({
-        id,
         type: 'screen',
         data: {
-          screen,
-          screenIndex: Number.isInteger(screen.screen_index) ? screen.screen_index : i,
-          summary: screen.instruction || 'Tela sem instrução especificada',
-          confidence: 'INFERIDO',
-          isAiGenerated: false,
-          preferredSnippetIndex: 0,
-          onOpenScreen: () => {
-            handleOpenTarget({ screenId: screen.screen_id, snippetIndex: 0 });
-          },
-          onOpenSnippet: (snippetIndex: number) => {
-            handleOpenTarget({ screenId: screen.screen_id, snippetIndex });
-          },
-          onClick: () => {
-            handleOpenTarget({ screenId: screen.screen_id, snippetIndex: 0 });
-          }
-        }
-      });
-      
-      if (i > 0) {
-        const prevScreen = screens[i - 1];
-        const prevId = `journey-screen-${selectedMap.id}-${prevScreen.screen_id || (i - 1)}`;
-        newEdges.push({
-          id: `journey-edge-${prevId}-${id}-seq`,
-          source: prevId,
-          target: id,
-          type: 'smoothstep',
-          animated: false,
-          style: { strokeWidth: 2, stroke: '#94a3b8' },
-          markerEnd: { type: MarkerType.ArrowClosed, color: '#94a3b8' }
-        });
-      }
+          ...n,
+          screen: screenObj,
+          showCode,
+          stageKind: screenObj ? stageKindByScreen.get(String(screenObj.screen_id)) : undefined,
+          onOpenSnippet: (snippetIndex: number) => screenObj && openTarget(screenObj.screen_id, snippetIndex),
+        },
+      };
     });
-    
-    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(newNodes, newEdges, 'LR');
-    setNodes(layoutedNodes);
-    setEdges(layoutedEdges);
-    setIsAiGenerated(false);
-    
-    setTimeout(() => {
-      if (layoutedNodes.length <= 3) {
-        fitView({ padding: 0.2, maxZoom: 0.85, duration: 600 });
-      } else {
-        const firstNode = layoutedNodes[0];
-        if (firstNode && firstNode.position) {
-          setCenter(firstNode.position.x + 360, firstNode.position.y + 120, { zoom: 0.75, duration: 600 });
-        } else {
-          fitView({ padding: 0.2, maxZoom: 0.85, duration: 600 });
-        }
-      }
-    }, 120);
-  }, [selectedMap, screens, setNodes, setEdges, fitView, setCenter, handleOpenTarget]);
 
-  // Carrega baseline documental ou cache ao trocar de mapa
-  useEffect(() => {
-    if (!selectedMap) {
-      setNodes([]);
-      setEdges([]);
-      setError(null);
-      setStatusMessage(null);
-      setIsAiGenerated(false);
-      return;
-    }
-    
-    if (screens.length === 0) {
-      setNodes([]);
-      setEdges([]);
-      setError(null);
-      setStatusMessage(null);
-      return;
-    }
-    
-    const mapAny = selectedMap as any;
-    const cacheKey = `${selectedMap.id}-${mapAny?.version || "1.0"}-${mapAny?.signature_hash || ""}`;
-    const cached = journeyAiCache.get(cacheKey);
-    
-    if (cached) {
-      renderAnalysis(cached, true);
-      setStatusMessage("Jornada analisada por IA.");
-      setError(null);
-      return;
-    }
-    
-    // Renderiza a sequência documental imediatamente
-    setError(null);
-    setStatusMessage(null);
-    renderDeterministic();
-  }, [selectedMap?.id, screens.length]);
+    const { nodes: laidOut, columnOf } = layoutJourney(flowNodes, stages, showCode ? CARD_HEIGHT_WITH_CODE : CARD_HEIGHT);
+    const nodeById = new Map(flowNodes.map((n: any) => [n.id, n]));
 
-  // Dispara análise real de IA
-  const handleAnalyze = async () => {
-    if (!selectedMap) return;
-    setIsAnalyzing(true);
-    setError(null);
-    setStatusMessage("Analisando jornada…");
-
-    try {
-      const res = await fetch("/api/insights/journeys/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ artifact: selectedMap })
+    const flowEdges = (data.edges || [])
+      .filter((e: any) => nodeById.has(e.source) && nodeById.has(e.target))
+      .map((e: any) => {
+        const targetKind = nodeById.get(e.target)?.data?.stageKind;
+        const isException = e.variant === 'exception' || targetKind === 'exception';
+        const isAmbiguous = e.confidence === 'AMBIGUO';
+        const sameColumn = columnOf.get(e.source) === columnOf.get(e.target);
+        const color = isException ? '#dc2626' : isAmbiguous ? '#d97706' : '#7B0209';
+        return {
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          sourceHandle: sameColumn ? 'b' : 'r',
+          targetHandle: sameColumn ? 't' : 'l',
+          label: e.label,
+          type: 'smoothstep',
+          labelStyle: { fill: color, fontWeight: 600, fontSize: 11 },
+          labelBgStyle: { fill: '#ffffff', fillOpacity: 0.95 },
+          labelBgPadding: [4, 2] as [number, number],
+          style: { strokeWidth: 1.75, stroke: color, strokeDasharray: isException || isAmbiguous ? '5,4' : undefined },
+          markerEnd: { type: MarkerType.ArrowClosed, color },
+          zIndex: 1,
+        };
       });
 
-      const data = await res.json().catch(() => ({}));
+    setNodes(laidOut);
+    setEdges(flowEdges);
+    setTimeout(() => fitView({ padding: 0.08, maxZoom: 1, minZoom: 0.3, duration: 400 }), 80);
+  }, [analysis, showCode, screens, selectedMap, openTarget, setNodes, setEdges, fitView]);
 
-      if (!res.ok) {
-        const backendError = data.error || "Falha ao conectar com o serviço de IA.";
-        setError(backendError);
-        setStatusMessage("Não foi possível concluir a análise por IA. Exibindo apenas a sequência documental.");
-        if (data.fallback && data.nodes) {
-          renderAnalysis(data, false);
-        } else {
-          renderDeterministic();
-        }
-        return;
-      }
-
-      // Sucesso na análise
-      const mapAny = selectedMap as any;
-      const cacheKey = `${selectedMap.id}-${mapAny?.version || "1.0"}-${mapAny?.signature_hash || ""}`;
-      journeyAiCache.set(cacheKey, data);
-
-      renderAnalysis(data, true);
-      setStatusMessage("Jornada analisada por IA.");
-      setError(null);
-    } catch (e: any) {
-      console.error("[JourneysCanvas] Erro na requisição:", e);
-      setError(e.message || "Erro de rede ao solicitar análise.");
-      setStatusMessage("Não foi possível concluir a análise por IA. Exibindo apenas a sequência documental.");
-      renderDeterministic();
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  // Busca textual nas telas sem recalcular layout
+  // Busca: destaca e centraliza a primeira tela encontrada, sem refazer o layout
   useEffect(() => {
-    if (!debouncedSearch) {
-      setNodes(nds => nds.map(n => ({ ...n, selected: false })));
-      return;
-    }
-    
-    const term = debouncedSearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    let foundNode: any = null;
-    
-    setNodes(nds => nds.map(n => {
-      let isMatch = false;
-      const d = n.data;
-      if (d.summary && d.summary.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(term)) isMatch = true;
-      if (d.condition && d.condition.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(term)) isMatch = true;
-      if (d.rationale && d.rationale.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(term)) isMatch = true;
-      if (d.screen) {
-        if (d.screen.screen_id && d.screen.screen_id.toLowerCase().includes(term)) isMatch = true;
-        const snips = d.screen.snippets || [];
-        for (const s of snips) {
-          if (s.event_normalized && s.event_normalized.toLowerCase().includes(term)) isMatch = true;
-          if (s.base_key && s.base_key.toLowerCase().includes(term)) isMatch = true;
-          if (s.raw_code && s.raw_code.toLowerCase().includes(term)) isMatch = true;
-        }
-      }
-      
-      if (isMatch && !foundNode) foundNode = n;
-      return { ...n, selected: isMatch };
-    }));
-    
-    if (foundNode && foundNode.position) {
-      setCenter(foundNode.position.x + 180, foundNode.position.y + 120, { duration: 600, zoom: 0.95 });
+    const term = normalizeText(debouncedSearch.trim());
+    let found: any = null;
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.type === 'stage') return n;
+        if (!term) return { ...n, selected: false };
+        const d: any = n.data;
+        const haystack = normalizeText(
+          [
+            d.summary,
+            d.condition,
+            d.screen?.instruction,
+            d.screen?.screen_name,
+            ...(d.screen?.snippets || []).flatMap((s: any) => [s.event_raw, s.event_normalized, s.raw_code]),
+          ]
+            .filter(Boolean)
+            .join(' ')
+        );
+        const isMatch = haystack.includes(term);
+        if (isMatch && !found) found = n;
+        return { ...n, selected: isMatch };
+      })
+    );
+    if (found?.position) {
+      setCenter(found.position.x + CARD_WIDTH / 2, found.position.y + CARD_HEIGHT / 2, { duration: 500, zoom: 0.95 });
     }
   }, [debouncedSearch, setNodes, setCenter]);
 
@@ -616,11 +406,9 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({
         <div className="w-12 h-12 rounded-2xl bg-white border border-omni-line shadow-neu-card flex items-center justify-center mb-3 text-omni-bordo">
           <BrainCircuit className="w-6 h-6" />
         </div>
-        <p className="text-base font-semibold text-omni-ink">
-          Escolha um mapa para ver a jornada
-        </p>
+        <p className="text-base font-semibold text-omni-ink">Escolha um mapa para ver a jornada</p>
         <p className="text-xs text-omni-ink-secondary mt-1 max-w-md">
-          Use Produto, Subproduto e Mapa na barra acima. As telas aparecem na ordem em que estão documentadas no Confluence.
+          Use Produto, Subproduto e Mapa na barra acima. As telas aparecem agrupadas por etapa da jornada.
         </p>
       </div>
     );
@@ -628,105 +416,81 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({
 
   if (screens.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-gray-50/50 dark:bg-slate-900/50 p-8 text-center">
-        <p className="text-sm font-semibold text-gray-700 dark:text-slate-300">
-          Nenhuma tela estruturada foi encontrada neste mapa.
-        </p>
-        <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">
-          O artefato pode conter apenas documentação conceitual sem tabela de telas associadas.
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+        <p className="text-sm font-semibold text-omni-ink">Este mapa não tem telas estruturadas.</p>
+        <p className="text-xs text-omni-ink-secondary mt-1">
+          O artefato pode conter apenas documentação, sem blocos de tela e snippet.
         </p>
       </div>
     );
   }
 
+  const summary: string = analysis?.summary || '';
+  const classified = analysis?.classifiedCount ?? 0;
+  const unclassified = screens.length - classified;
+
   return (
-    <div className="flex-1 flex flex-col relative bg-gray-50/30 dark:bg-slate-950 overflow-hidden">
-      
-      {/* Controles de Cabeçalho */}
-      <div className="absolute top-4 left-4 z-10 flex flex-wrap items-center gap-3">
-        {/* Campo de Busca */}
+    <div className="flex-1 flex flex-col relative overflow-hidden rounded-2xl border border-omni-line bg-white">
+      {/* Barra superior */}
+      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-omni-line bg-white">
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-omni-muted" />
           <input
             type="text"
-            placeholder="Buscar tela, evento ou código..."
-            className="pl-9 pr-4 py-2 w-[280px] sm:w-[320px] h-10 rounded-full border border-gray-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm text-xs font-ui focus:outline-none focus:ring-2 focus:ring-[#7B0209] transition-all shadow-sm dark:text-slate-200"
+            placeholder="Buscar tela, evento ou código"
+            className="pl-9 pr-3 h-9 w-[240px] sm:w-[280px] rounded-lg border border-omni-line bg-white text-xs focus:outline-none focus:ring-2 focus:ring-omni-bordo/30"
             value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
+            onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        
-        {/* Botão Gerar Jornada / Analisar Novamente */}
+
         <button
-          onClick={handleAnalyze}
-          disabled={isAnalyzing}
-          className="h-10 px-5 rounded-full bg-[#7B0209] hover:bg-[#630005] text-white text-xs font-ui font-semibold flex items-center gap-2 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          type="button"
+          onClick={() => setShowCode((v) => !v)}
+          aria-pressed={showCode}
+          className={`h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+            showCode ? 'bg-omni-ink text-white border-omni-ink' : 'bg-white text-omni-ink-secondary border-omni-line hover:border-omni-bordo/40'
+          }`}
         >
-          {isAnalyzing ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Analisando jornada…</span>
-            </>
-          ) : (
-            <>
-              <BrainCircuit className="w-4 h-4" />
-              <span>{isAiGenerated ? 'Analisar novamente' : 'Gerar jornada'}</span>
-            </>
-          )}
+          <Code2 className="w-3.5 h-3.5" />
+          {showCode ? 'Esconder código' : 'Mostrar código'}
         </button>
 
-        {/* Badge de Status Atual */}
-        {statusMessage && !isAnalyzing && (
-          <div className={`px-3 py-1.5 rounded-full text-xs font-ui font-semibold flex items-center gap-1.5 shadow-sm backdrop-blur-sm ${
-            isAiGenerated 
-              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-800'
-              : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-800'
-          }`}>
-            {isAiGenerated ? <Sparkles className="w-3.5 h-3.5 text-emerald-600" /> : <Info className="w-3.5 h-3.5 text-amber-600" />}
-            <span>{statusMessage}</span>
-          </div>
-        )}
       </div>
 
-      {/* Banner de Erro Real com Ação de Tentar Novamente */}
-      {error && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 max-w-xl w-[90%] bg-red-50 dark:bg-red-950/90 border border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-300 px-4 py-3 rounded-xl text-xs shadow-lg flex items-center justify-between gap-3 backdrop-blur-md">
-          <div className="flex items-center gap-2 min-w-0">
-            <AlertTriangle className="w-4 h-4 shrink-0 text-red-600 dark:text-red-400" />
-            <p className="truncate font-medium">{error}</p>
-          </div>
-          <button
-            type="button"
-            onClick={handleAnalyze}
-            className="shrink-0 px-3 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
-          >
-            <RotateCcw className="w-3 h-3" />
-            Tentar novamente
-          </button>
-        </div>
-      )}
+      {/* Resumo da jornada */}
+      <div className="flex items-start gap-2.5 px-4 py-2.5 border-b border-omni-line bg-omni-mist/50">
+        <Info className="w-4 h-4 text-omni-muted shrink-0 mt-0.5" />
+        <p className="text-xs text-omni-ink-secondary leading-relaxed">
+          {summary}
+          {unclassified > 0 &&
+            ` ${unclassified} ${unclassified === 1 ? 'tela não tinha' : 'telas não tinham'} pista de etapa e ${unclassified === 1 ? 'ficou' : 'ficaram'} junto da tela anterior.`}{' '}
+          Etapas definidas pelo texto, evento e parâmetros de cada tela; telas de erro saem da tela anterior em vermelho.
+        </p>
+      </div>
 
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        nodeTypes={nodeTypes}
-        fitView={false}
-        minZoom={0.2}
-        maxZoom={1.8}
-      >
-        <Background color="#ccc" gap={16} />
-        <Controls />
-        <MiniMap 
-          nodeColor={(n: any) => {
-            if (n.type === 'decision') return '#fbbf24';
-            return n.selected ? '#7B0209' : '#cbd5e1';
-          }}
-          maskColor="rgba(0,0,0,0.1)"
-          className="dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700"
-        />
-      </ReactFlow>
+      <div className="flex-1 min-h-0">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          nodeTypes={nodeTypes}
+          minZoom={0.15}
+          maxZoom={1.6}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background color="#e5e7eb" gap={18} />
+          <Controls showInteractive={false} />
+          <MiniMap
+            pannable
+            zoomable
+            nodeColor={(n: any) => (n.type === 'stage' ? '#f3f4f6' : n.type === 'decision' ? '#fbbf24' : n.selected ? '#7B0209' : '#cbd5e1')}
+            maskColor="rgba(0,0,0,0.06)"
+            className="rounded-lg border border-omni-line"
+          />
+        </ReactFlow>
+      </div>
     </div>
   );
 };

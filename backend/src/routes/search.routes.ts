@@ -7,35 +7,9 @@
 import { Router } from "express";
 import { getInventoryData, searchArtifacts } from "../services/inventory.service.js";
 import { runCollection, abortCollection, getSyncStatus } from "../integrations/confluenceClient.js";
-import { analyzeJourneyWithAI, buildDocumentarySequence } from "../services/journeyAnalysis.service.js";
 import { searchSemantic } from "../services/semanticSearch.service.js";
 
 const router = Router();
-
-router.post("/insights/journeys/analyze", async (req, res) => {
-  const { artifact } = req.body || {};
-  if (!artifact || !artifact.id) {
-    return res.status(400).json({ error: "Nenhum mapa fornecido para análise." });
-  }
-
-  try {
-    const result = await analyzeJourneyWithAI(artifact);
-    return res.json(result);
-  } catch (error: any) {
-    const isConfigError = String(error.message || '').includes('Configuração ausente:');
-    const statusCode = isConfigError ? 400 : 502;
-    const fallbackSeq = buildDocumentarySequence(artifact);
-
-    return res.status(statusCode).json({
-      error: error.message || "Erro ao processar análise da jornada com IA.",
-      isAiGenerated: false,
-      fallback: true,
-      nodes: fallbackSeq.nodes,
-      edges: fallbackSeq.edges,
-      message: "Não foi possível concluir a análise por IA. Exibindo apenas a sequência documental."
-    });
-  }
-});
 
 router.post("/cancel-inventory", async (req, res) => {
   console.log(`[API] POST /api/cancel-inventory - Solicitação de cancelamento recebida.`);
@@ -111,31 +85,20 @@ router.get("/search", (req, res) => {
 });
 
 /**
- * ROTA: POST /api/search/semantic
- * Executa busca semântica em dois estágios utilizando IA (Gemini) sobre o inventário real.
+ * ROTA: POST /api/search/question
+ * Fazer uma pergunta: busca em linguagem natural pelos termos da pergunta (sem IA).
  */
-router.post("/search/semantic", async (req, res) => {
-  const { question, query, filters, limit } = req.body || {};
-  const queryText = String(question || query || "").trim();
-
+router.post("/search/question", (req, res) => {
+  const { question, limit } = req.body || {};
+  const queryText = String(question || "").trim();
   if (!queryText) {
-    return res.status(400).json({
-      error: "Pergunta é obrigatória para a busca com IA.",
-      message: "Faça uma pergunta sobre os artefatos disponíveis."
-    });
+    return res.status(400).json({ error: "Escreva uma pergunta sobre os artefatos." });
   }
-
   try {
-    const result = await searchSemantic(queryText, filters, limit || 10);
-    return res.json(result);
+    return res.json(searchSemantic(queryText, Number(limit) || 20));
   } catch (error: any) {
-    const isConfigError = String(error.message || "").includes("Configuração ausente:");
-    const statusCode = isConfigError ? 400 : 502;
-    console.error(`[SearchAI] Falha na busca por IA: ${error.message}`);
-    return res.status(statusCode).json({
-      error: error.message || "Não foi possível concluir a busca por IA.",
-      message: "Não foi possível concluir a busca por IA."
-    });
+    console.error(`[Pergunta] Falha na busca: ${error.message}`);
+    return res.status(500).json({ error: "Não foi possível concluir a busca." });
   }
 });
 

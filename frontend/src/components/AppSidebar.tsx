@@ -132,13 +132,19 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         aria-label="Navegação principal"
       >
         {/* 1. Topo (64px) */}
-        <div className="h-16 flex items-center px-4 shrink-0 border-b border-white/10">
+        <div
+          className={`h-16 flex items-center shrink-0 border-b border-white/10 ${
+            isCollapsed && !isMobileOpen ? 'justify-center px-0' : 'px-4'
+          }`}
+        >
           <button
             onClick={() => {
               onHomeClick();
               if (onCloseMobile) onCloseMobile();
             }}
-            className="flex items-center gap-3 w-full text-left cursor-pointer focus:outline-none group overflow-hidden"
+            className={`flex items-center gap-3 text-left cursor-pointer focus:outline-none group overflow-hidden ${
+              isCollapsed && !isMobileOpen ? 'justify-center' : 'w-full'
+            }`}
             title="OMNI - Governança de mensuração"
             aria-label="OMNI - Página inicial"
           >

@@ -3,7 +3,7 @@ import {
   Search,
   X,
   SlidersHorizontal,
-  Sparkles,
+  MessageCircleQuestion,
   FileText,
   Loader2,
   Activity,
@@ -19,6 +19,7 @@ import {
   ActiveSearch,
   ParameterArtifactGroupSummary,
   ContentMatchSummary,
+  QuestionMatchSummary,
 } from '../../types';
 import { searchWorkerClient } from '../../services/searchWorkerClient';
 import {
@@ -36,15 +37,17 @@ export interface SearchCenterProps {
     query: string,
     filteredIds: string[],
     meta?: {
-      mode: 'conteudo' | 'parametros' | 'ia';
+      mode: 'conteudo' | 'parametros' | 'pergunta';
       parameterCriteria?: ParameterCriterion[];
-      aiQuestion?: string;
+      questionText?: string;
       scope?: 'SNIPPET' | 'SCREEN';
       operator?: 'AND' | 'OR';
       parameterGroups?: Record<string, ParameterArtifactGroupSummary>;
       contentMatches?: Record<string, ContentMatchSummary>;
       matchedTerms?: string[];
       queryKind?: string;
+      questionMessage?: string;
+      questionMatches?: Record<string, QuestionMatchSummary>;
     }
   ) => void;
   // Optional callbacks kept for API compatibility
@@ -94,13 +97,13 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
   resetSignal,
   onApplyToCards,
 }) => {
-  // Current Mode: 'conteudo' | 'parametros' | 'ia'
-  const [mode, setMode] = useState<'conteudo' | 'parametros' | 'ia'>('conteudo');
+  // Current Mode: 'conteudo' | 'parametros' | 'pergunta'
+  const [mode, setMode] = useState<'conteudo' | 'parametros' | 'pergunta'>('conteudo');
 
   // Input states per mode
   const [contentQuery, setContentQuery] = useState('');
   const [paramInput, setParamInput] = useState('');
-  const [aiQuestion, setAiQuestion] = useState('');
+  const [questionText, setQuestionText] = useState('');
 
   // Parameter mode controls
   const [criteriaCombination, setCriteriaCombination] = useState<'AND' | 'OR'>('AND');
@@ -111,8 +114,8 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
 
   // Status & Feedback states
   const [isSearching, setIsSearching] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState<string | null>(null);
+  const [questionLoading, setQuestionLoading] = useState(false);
+  const [questionError, setQuestionError] = useState<string | null>(null);
   const [isFocused, setIsFocused] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -144,15 +147,15 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
     setMode('conteudo');
     setContentQuery('');
     setParamInput('');
-    setAiQuestion('');
+    setQuestionText('');
     setCriteriaCombination('AND');
     setCriteriaScope('SNIPPET');
     setShowAdvancedOptions(false);
     setIgnoreCase(true);
     setIgnoreWhitespace(true);
     setIsSearching(false);
-    setAiLoading(false);
-    setAiError(null);
+    setQuestionLoading(false);
+    setQuestionError(null);
     setIsFocused(false);
     if (textareaRef.current) {
       textareaRef.current.style.height = '44px';
@@ -182,8 +185,8 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
         if (activeSearch.scope) {
           setCriteriaScope(activeSearch.scope);
         }
-      } else if (activeSearch.mode === 'ia') {
-        setAiQuestion(activeSearch.aiQuestion || activeSearch.query || '');
+      } else if (activeSearch.mode === 'pergunta') {
+        setQuestionText(activeSearch.questionText || activeSearch.query || '');
       }
     } else if (activeSearch === null) {
       resetInternalSearch();
@@ -206,8 +209,8 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
         return 'Qual artefato você quer encontrar?';
       case 'parametros':
         return 'Quais parâmetros ou código você procura?';
-      case 'ia':
-        return 'O que você quer perguntar à IA?';
+      case 'pergunta':
+        return 'O que você quer saber sobre os artefatos?';
     }
   };
 
@@ -235,14 +238,14 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
         return 'Busque por ID, nome do mapa ou qualquer termo relacionado';
       case 'parametros':
         return 'Cole aqui um trecho de código, dataLayer.push, objeto JSON ou parâmetros como tipo_pessoa: "PF"';
-      case 'ia':
-        return 'Ex: Onde é disparado o evento de confirmação de pagamento?';
+      case 'pergunta':
+        return 'Ex: Existe jornada de INSS relacionada à contratação de cartão?';
     }
   };
 
   // Current input value based on mode
   const currentInputValue =
-    mode === 'conteudo' ? contentQuery : mode === 'parametros' ? paramInput : aiQuestion;
+    mode === 'conteudo' ? contentQuery : mode === 'parametros' ? paramInput : questionText;
 
   const handleInputChange = (val: string) => {
     if (mode === 'conteudo') {
@@ -250,8 +253,8 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
     } else if (mode === 'parametros') {
       setParamInput(val);
     } else {
-      setAiQuestion(val);
-      if (aiError) setAiError(null);
+      setQuestionText(val);
+      if (questionError) setQuestionError(null);
     }
   };
 
@@ -266,8 +269,8 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
         textareaRef.current.focus();
       }
     } else {
-      setAiQuestion('');
-      setAiError(null);
+      setQuestionText('');
+      setQuestionError(null);
       inputRef.current?.focus();
     }
   };
@@ -386,9 +389,9 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
     executeParamSearch(code);
   };
 
-  // Execute Search in Perguntar à IA Mode
-  const executeAiSearch = async (questionToAsk?: string) => {
-    const q = (questionToAsk !== undefined ? questionToAsk : aiQuestion).trim();
+  // Fazer uma pergunta: busca em linguagem natural no backend (sem IA)
+  const executeQuestionSearch = async (questionToAsk?: string) => {
+    const q = (questionToAsk !== undefined ? questionToAsk : questionText).trim();
     if (!q) return;
 
     if (abortControllerRef.current) {
@@ -397,46 +400,56 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
-    setAiLoading(true);
-    setAiError(null);
+    setQuestionLoading(true);
+    setQuestionError(null);
 
     try {
-      const response = await fetch('/api/search/semantic', {
+      const response = await fetch('/api/search/question', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: q }),
         signal: abortController.signal,
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(
-          data.message || data.error || 'Serviço de IA temporariamente indisponível.'
-        );
+        throw new Error(data.error || 'Não foi possível concluir a busca.');
       }
 
-      const rawResults = Array.isArray(data.results) ? data.results : [];
-      const filteredIds: string[] = Array.from(
-        new Set(
-          rawResults
-            .map((r: any) => String(r.artifactId || r.id || ''))
-            .filter((id: string) => id.length > 0)
-        )
-      );
+      const rawResults: any[] = Array.isArray(data.results) ? data.results : [];
+      const questionMatches: Record<string, QuestionMatchSummary> = {};
+      const filteredIds: string[] = [];
+      for (const r of rawResults) {
+        const id = String(r.artifactId || r.id || '');
+        if (!id || questionMatches[id]) continue;
+        filteredIds.push(id);
+        questionMatches[id] = {
+          reason: String(r.reason || ''),
+          evidence: Array.isArray(r.evidence) ? r.evidence.map(String) : [],
+          confidence: r.confidence === 'ALTA' || r.confidence === 'BAIXA' ? r.confidence : 'MEDIA',
+          screenId: r.screenId,
+          screenIndex: typeof r.screenIndex === 'number' ? r.screenIndex : undefined,
+          screenTitle: r.screenTitle,
+          snippetIndex: typeof r.snippetIndex === 'number' ? r.snippetIndex : undefined,
+          event: r.event,
+        };
+      }
 
       onApplyToCards?.(q, filteredIds, {
-        mode: 'ia',
-        aiQuestion: q,
+        mode: 'pergunta',
+        questionText: q,
+        questionMessage: String(data.message || ''),
+        questionMatches,
       });
     } catch (err: any) {
       if (err.name === 'AbortError') return;
       console.error('[SearchCenter] AI Search error:', err);
-      setAiError(
+      setQuestionError(
         err.message ||
-          'Não foi possível consultar a IA no momento. Verifique a conexão ou tente novamente.'
+          'Não foi possível concluir a busca. Verifique se o OMNI está rodando e tente de novo.'
       );
     } finally {
-      setAiLoading(false);
+      setQuestionLoading(false);
     }
   };
 
@@ -446,8 +459,8 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
       executeContentSearch(contentQuery);
     } else if (mode === 'parametros') {
       executeParamSearch();
-    } else if (mode === 'ia') {
-      executeAiSearch();
+    } else if (mode === 'pergunta') {
+      executeQuestionSearch();
     }
   };
 
@@ -510,15 +523,15 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
 
         <button
           type="button"
-          onClick={() => setMode('ia')}
+          onClick={() => setMode('pergunta')}
           className={`h-9 flex items-center gap-2 px-4 rounded-[8px] text-[13px] font-medium transition-all duration-200 cursor-pointer ${
-            mode === 'ia'
+            mode === 'pergunta'
               ? 'bg-omni-bordo text-white shadow-sm'
               : 'text-omni-ink-secondary hover:text-omni-ink'
           }`}
         >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Perguntar à IA</span>
+          <MessageCircleQuestion className="w-3.5 h-3.5" />
+          <span>Fazer uma pergunta</span>
         </button>
       </div>
 
@@ -568,7 +581,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
             <input
               ref={inputRef}
               type="text"
-              value={mode === 'conteudo' ? contentQuery : aiQuestion}
+              value={mode === 'conteudo' ? contentQuery : questionText}
               onChange={(e) => handleInputChange(e.target.value)}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
@@ -579,7 +592,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
           )}
 
           {/* Clear button */}
-          {currentInputValue && !isSearching && !aiLoading && (
+          {currentInputValue && !isSearching && !questionLoading && (
             <button
               type="button"
               onClick={handleClearInput}
@@ -594,7 +607,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
           )}
 
           {/* Spinner indicator if searching */}
-          {(isSearching || aiLoading) && (
+          {(isSearching || questionLoading) && (
             <Loader2 className={`w-4 h-4 animate-spin text-omni-bordo shrink-0 ${mode === 'parametros' ? 'mt-2' : ''}`} />
           )}
 
@@ -602,14 +615,14 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
           <button
             type="button"
             onClick={handleExecuteSearch}
-            disabled={isSearching || aiLoading}
+            disabled={isSearching || questionLoading}
             className={`btn-primary h-10 px-5 text-xs font-semibold rounded-[8px] flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50 ${
               mode === 'parametros' ? 'mt-0.5' : ''
             }`}
           >
-            {mode === 'ia' ? (
+            {mode === 'pergunta' ? (
               <>
-                <Sparkles className="w-3.5 h-3.5" />
+                <MessageCircleQuestion className="w-3.5 h-3.5" />
                 <span>Perguntar</span>
               </>
             ) : (
@@ -830,27 +843,27 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
         </div>
       )}
 
-      {/* Mode 3: Perguntar à IA Sub-Controls */}
-      {mode === 'ia' && (
+      {/* Modo 3: Fazer uma pergunta */}
+      {mode === 'pergunta' && (
         <div className="w-full flex flex-col items-start gap-3 mt-3 px-2">
           {/* AI Loading indicator */}
-          {aiLoading && (
+          {questionLoading && (
             <div className="w-full p-3 rounded-xl bg-red-50/60 border border-red-100 flex items-center gap-3 text-xs font-ui text-omni-ink">
               <Loader2 className="w-4 h-4 animate-spin text-omni-bordo shrink-0" />
-              <span>Consultando inteligência artificial sobre os artefatos...</span>
+              <span>Procurando nos artefatos…</span>
             </div>
           )}
 
           {/* AI Error banner */}
-          {aiError && (
+          {questionError && (
             <div className="w-full p-3 rounded-xl bg-red-50 border border-red-200 flex items-center justify-between gap-3 text-xs font-ui text-red-800">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                <span>{aiError}</span>
+                <span>{questionError}</span>
               </div>
               <button
                 type="button"
-                onClick={() => executeAiSearch()}
+                onClick={() => executeQuestionSearch()}
                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold cursor-pointer shrink-0"
               >
                 <RefreshCw className="w-3 h-3" />
@@ -867,39 +880,39 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
             <button
               type="button"
               onClick={() => {
-                const q = 'Onde é disparado o evento de confirmação de pagamento?';
-                setAiQuestion(q);
-                executeAiSearch(q);
+                const q = 'Existe jornada de INSS relacionada à contratação de cartão?';
+                setQuestionText(q);
+                executeQuestionSearch(q);
               }}
               className="h-8 text-[12.5px] font-sans text-omni-ink-secondary hover:text-omni-ink transition-colors flex items-center gap-1.5 px-3 rounded-lg bg-white border border-omni-line hover:bg-omni-mist hover:border-omni-bordo/30 shadow-neu-card cursor-pointer"
             >
-              <Sparkles className="w-3 h-3 text-omni-bordo" />
-              <span>Confirmação de pagamento</span>
+              <MessageCircleQuestion className="w-3 h-3 text-omni-bordo" />
+              <span>INSS e cartão</span>
             </button>
 
             <button
               type="button"
               onClick={() => {
-                const q = 'Quais mapas possuem fluxos de Pix ou Cartões?';
-                setAiQuestion(q);
-                executeAiSearch(q);
+                const q = 'Onde aparece o evento de pagamento com Pix?';
+                setQuestionText(q);
+                executeQuestionSearch(q);
               }}
               className="h-8 text-[12.5px] font-sans text-omni-ink-secondary hover:text-omni-ink transition-colors flex items-center gap-1.5 px-3 rounded-lg bg-white border border-omni-line hover:bg-omni-mist hover:border-omni-bordo/30 shadow-neu-card cursor-pointer"
             >
-              <Sparkles className="w-3 h-3 text-omni-bordo" />
-              <span>Fluxos de Pix ou Cartões</span>
+              <MessageCircleQuestion className="w-3 h-3 text-omni-bordo" />
+              <span>Pagamento com Pix</span>
             </button>
 
             <button
               type="button"
               onClick={() => {
                 const q = 'Em qual tela é coletado o CPF do usuário?';
-                setAiQuestion(q);
-                executeAiSearch(q);
+                setQuestionText(q);
+                executeQuestionSearch(q);
               }}
               className="h-8 text-[12.5px] font-sans text-omni-ink-secondary hover:text-omni-ink transition-colors flex items-center gap-1.5 px-3 rounded-lg bg-white border border-omni-line hover:bg-omni-mist hover:border-omni-bordo/30 shadow-neu-card cursor-pointer"
             >
-              <Sparkles className="w-3 h-3 text-omni-bordo" />
+              <MessageCircleQuestion className="w-3 h-3 text-omni-bordo" />
               <span>Coleta de CPF</span>
             </button>
           </div>

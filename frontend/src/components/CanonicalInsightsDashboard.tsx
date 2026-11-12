@@ -1,17 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { 
-  Target, CheckCircle2, AlertTriangle, AlertCircle, FileText, 
-  Layers, Tag, Code2, Clock, Filter, ArrowUpRight, ShieldCheck,
-  TrendingUp, BarChart3, Database
-} from 'lucide-react';
+import { ArrowUpRight, CheckCircle2, GitCompareArrows, RefreshCcw, FileWarning, Wrench } from 'lucide-react';
 import { Artifact } from '../types';
 import { PageHeader } from './PageHeader';
 import { normalizarStatus, OfficialStatus } from '../utils/statusUtils';
-
 import { isMap, isDocumentation } from '../domain/artifacts/artifactSelectors';
-import { resolveMeasurementClass, getMeasurementLabel } from '../domain/measurement/measurementResolver';
+import { resolveMeasurementClass } from '../domain/measurement/measurementResolver';
 import { MEASUREMENT_CONFIGS } from '../domain/measurement/measurementConfig';
-import { OFFICIAL_STATUSES, STATUS_CONFIGS } from '../domain/status';
+import { OFFICIAL_STATUSES, STATUS_CONFIGS, getMapStatusMetrics, HOMOLOGATION_CONFIGS } from '../domain/status';
 import { getDocumentationFreshness } from '../domain/metrics/documentationFreshness';
 import { formatDataBR } from '../utils/helpers';
 
@@ -27,489 +22,572 @@ interface CanonicalInsightsDashboardProps {
   onMeasurementFilterChange?: (val: string) => void;
 }
 
+/**
+ * Cores categóricas (paleta validada para daltonismo, ordem fixa).
+ * Todo segmento tem rótulo e número visíveis, então a cor nunca é a única pista.
+ */
+const SERIES = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100'];
+
+const fmt = (n: number) => n.toLocaleString('pt-BR');
+const pct = (part: number, total: number) => (total > 0 ? Math.round((part / total) * 100) : 0);
+
+// --- Peças visuais -------------------------------------------------------------
+
+interface Segment {
+  key: string;
+  label: string;
+  value: number;
+  color: string;
+}
+
+/** Barra 100% empilhada com legenda numérica logo abaixo. */
+const StackedBar: React.FC<{ segments: Segment[]; total: number; unit: string }> = ({ segments, total, unit }) => (
+  <div className="space-y-3">
+    <div className="flex h-3 w-full rounded-full overflow-hidden bg-gray-100 gap-[2px]">
+      {segments
+        .filter((s) => s.value > 0)
+        .map((s) => (
+          <div
+            key={s.key}
+            style={{ width: `${(s.value / Math.max(total, 1)) * 100}%`, background: s.color }}
+            className="h-full first:rounded-l-full last:rounded-r-full"
+            title={`${s.label}: ${fmt(s.value)} ${unit} (${pct(s.value, total)}%)`}
+          />
+        ))}
+    </div>
+    <ul className="flex flex-wrap gap-x-5 gap-y-1.5">
+      {segments.map((s) => (
+        <li key={s.key} className="flex items-center gap-1.5 text-xs">
+          <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: s.color }} aria-hidden="true" />
+          <span className="text-omni-ink-secondary">{s.label}</span>
+          <span className="font-semibold text-omni-ink tabular-nums">{fmt(s.value)}</span>
+          <span className="text-omni-muted tabular-nums">({pct(s.value, total)}%)</span>
+        </li>
+      ))}
+    </ul>
+  </div>
+);
+
+interface HBarRow {
+  key: string;
+  label: string;
+  value: number;
+  display: string;
+  detail?: string;
+  onClick?: () => void;
+}
+
+/** Barras horizontais: rótulo à esquerda, valor à direita, barra fina no meio. */
+const HBars: React.FC<{ rows: HBarRow[]; max: number; color: string; labelWidth?: string }> = ({
+  rows,
+  max,
+  color,
+  labelWidth = 'w-36',
+}) => (
+  <ul className="space-y-1">
+    {rows.map((r) => {
+      const Tag: any = r.onClick ? 'button' : 'div';
+      return (
+        <li key={r.key}>
+          <Tag
+            type={r.onClick ? 'button' : undefined}
+            onClick={r.onClick}
+            title={r.detail ? `${r.label}: ${r.display} · ${r.detail}` : `${r.label}: ${r.display}`}
+            className={`w-full flex items-center gap-3 py-1.5 px-2 -mx-2 rounded-lg text-left ${
+              r.onClick ? 'hover:bg-omni-mist cursor-pointer group' : ''
+            }`}
+          >
+            <span className={`${labelWidth} shrink-0 text-xs text-omni-ink truncate`}>{r.label}</span>
+            <span className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+              <span
+                className="block h-full rounded-full"
+                style={{ width: `${max > 0 ? Math.max((r.value / max) * 100, r.value > 0 ? 2 : 0) : 0}%`, background: color }}
+              />
+            </span>
+            <span className="w-24 shrink-0 text-right">
+              <span className="text-xs font-semibold text-omni-ink tabular-nums">{r.display}</span>
+              {r.detail && <span className="block text-[11px] text-omni-muted tabular-nums">{r.detail}</span>}
+            </span>
+          </Tag>
+        </li>
+      );
+    })}
+  </ul>
+);
+
+/** Anel de progresso para um único percentual (a homologação geral). */
+const Ring: React.FC<{ value: number; color: string }> = ({ value, color }) => {
+  const r = 34;
+  const c = 2 * Math.PI * r;
+  return (
+    <svg width="88" height="88" viewBox="0 0 88 88" className="shrink-0" aria-hidden="true">
+      <circle cx="44" cy="44" r={r} fill="none" stroke="#f1f1f1" strokeWidth="8" />
+      <circle
+        cx="44"
+        cy="44"
+        r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth="8"
+        strokeLinecap="round"
+        strokeDasharray={`${(value / 100) * c} ${c}`}
+        transform="rotate(-90 44 44)"
+      />
+      <text x="44" y="49" textAnchor="middle" className="fill-omni-ink" style={{ fontSize: 17, fontWeight: 700 }}>
+        {value}%
+      </text>
+    </svg>
+  );
+};
+
+const Panel: React.FC<{ title: string; hint?: string; className?: string; children: React.ReactNode }> = ({
+  title,
+  hint,
+  className = '',
+  children,
+}) => (
+  <section className={`panel min-w-0 p-6 space-y-4 ${className}`}>
+    <div className="flex items-baseline justify-between gap-3">
+      <h3 className="text-base font-heading font-bold text-omni-ink">{title}</h3>
+      {hint && <span className="text-xs text-omni-muted text-right">{hint}</span>}
+    </div>
+    {children}
+  </section>
+);
+
+// --- Painel ------------------------------------------------------------------
+
 export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProps> = ({
   artifacts,
   onOpenMap,
   onFilterByProduct,
   selectedProductFilter,
-  onProductFilterChange,
   selectedSubprodutoFilter,
-  onSubprodutoFilterChange,
   selectedMeasurementFilter,
-  onMeasurementFilterChange,
 }) => {
-  const [localProductFilter, setLocalProductFilter] = useState('all');
-  const [localSubprodutoFilter, setLocalSubprodutoFilter] = useState('all');
-  const [localMeasurementFilter, setLocalMeasurementFilter] = useState('all');
+  const [productMetric, setProductMetric] = useState<'mapas' | 'homologacao'>('mapas');
 
-  const effProductFilter = selectedProductFilter !== undefined ? selectedProductFilter : localProductFilter;
-  const effSubprodutoFilter = selectedSubprodutoFilter !== undefined ? selectedSubprodutoFilter : localSubprodutoFilter;
-  const effMeasurementFilter = selectedMeasurementFilter !== undefined ? selectedMeasurementFilter : localMeasurementFilter;
+  const effProduct = selectedProductFilter ?? 'all';
+  const effSubproduto = selectedSubprodutoFilter ?? 'all';
+  const effMeasurement = selectedMeasurementFilter ?? 'all';
 
-  const filteredArtifacts = useMemo(() => {
-    return artifacts.filter(art => {
-      if (effProductFilter !== 'all' && art.produto !== effProductFilter) return false;
-      if (effSubprodutoFilter !== 'all' && (art.subproduto || 'Sem subproduto') !== effSubprodutoFilter) return false;
-      if (effMeasurementFilter !== 'all') {
-        const mc = resolveMeasurementClass(art);
-        if (mc !== effMeasurementFilter) return false;
-      }
-      return true;
-    });
-  }, [artifacts, effProductFilter, effSubprodutoFilter, effMeasurementFilter]);
+  const filtered = useMemo(
+    () =>
+      artifacts.filter((art) => {
+        if (effProduct !== 'all' && art.produto !== effProduct) return false;
+        if (effSubproduto !== 'all' && (art.subproduto || 'Sem subproduto') !== effSubproduto) return false;
+        if (effMeasurement !== 'all' && resolveMeasurementClass(art) !== effMeasurement) return false;
+        return true;
+      }),
+    [artifacts, effProduct, effSubproduto, effMeasurement]
+  );
 
   const stats = useMemo(() => {
-    // 1. Separar explicitamente os artefatos filtrados em conjuntos canônicos
-    const filteredMaps = filteredArtifacts.filter(art => isMap(art) && art.artifact_type === 'MAPA');
-    const filteredDocs = filteredArtifacts.filter(art => isDocumentation(art) && art.artifact_type === 'DOCUMENTACAO');
+    const maps = filtered.filter((a) => isMap(a) && a.artifact_type === 'MAPA');
+    const docs = filtered.filter((a) => isDocumentation(a) && a.artifact_type === 'DOCUMENTACAO');
+    const nodes = filtered.filter((a) => a.artifact_type === 'NO');
+    const unclassified = filtered.filter((a) => a.artifact_type === 'NAO_CLASSIFICADO');
 
-    // 2. Contagens canônicas: nós, raiz e não classificados não entram em totalMaps nem totalArtifacts
-    const totalMaps = filteredMaps.length;
-    const totalDocs = filteredDocs.length;
-    const totalArtifacts = totalMaps + totalDocs;
+    const screenStatus: Record<OfficialStatus, number> = { VALIDADO: 0, 'CORREÇÃO': 0, NOVO: 0, EXCLUIR: 0, DESCONTINUAR: 0 };
+    const mapHomologation = { HOMOLOGADO: 0, PARCIAL: 0, NAO_HOMOLOGADO: 0, NAO_CALCULAVEL: 0 };
+    const measurement: Record<string, number> = { GA4: 0, GA3: 0, HIBRIDO: 0, NAO_CLASSIFICADO: 0 };
+    const params = new Map<string, { count: number; maps: Set<string> }>();
+    const events = new Map<string, number>();
+    const products = new Map<string, { maps: number; screens: number; validated: number }>();
 
     let totalScreens = 0;
     let totalSnippets = 0;
-    let divergentCount = 0;
+    let divergent = 0;
+    let mapsWithoutScreens = 0;
+    let mapsWithCorrection = 0;
+    const screensPerMap: number[] = [];
 
-    const screenStatusCounts: Record<OfficialStatus, number> = {
-      VALIDADO: 0,
-      'CORREÇÃO': 0,
-      NOVO: 0,
-      EXCLUIR: 0,
-      DESCONTINUAR: 0
-    };
-
-    const measurementCounts: Record<string, number> = {
-      GA4: 0,
-      GA3: 0,
-      HIBRIDO: 0,
-      NAO_CLASSIFICADO: 0
-    };
-
-    const paramMap = new Map<string, { count: number; screens: number }>();
-    const patternMap = new Map<string, { count: number; event: string }>();
-    const productStatsMap = new Map<string, { maps: number; screens: number }>();
-
-    // 3. Todas as métricas analíticas consideram exclusivamente MAPA
-    filteredMaps.forEach(art => {
-      if (art.status_divergent) {
-        divergentCount++;
-      }
-
+    maps.forEach((art) => {
       const screens = art.screens || [];
-      // Contagem de status feita estritamente por tela de mapas
-      screens.forEach(sc => {
+      const metrics = getMapStatusMetrics(art);
+      mapHomologation[metrics.homologationStatus] = (mapHomologation[metrics.homologationStatus] || 0) + 1;
+      if (art.status_divergent) divergent++;
+      if (screens.length === 0) mapsWithoutScreens++;
+      if (metrics.correction > 0) mapsWithCorrection++;
+      screensPerMap.push(screens.length);
+
+      let validatedHere = 0;
+      screens.forEach((sc) => {
         const norm = normalizarStatus(sc.status);
         if (norm) {
-          screenStatusCounts[norm]++;
+          screenStatus[norm]++;
           totalScreens++;
+          if (norm === 'VALIDADO') validatedHere++;
         }
-        totalSnippets += (sc.snippets || []).length;
+        (sc.snippets || []).forEach((snip: any) => {
+          totalSnippets++;
+          const evt = String(snip.event_raw || snip.event_normalized || '').trim();
+          if (evt) events.set(evt, (events.get(evt) || 0) + 1);
+        });
       });
 
-      const mClass = resolveMeasurementClass(art);
-      measurementCounts[mClass] = (measurementCounts[mClass] || 0) + 1;
+      measurement[resolveMeasurementClass(art)] = (measurement[resolveMeasurementClass(art)] || 0) + 1;
 
-      // Products aggregation exclusiva para mapas
-      const pName = art.produto || 'Sem Produto';
-      if (!productStatsMap.has(pName)) {
-        productStatsMap.set(pName, { maps: 0, screens: 0 });
-      }
-      const pEntry = productStatsMap.get(pName)!;
-      pEntry.maps += 1;
-      pEntry.screens += screens.length;
+      const pName = art.produto || 'Sem produto';
+      const p = products.get(pName) || { maps: 0, screens: 0, validated: 0 };
+      p.maps++;
+      p.screens += screens.length;
+      p.validated += validatedHere;
+      products.set(pName, p);
 
-      // Parameters aggregation de mapas
-      (art.parameter_summary || []).forEach(p => {
-        const cur = paramMap.get(p.name) || { count: 0, screens: 0 };
-        cur.count += p.occurrences;
-        cur.screens += p.screens_count;
-        paramMap.set(p.name, cur);
-      });
-
-      // Patterns aggregation de mapas
-      (art.pattern_summary || []).forEach(pat => {
-        const cur = patternMap.get(pat.pattern_id) || { count: 0, event: pat.event };
-        cur.count += pat.count;
-        patternMap.set(pat.pattern_id, cur);
+      (art.parameter_summary || []).forEach((ps) => {
+        const cur = params.get(ps.name) || { count: 0, maps: new Set<string>() };
+        cur.count += ps.occurrences;
+        cur.maps.add(String(art.id));
+        params.set(ps.name, cur);
       });
     });
 
-    const validatedScreens = screenStatusCounts.VALIDADO || 0;
-    const taxaHomologacao = totalScreens > 0 ? Math.round((validatedScreens / totalScreens) * 100) : 0;
-    const taxaDivergencia = totalMaps > 0 ? Math.round((divergentCount / totalMaps) * 100) : 0;
-
-    const topParameters = Array.from(paramMap.entries())
-      .sort((a, b) => b[1].count - a[1].count)
-      .slice(0, 10)
-      .map(([name, data]) => ({ name, ...data }));
-
-    const topPatterns = Array.from(patternMap.entries())
-      .sort((a, b) => b[1].count - a[1].count)
-      .slice(0, 5)
-      .map(([id, data]) => ({ id, ...data }));
-
-    const topProductsByMaps = Array.from(productStatsMap.entries())
-      .sort((a, b) => b[1].maps - a[1].maps)
-      .slice(0, 6)
-      .map(([name, data]) => ({ name, ...data }));
-
-    const topProductsByScreens = Array.from(productStatsMap.entries())
-      .sort((a, b) => b[1].screens - a[1].screens)
-      .slice(0, 6)
-      .map(([name, data]) => ({ name, ...data }));
+    screensPerMap.sort((a, b) => a - b);
+    const median = screensPerMap.length ? screensPerMap[Math.floor(screensPerMap.length / 2)] : 0;
 
     return {
-      totalArtifacts,
-      totalMaps,
-      totalDocs,
-      percentMaps: totalArtifacts > 0 ? Math.round((totalMaps / totalArtifacts) * 100) : 0,
-      percentDocs: totalArtifacts > 0 ? Math.round((totalDocs / totalArtifacts) * 100) : 0,
+      maps,
+      totalMaps: maps.length,
+      totalDocs: docs.length,
+      totalNodes: nodes.length,
+      totalUnclassified: unclassified.length,
+      totalPages: maps.length + docs.length + nodes.length + unclassified.length,
       totalScreens,
       totalSnippets,
-      totalParamsCount: paramMap.size,
-      screenStatusCounts,
-      measurementCounts,
-      taxaHomologacao,
-      divergentCount,
-      taxaDivergencia,
-      topParameters,
-      topPatterns,
-      topProductsByMaps,
-      topProductsByScreens
+      screenStatus,
+      mapHomologation,
+      measurement,
+      homologationRate: pct(screenStatus.VALIDADO, totalScreens),
+      divergent,
+      mapsWithoutScreens,
+      mapsWithCorrection,
+      medianScreens: median,
+      topParams: Array.from(params.entries())
+        .map(([name, v]) => ({ name, count: v.count, maps: v.maps.size }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10),
+      distinctParams: params.size,
+      topEvents: Array.from(events.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 8),
+      distinctEvents: events.size,
+      products: Array.from(products.entries()).map(([name, v]) => ({
+        name,
+        ...v,
+        rate: pct(v.validated, v.screens),
+      })),
     };
-  }, [filteredArtifacts]);
+  }, [filtered]);
 
-  const freshness = useMemo(() => getDocumentationFreshness(filteredArtifacts), [filteredArtifacts]);
+  const freshness = useMemo(() => getDocumentationFreshness(filtered), [filtered]);
 
-  const uniqueProducts = useMemo(() => {
-    return Array.from(new Set(artifacts.map(a => a.produto).filter(Boolean))).sort() as string[];
-  }, [artifacts]);
+  const productRows = useMemo(() => {
+    if (productMetric === 'mapas') {
+      return [...stats.products].sort((a, b) => b.maps - a.maps).slice(0, 10);
+    }
+    return stats.products
+      .filter((p) => p.screens > 0)
+      .sort((a, b) => a.rate - b.rate || b.screens - a.screens)
+      .slice(0, 10);
+  }, [stats.products, productMetric]);
+
+  const typeSegments: Segment[] = [
+    { key: 'MAPA', label: 'Mapas', value: stats.totalMaps, color: SERIES[0] },
+    { key: 'DOCUMENTACAO', label: 'Documentações', value: stats.totalDocs, color: SERIES[1] },
+    { key: 'NO', label: 'Nós', value: stats.totalNodes, color: SERIES[2] },
+    ...(stats.totalUnclassified > 0
+      ? [{ key: 'NAO_CLASSIFICADO', label: 'Não classificados', value: stats.totalUnclassified, color: SERIES[3] }]
+      : []),
+  ];
+
+  const measurementSegments: Segment[] = (['GA4', 'GA3', 'HIBRIDO', 'NAO_CLASSIFICADO'] as const).map((k, i) => ({
+    key: k,
+    label: MEASUREMENT_CONFIGS[k].label,
+    value: stats.measurement[k] || 0,
+    color: SERIES[i],
+  }));
+
+  const statusSegments: Segment[] = OFFICIAL_STATUSES.map((s) => ({
+    key: s,
+    label: STATUS_CONFIGS[s].label,
+    value: stats.screenStatus[s] || 0,
+    color: STATUS_CONFIGS[s].hex,
+  }));
+
+  const homologationSegments: Segment[] = (['HOMOLOGADO', 'PARCIAL', 'NAO_HOMOLOGADO', 'NAO_CALCULAVEL'] as const)
+    .map((k) => ({
+      key: k,
+      label: HOMOLOGATION_CONFIGS[k].label,
+      value: stats.mapHomologation[k] || 0,
+      color: { HOMOLOGADO: '#10b981', PARCIAL: '#f59e0b', NAO_HOMOLOGADO: '#94a3b8', NAO_CALCULAVEL: '#d1d5db' }[k],
+    }))
+    .filter((s) => s.key !== 'NAO_CALCULAVEL' || s.value > 0);
+
+  const ga3Share = pct(stats.measurement.GA3 + stats.measurement.HIBRIDO, stats.totalMaps);
+
+  const attention = [
+    {
+      key: 'correcao',
+      icon: Wrench,
+      value: stats.screenStatus['CORREÇÃO'],
+      label: 'telas pedindo correção',
+      detail: `em ${fmt(stats.mapsWithCorrection)} ${stats.mapsWithCorrection === 1 ? 'mapa' : 'mapas'}`,
+    },
+    {
+      key: 'divergente',
+      icon: GitCompareArrows,
+      value: stats.divergent,
+      label: 'mapas com status divergente',
+      detail: 'cabeçalho diz uma coisa, telas dizem outra',
+    },
+    {
+      key: 'legado',
+      icon: RefreshCcw,
+      value: stats.measurement.GA3 + stats.measurement.HIBRIDO,
+      label: 'mapas ainda com Universal Analytics',
+      detail: `${ga3Share}% dos mapas (GA3 ou híbrido)`,
+    },
+    {
+      key: 'semtelas',
+      icon: FileWarning,
+      value: stats.mapsWithoutScreens,
+      label: 'mapas sem telas reconhecidas',
+      detail: 'homologação não calculável',
+    },
+  ];
 
   return (
     <div className="space-y-6 animate-fade-in w-full min-w-0 max-w-full overflow-x-hidden">
       <PageHeader
         title="Insights"
-        subtitle="Quanto da mensuração está homologada, o que ainda é Universal Analytics e quais parâmetros se repetem."
+        subtitle="O tamanho do inventário, quanto já está homologado, o que ainda é Universal Analytics e onde agir primeiro."
       />
 
-      {/* Top 4 Primary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Card 1: Total Artefatos */}
-        <div className="panel min-w-0 p-6 relative overflow-hidden">
-          <div className="w-10 h-10 rounded-xl bg-gray-100 text-omni-ink-secondary border border-omni-line flex items-center justify-center mb-3">
-            <Target className="w-5 h-5" />
+      {/* 1. Números principais */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Mapas', value: stats.totalMaps, detail: `mediana de ${stats.medianScreens} telas por mapa` },
+          { label: 'Telas', value: stats.totalScreens, detail: `${fmt(stats.totalSnippets)} snippets` },
+          { label: 'Eventos distintos', value: stats.distinctEvents, detail: `${fmt(stats.distinctParams)} parâmetros distintos` },
+          { label: 'Documentações e nós', value: stats.totalDocs + stats.totalNodes, detail: `${fmt(stats.totalDocs)} docs e ${fmt(stats.totalNodes)} nós` },
+        ].map((k) => (
+          <div key={k.label} className="panel p-5 min-w-0">
+            <p className="text-xs font-medium text-omni-muted">{k.label}</p>
+            <p className="kpi-number text-3xl font-bold text-omni-ink tabular-nums mt-1">{fmt(k.value)}</p>
+            <p className="text-[11.5px] text-omni-muted mt-1.5 truncate" title={k.detail}>
+              {k.detail}
+            </p>
           </div>
-          <p className="text-xs font-ui font-medium text-omni-muted">Artefatos catalogados</p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <p className="kpi-number text-3xl font-bold text-omni-ink tabular-nums">{stats.totalArtifacts}</p>
-            <span className="text-xs font-ui text-omni-muted">
-              ({stats.totalMaps} Mapas • {stats.totalDocs} Docs)
-            </span>
-          </div>
-          {/* Progress bar map vs doc */}
-          <div className="w-full bg-gray-100 h-2 rounded-full mt-4 overflow-hidden flex">
-            <div style={{ width: `${stats.percentMaps}%` }} className="bg-bradesco-red h-full" title={`Mapas: ${stats.percentMaps}%`} />
-            <div style={{ width: `${stats.percentDocs}%` }} className="bg-gray-400 h-full" title={`Docs: ${stats.percentDocs}%`} />
-          </div>
-        </div>
-
-        {/* Card 2: Telas & Snippets */}
-        <div className="panel min-w-0 p-6 relative overflow-hidden">
-          <div className="w-10 h-10 rounded-xl bg-gray-100 text-omni-ink-secondary border border-omni-line flex items-center justify-center mb-3">
-            <Layers className="w-5 h-5" />
-          </div>
-          <p className="text-xs font-ui font-medium text-omni-muted">Telas e snippets</p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <p className="kpi-number text-3xl font-bold text-omni-ink tabular-nums">{stats.totalScreens}</p>
-            <span className="text-xs font-ui font-medium text-omni-ink-secondary">
-              telas estruturadas
-            </span>
-          </div>
-          <p className="text-[11px] font-ui text-omni-muted mt-2">
-            {stats.totalSnippets} snippets dataLayer associados
-          </p>
-        </div>
-
-        {/* Card 3: Taxa de Homologação */}
-        <div className="panel min-w-0 p-6 relative overflow-hidden">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center mb-3">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-          <p className="text-xs font-ui font-medium text-omni-muted">Taxa de homologação</p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <p className="kpi-number text-3xl font-bold text-emerald-600 tabular-nums">{stats.taxaHomologacao}%</p>
-            <span className="text-xs font-ui text-omni-muted">
-              ({stats.screenStatusCounts.VALIDADO} validadas)
-            </span>
-          </div>
-          <p className="text-[11px] font-ui text-omni-muted mt-2">
-            {stats.screenStatusCounts['CORREÇÃO']} telas requerem correção
-          </p>
-        </div>
-
-        {/* Card 4: Parâmetros Distintos */}
-        <div className="panel min-w-0 p-6 relative overflow-hidden">
-          <div className="w-10 h-10 rounded-xl bg-gray-100 text-omni-ink-secondary border border-omni-line flex items-center justify-center mb-3">
-            <Tag className="w-5 h-5" />
-          </div>
-          <p className="text-xs font-ui font-medium text-omni-muted">Parâmetros mapeados</p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <p className="kpi-number text-3xl font-bold text-omni-ink tabular-nums">{stats.totalParamsCount}</p>
-            <span className="text-xs font-ui text-omni-muted">distintos</span>
-          </div>
-          <p className="text-[11px] font-ui text-omni-muted mt-2">
-            Taxa de divergência: <strong className={stats.taxaDivergencia > 0 ? 'text-amber-600' : 'text-emerald-600'}>{stats.taxaDivergencia}%</strong>
-          </p>
-        </div>
+        ))}
       </div>
 
-      {/* Row 2: Distribuição de Status Real das Telas + Classificação de Mensuração */}
+      {/* 2. Composição do inventário + homologação geral */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Status Reais breakdown */}
-        <div className="lg:col-span-7 panel p-6 md:p-8 space-y-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-heading font-bold text-omni-ink">
-              Distribuição de status das telas
-            </h3>
-            <span className="text-xs font-ui text-omni-muted">Apurados tela a tela</span>
+        <Panel title="Composição do inventário" hint={`${fmt(stats.totalPages)} páginas sincronizadas`} className="lg:col-span-7">
+          <StackedBar segments={typeSegments} total={stats.totalPages} unit="páginas" />
+          <div className="pt-2 border-t border-omni-line">
+            <p className="text-xs font-medium text-omni-ink-secondary mb-3">Mensuração dos mapas</p>
+            <StackedBar segments={measurementSegments} total={stats.totalMaps} unit="mapas" />
           </div>
+        </Panel>
 
-          <div className="space-y-3 font-ui">
-            {OFFICIAL_STATUSES.map((status) => ({
-              label: STATUS_CONFIGS[status].label,
-              count: stats.screenStatusCounts[status] || 0,
-              color: STATUS_CONFIGS[status].badgeBg,
-            })).map(st => {
-              const pct = stats.totalScreens > 0 ? Math.round((st.count / stats.totalScreens) * 100) : 0;
-              return (
-                <div key={st.label} className="space-y-1">
-                  <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-omni-ink-secondary">{st.label}</span>
-                    <span className="text-omni-muted tabular-nums">{st.count} telas ({pct}%)</span>
-                  </div>
-                  <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
-                    <div style={{ width: `${pct}%` }} className={`h-full ${st.color} rounded-full transition-all duration-500`} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Mensuração breakdown */}
-        <div className="lg:col-span-5 panel p-6 md:p-8 space-y-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-heading font-bold text-omni-ink">
-              Maturidade da mensuração
-            </h3>
-            <span className="text-xs font-ui text-omni-muted">GA4 vs GA3</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 pt-2 font-ui">
-            <div className="p-4 rounded-xl bg-gray-50/80 border border-omni-line text-center">
-              <span className="text-xs font-medium text-omni-ink-secondary block">{MEASUREMENT_CONFIGS.GA4.label}</span>
-              <span className="text-2xl font-heading font-bold text-omni-ink tabular-nums">{stats.measurementCounts.GA4 || 0}</span>
-              <span className="text-[11px] text-omni-muted block mt-1">Padrão moderno</span>
-            </div>
-            <div className="p-4 rounded-xl bg-gray-50/80 border border-omni-line text-center">
-              <span className="text-xs font-medium text-omni-ink-secondary block">{MEASUREMENT_CONFIGS.GA3.label}</span>
-              <span className="text-2xl font-heading font-bold text-omni-ink tabular-nums">{stats.measurementCounts.GA3 || 0}</span>
-              <span className="text-[11px] text-omni-muted block mt-1">Legado</span>
-            </div>
-            <div className="p-4 rounded-xl bg-gray-50/80 border border-omni-line text-center">
-              <span className="text-xs font-medium text-omni-ink-secondary block">{MEASUREMENT_CONFIGS.HIBRIDO.label}</span>
-              <span className="text-2xl font-heading font-bold text-omni-ink tabular-nums">{stats.measurementCounts.HIBRIDO || 0}</span>
-              <span className="text-[11px] text-omni-muted block mt-1">Transição</span>
-            </div>
-            <div className="p-4 rounded-xl bg-gray-50/80 border border-omni-line text-center">
-              <span className="text-xs font-medium text-omni-ink-secondary block">{MEASUREMENT_CONFIGS.NAO_CLASSIFICADO.label}</span>
-              <span className="text-2xl font-heading font-bold text-omni-ink tabular-nums">{stats.measurementCounts.NAO_CLASSIFICADO || 0}</span>
-              <span className="text-[11px] text-omni-muted block mt-1">Sem evidência</span>
+        <Panel title="Homologação" hint="telas validadas sobre o total" className="lg:col-span-5">
+          <div className="flex items-center gap-5">
+            <Ring value={stats.homologationRate} color="#10b981" />
+            <div className="min-w-0 space-y-1">
+              <p className="text-sm text-omni-ink">
+                <span className="font-semibold tabular-nums">{fmt(stats.screenStatus.VALIDADO)}</span> de{' '}
+                <span className="tabular-nums">{fmt(stats.totalScreens)}</span> telas validadas.
+              </p>
+              <p className="text-xs text-omni-muted">
+                {fmt(stats.mapHomologation.HOMOLOGADO)} {stats.mapHomologation.HOMOLOGADO === 1 ? 'mapa está' : 'mapas estão'} 100% homologados.
+              </p>
             </div>
           </div>
-        </div>
+          <div className="pt-2 border-t border-omni-line">
+            <p className="text-xs font-medium text-omni-ink-secondary mb-3">Mapas por situação</p>
+            <StackedBar segments={homologationSegments} total={stats.totalMaps} unit="mapas" />
+          </div>
+        </Panel>
       </div>
 
-      {/* Row 3: Top Parâmetros + Top Padrões de Eventos */}
+      {/* 3. Onde agir */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {attention.map(({ key, icon: Icon, value, label, detail }) => (
+          <div key={key} className="panel p-5 flex gap-3 min-w-0">
+            <div
+              className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border ${
+                value > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              }`}
+            >
+              {value > 0 ? <Icon className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-bold text-omni-ink tabular-nums leading-none">{fmt(value)}</p>
+              <p className="text-xs font-medium text-omni-ink mt-1.5">{label}</p>
+              <p className="text-[11px] text-omni-muted mt-0.5">{detail}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 4. Status das telas + produtos */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Top 10 Parâmetros */}
-        <div className="lg:col-span-7 panel p-6 md:p-8 space-y-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-base font-heading font-bold text-omni-ink flex items-center gap-2">
-              <Tag className="w-4 h-4 text-omni-muted" />
-              Top 10 parâmetros mais utilizados
-            </h3>
-            <span className="text-xs font-ui text-omni-muted">Frequência em snippets</span>
-          </div>
+        <Panel title="Status das telas" hint="apurado tela a tela" className="lg:col-span-5">
+          <HBars
+            rows={statusSegments.map((s) => ({
+              key: s.key,
+              label: s.label,
+              value: s.value,
+              display: fmt(s.value),
+              detail: `${pct(s.value, stats.totalScreens)}%`,
+            }))}
+            max={Math.max(...statusSegments.map((s) => s.value), 1)}
+            color="#7B0209"
+            labelWidth="w-24"
+          />
+        </Panel>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {stats.topParameters.map((param, idx) => (
-              <div 
-                key={param.name}
-                className="p-3 bg-gray-50/80 rounded-xl border border-omni-line flex items-center justify-between"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-xs font-heading font-bold text-omni-muted w-5">#{idx + 1}</span>
-                  <span className="font-mono text-xs font-semibold text-omni-ink truncate">
-                    {param.name}
-                  </span>
-                </div>
-                <div className="text-right shrink-0 font-ui">
-                  <span className="text-xs font-heading font-bold text-omni-ink tabular-nums">{param.count}x</span>
-                  <span className="text-[11px] text-omni-muted block tabular-nums">{param.screens} telas</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Top 5 Padrões de Eventos */}
-        <div className="lg:col-span-5 panel p-6 md:p-8 space-y-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-base font-heading font-bold text-omni-ink flex items-center gap-2">
-              <Code2 className="w-4 h-4 text-omni-muted" />
-              Padrões de eventos recorrentes
-            </h3>
-          </div>
-
-          <div className="space-y-3">
-            {stats.topPatterns.length === 0 ? (
-              <p className="text-xs font-ui text-omni-muted italic">Nenhum padrão estrutural catalogado.</p>
-            ) : (
-              stats.topPatterns.map((pat) => (
-                <div 
-                  key={pat.id}
-                  className="p-3.5 bg-gray-50/80 rounded-xl border border-omni-line grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-3 overflow-hidden"
+        <Panel title="Produtos" className="lg:col-span-7">
+          <div className="flex items-center justify-between gap-3 -mt-2">
+            <p className="text-xs text-omni-muted">
+              {productMetric === 'mapas' ? 'Os 10 com mais mapas.' : 'Os 10 com menor homologação (com telas).'} Clique para abrir no Inventário.
+            </p>
+            <div className="inline-flex rounded-lg border border-omni-line p-0.5 shrink-0" role="group" aria-label="Métrica dos produtos">
+              {(
+                [
+                  ['mapas', 'Mapas'],
+                  ['homologacao', 'Homologação'],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setProductMetric(id)}
+                  aria-pressed={productMetric === id}
+                  className={`px-2.5 h-7 rounded-md text-xs font-semibold cursor-pointer ${
+                    productMetric === id ? 'bg-omni-ink text-white' : 'text-omni-ink-secondary hover:text-omni-ink'
+                  }`}
                 >
-                  <div className="min-w-0 w-full max-w-full overflow-hidden">
-                    <span className="font-mono text-xs font-semibold text-omni-ink block">
-                      {pat.event || pat.id}
-                    </span>
-                    <span 
-                      className="text-[11px] font-ui font-medium text-omni-muted block min-w-0 max-w-full whitespace-normal"
-                      style={{
-                        overflowWrap: 'anywhere',
-                        wordBreak: 'break-all'
-                      }}
-                    >
-                      ID: {pat.id}
-                    </span>
-                  </div>
-                  <span className="shrink-0 whitespace-nowrap px-2.5 py-1 bg-white text-xs font-heading font-bold text-omni-ink rounded-lg border border-omni-line tabular-nums">
-                    {pat.count}x
-                  </span>
-                </div>
-              ))
-            )}
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+          <HBars
+            rows={productRows.map((p) => ({
+              key: p.name,
+              label: p.name,
+              value: productMetric === 'mapas' ? p.maps : p.rate,
+              display: productMetric === 'mapas' ? `${fmt(p.maps)} ${p.maps === 1 ? 'mapa' : 'mapas'}` : `${p.rate}%`,
+              detail: productMetric === 'mapas' ? `${fmt(p.screens)} telas` : `${fmt(p.validated)}/${fmt(p.screens)} telas`,
+              onClick: () => onFilterByProduct(p.name),
+            }))}
+            max={productMetric === 'mapas' ? Math.max(...productRows.map((p) => p.maps), 1) : 100}
+            color={productMetric === 'mapas' ? '#2a78d6' : '#10b981'}
+          />
+        </Panel>
       </div>
 
-      {/* Row 4: Ranking de Produtos por Mapas e por Telas */}
+      {/* 5. Eventos e parâmetros */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="panel min-w-0 p-6 md:p-8 space-y-4">
-          <h3 className="text-base font-heading font-bold text-omni-ink">
-            Ranking de produtos por quantidade de mapas
-          </h3>
-          <div className="space-y-2">
-            {stats.topProductsByMaps.map((p, idx) => (
-              <div 
-                key={p.name}
-                onClick={() => onFilterByProduct(p.name)}
-                className="p-3 bg-gray-50 hover:bg-[#FBF7F8] rounded-xl border border-omni-line flex items-center justify-between cursor-pointer transition-all"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-heading font-bold text-omni-muted w-5">#{idx + 1}</span>
-                  <span className="text-xs font-ui font-semibold text-omni-ink">{p.name}</span>
-                </div>
-                <div className="flex items-center gap-2 font-ui">
-                  <span className="text-xs font-heading font-bold text-omni-bordo tabular-nums">{p.maps} mapas</span>
-                  <ArrowUpRight className="w-3.5 h-3.5 text-omni-muted" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <Panel title="Eventos mais disparados" hint="snippets por evento">
+          {stats.topEvents.length === 0 ? (
+            <p className="text-xs text-omni-muted">Nenhum evento catalogado para os filtros atuais.</p>
+          ) : (
+            <HBars
+              rows={stats.topEvents.map((e) => ({
+                key: e.name,
+                label: e.name,
+                value: e.count,
+                display: fmt(e.count),
+                detail: `${pct(e.count, stats.totalSnippets)}% dos snippets`,
+              }))}
+              max={stats.topEvents[0]?.count || 1}
+              color="#2a78d6"
+              labelWidth="w-40 font-mono"
+            />
+          )}
+        </Panel>
 
-        <div className="panel min-w-0 p-6 md:p-8 space-y-4">
-          <h3 className="text-base font-heading font-bold text-omni-ink">
-            Ranking de produtos por quantidade de telas
-          </h3>
-          <div className="space-y-2">
-            {stats.topProductsByScreens.map((p, idx) => (
-              <div 
-                key={p.name}
-                onClick={() => onFilterByProduct(p.name)}
-                className="p-3 bg-gray-50 hover:bg-[#FBF7F8] rounded-xl border border-omni-line flex items-center justify-between cursor-pointer transition-all"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-heading font-bold text-omni-muted w-5">#{idx + 1}</span>
-                  <span className="text-xs font-ui font-semibold text-omni-ink">{p.name}</span>
-                </div>
-                <div className="flex items-center gap-2 font-ui">
-                  <span className="text-xs font-heading font-bold text-omni-ink tabular-nums">{p.screens} telas</span>
-                  <ArrowUpRight className="w-3.5 h-3.5 text-omni-muted" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <Panel title="Parâmetros mais usados" hint="ocorrências e mapas">
+          {stats.topParams.length === 0 ? (
+            <p className="text-xs text-omni-muted">Nenhum parâmetro catalogado para os filtros atuais.</p>
+          ) : (
+            <HBars
+              rows={stats.topParams.map((p) => ({
+                key: p.name,
+                label: p.name,
+                value: p.count,
+                display: `${fmt(p.count)}x`,
+                detail: `em ${fmt(p.maps)} ${p.maps === 1 ? 'mapa' : 'mapas'}`,
+              }))}
+              max={stats.topParams[0]?.count || 1}
+              color="#2a78d6"
+              labelWidth="w-40 font-mono"
+            />
+          )}
+        </Panel>
       </div>
 
-      {/* Row 5: Atualização da documentação (unificado a partir dos antigos "Insights operacionais") */}
+      {/* 6. Atualização da documentação */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-5 panel p-6 md:p-8 space-y-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-heading font-bold text-omni-ink">Idade da documentação</h3>
-            <span className="text-xs font-ui text-omni-muted tabular-nums">{freshness.total} mapas e documentações</span>
+        <Panel title="Idade da documentação" hint={`${fmt(freshness.total)} mapas e documentações`} className="lg:col-span-5">
+          <div className="flex h-3 w-full rounded-full overflow-hidden bg-gray-100 gap-[2px]" aria-hidden="true">
+            {freshness.buckets
+              .filter((b) => b.count > 0)
+              .map((b) => (
+                <div key={b.id} className={b.colorClass} style={{ width: `${b.percent}%` }} title={`${b.label}: ${b.count}`} />
+              ))}
           </div>
-          <div className="flex h-2.5 w-full rounded-full overflow-hidden bg-gray-100" aria-hidden="true">
+          <ul className="space-y-2">
             {freshness.buckets.map((b) => (
-              <div key={b.id} className={b.colorClass} style={{ width: `${b.percent}%` }} />
-            ))}
-          </div>
-          <div className="space-y-2.5 font-ui">
-            {freshness.buckets.map((b) => (
-              <div key={b.id} className="flex items-center justify-between text-xs">
+              <li key={b.id} className="flex items-center justify-between text-xs">
                 <span className="flex items-center gap-2 text-omni-ink-secondary">
-                  <span className={`w-2.5 h-2.5 rounded-full ${b.colorClass}`} aria-hidden="true" />
+                  <span className={`w-2.5 h-2.5 rounded-sm ${b.colorClass}`} aria-hidden="true" />
                   {b.label}
                 </span>
-                <span className="text-omni-muted tabular-nums">{b.count} ({b.percent}%)</span>
-              </div>
+                <span className="text-omni-muted tabular-nums">
+                  <span className="font-semibold text-omni-ink">{fmt(b.count)}</span> ({b.percent}%)
+                </span>
+              </li>
             ))}
-          </div>
-        </div>
+          </ul>
+        </Panel>
 
-        <div className="lg:col-span-7 panel p-6 md:p-8 space-y-4">
-          <h3 className="text-base font-heading font-bold text-omni-ink">Atualizados recentemente</h3>
+        <Panel title="Atualizados recentemente" className="lg:col-span-7">
           {freshness.recent.length === 0 ? (
             <p className="text-xs text-omni-muted">Nenhum artefato com data de atualização para os filtros atuais.</p>
           ) : (
-            <ul className="divide-y divide-omni-line">
+            <ul className="divide-y divide-omni-line -my-1">
               {freshness.recent.map(({ artifact }) => (
                 <li key={artifact.id}>
                   <button
                     type="button"
                     onClick={() => onOpenMap(artifact)}
-                    className="w-full flex items-center justify-between gap-4 py-2.5 text-left hover:text-omni-bordo cursor-pointer"
+                    className="w-full flex items-center justify-between gap-4 py-2.5 text-left group cursor-pointer"
                   >
                     <span className="min-w-0">
-                      <span className="block text-[13px] font-semibold text-omni-ink truncate">{artifact.titulo}</span>
+                      <span className="block text-[13px] font-semibold text-omni-ink truncate group-hover:text-omni-bordo">
+                        {artifact.titulo}
+                      </span>
                       <span className="block text-[11.5px] text-omni-muted truncate">
                         {[artifact.produto, artifact.subproduto].filter(Boolean).join(' › ') || 'Sem produto'}
-                        {artifact.responsavel ? ` | ${artifact.responsavel}` : ''}
+                        {artifact.responsavel && artifact.responsavel !== '-' ? ` | ${artifact.responsavel}` : ''}
                       </span>
                     </span>
-                    <span className="shrink-0 text-[11.5px] text-omni-muted tabular-nums">{formatDataBR(artifact.ultima_atualizacao)}</span>
+                    <span className="shrink-0 flex items-center gap-1.5 text-[11.5px] text-omni-muted tabular-nums">
+                      {formatDataBR(artifact.ultima_atualizacao)}
+                      <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100" />
+                    </span>
                   </button>
                 </li>
               ))}
             </ul>
           )}
-        </div>
+        </Panel>
       </div>
     </div>
   );

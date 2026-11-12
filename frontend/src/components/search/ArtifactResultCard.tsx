@@ -11,7 +11,7 @@ import { resolveArtifactTaxonomy } from '../../utils/taxonomyResolver';
 export interface ArtifactResultCardProps {
   item: Artifact;
   activeSearch?: {
-    mode?: 'conteudo' | 'parametros' | 'ia';
+    mode?: 'conteudo' | 'parametros' | 'pergunta';
     query?: string;
     contentMatches?: Record<string, {
       matchType?: string;
@@ -33,6 +33,16 @@ export interface ArtifactResultCardProps {
         rawCodePreview?: string;
         rawCodeFull?: string;
       }>;
+    }>;
+    questionMatches?: Record<string, {
+      reason: string;
+      evidence: string[];
+      confidence: 'ALTA' | 'MEDIA' | 'BAIXA';
+      screenId?: string;
+      screenIndex?: number;
+      screenTitle?: string;
+      snippetIndex?: number;
+      event?: string;
     }>;
   } | null;
   onOpenDetails: (item: Artifact) => void;
@@ -98,6 +108,10 @@ export const ArtifactResultCard: React.FC<ArtifactResultCardProps> = ({
   const paramGroup = activeSearch?.mode === 'parametros' ? activeSearch?.parameterGroups?.[item.id] : null;
   const firstOcc = paramGroup?.occurrences?.[0];
 
+  // Evidência da busca por pergunta
+  const questionMatch = activeSearch?.mode === 'pergunta' ? activeSearch?.questionMatches?.[item.id] : null;
+  const COVERAGE_LABEL = { ALTA: 'Todos os termos', MEDIA: 'Parte dos termos', BAIXA: 'Poucos termos' } as const;
+
   return (
     <article className="panel p-5 sm:p-6 hover:border-omni-bordo/30 hover:shadow-neu-card-hover transition-all relative flex flex-col gap-3 group">
       {/* Linha 1: Caminho e match badge */}
@@ -108,6 +122,20 @@ export const ArtifactResultCard: React.FC<ArtifactResultCardProps> = ({
         >
           {breadcrumb}
         </span>
+
+        {questionMatch && (
+          <span
+            className={`shrink-0 px-2.5 py-0.5 rounded-md text-[11px] font-medium font-sans border ${
+              questionMatch.confidence === 'ALTA'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : questionMatch.confidence === 'MEDIA'
+                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                : 'bg-gray-100 text-omni-ink-secondary border-omni-line'
+            }`}
+          >
+            {COVERAGE_LABEL[questionMatch.confidence]}
+          </span>
+        )}
 
         {contentMatch && (
           <span
@@ -190,6 +218,33 @@ export const ArtifactResultCard: React.FC<ArtifactResultCardProps> = ({
           </>
         )}
       </div>
+
+      {/* Linha 4 (quando aplicável): por que a pergunta trouxe este artefato */}
+      {questionMatch && (questionMatch.reason || questionMatch.evidence.length > 0) && (
+        <div className="mt-1 p-3.5 rounded-xl bg-omni-mist border border-omni-line flex flex-col gap-2">
+          {questionMatch.reason && <p className="text-[13px] text-omni-ink leading-relaxed">{questionMatch.reason}</p>}
+          {questionMatch.evidence.length > 0 && (
+            <ul className="flex flex-col gap-1">
+              {questionMatch.evidence.map((ev, i) => (
+                <li key={i} className="text-xs text-omni-ink-secondary leading-relaxed pl-3 relative before:content-[''] before:absolute before:left-0 before:top-[7px] before:w-1 before:h-1 before:rounded-full before:bg-omni-bordo/60">
+                  {ev}
+                </li>
+              ))}
+            </ul>
+          )}
+          {questionMatch.screenId && onOpenSnippet && (
+            <button
+              type="button"
+              onClick={() => onOpenSnippet(item, { screenId: questionMatch.screenId, snippetIndex: questionMatch.snippetIndex ?? 0 })}
+              className="self-start inline-flex items-center gap-1.5 text-xs font-semibold text-omni-bordo hover:underline cursor-pointer"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              Abrir {questionMatch.screenTitle ? questionMatch.screenTitle.split(':')[0] : 'tela'}
+              {questionMatch.event ? ` · ${questionMatch.event}` : ''}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Linha 4 (quando aplicável): Evidência de busca por parâmetros */}
       {paramGroup && (

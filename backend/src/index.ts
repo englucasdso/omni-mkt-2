@@ -7,7 +7,6 @@
  */
 
 import 'dotenv/config';
-console.log('DEV SERVER GEMINI_API_KEY:', process.env.GEMINI_API_KEY ? 'Present' : 'Undefined');
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";

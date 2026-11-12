@@ -253,19 +253,32 @@ export interface ContentMatchSummary {
 }
 
 export interface ActiveSearch {
-  mode: 'conteudo' | 'parametros' | 'ia';
+  mode: 'conteudo' | 'parametros' | 'pergunta';
   query: string;
   resultsCount: number;
   timestamp: number;
   filteredIds: string[];
   parameterCriteria?: any[];
-  aiQuestion?: string;
+  questionText?: string;
   scope?: 'SNIPPET' | 'SCREEN';
   operator?: 'AND' | 'OR';
   parameterGroups?: Record<string, ParameterArtifactGroupSummary>;
   contentMatches?: Record<string, ContentMatchSummary>;
   matchedTerms?: string[];
   queryKind?: string;
+  questionMessage?: string;
+  questionMatches?: Record<string, QuestionMatchSummary>;
+}
+
+export interface QuestionMatchSummary {
+  reason: string;
+  evidence: string[];
+  confidence: 'ALTA' | 'MEDIA' | 'BAIXA';
+  screenId?: string;
+  screenIndex?: number;
+  screenTitle?: string;
+  snippetIndex?: number;
+  event?: string;
 }
 
 
