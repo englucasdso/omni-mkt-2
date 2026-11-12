@@ -9,6 +9,7 @@ import {
   useNodesState,
   useEdgesState,
   useReactFlow,
+  useNodesInitialized,
   Node,
   Edge,
   ReactFlowProvider
@@ -18,6 +19,10 @@ import dagre from 'dagre';
 import { AlertCircle } from 'lucide-react';
 import { Artifact } from '../types';
 import { isMap, isDocumentation, isRoot, isCataloged } from '../domain/artifacts';
+
+// Pontos de ancoragem das linhas: invisíveis e sem arrastar.
+// O OMNI só lê a árvore; não existe criar ligação manual entre os cartões.
+const HIDDEN_HANDLE = '!w-px !h-px !min-w-0 !min-h-0 !bg-transparent !border-0 !opacity-0 !pointer-events-none';
 
 // ==========================================
 // Custom Nodes
@@ -37,7 +42,7 @@ const ProdutoNode = React.memo(({ data }: any) => {
   const isSelected = data.isSelected;
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800 opacity-0" />
+      <Handle type="target" position={Position.Top} className={HIDDEN_HANDLE} isConnectable={false} />
       <div
         role="button"
         tabIndex={0}
@@ -54,7 +59,7 @@ const ProdutoNode = React.memo(({ data }: any) => {
         <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Produto</span>
         <h4 className="text-base font-heading font-bold text-gray-900 dark:text-slate-50 tracking-tight leading-tight line-clamp-2 group-hover:text-[#7B0209] transition-colors">{data.label}</h4>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-[#7B0209] !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="source" position={Position.Bottom} className={HIDDEN_HANDLE} isConnectable={false} />
     </>
   );
 });
@@ -63,7 +68,7 @@ const SubprodutoNode = React.memo(({ data }: any) => {
   const isSelected = data.isSelected;
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="target" position={Position.Top} className={HIDDEN_HANDLE} isConnectable={false} />
       <div
         role="button"
         tabIndex={0}
@@ -80,7 +85,7 @@ const SubprodutoNode = React.memo(({ data }: any) => {
         <span className="text-[10px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Subproduto</span>
         <h4 className="text-sm font-heading font-bold text-gray-800 dark:text-slate-100 tracking-tight line-clamp-2 group-hover:text-[#E30328] transition-colors">{data.label}</h4>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="source" position={Position.Bottom} className={HIDDEN_HANDLE} isConnectable={false} />
     </>
   );
 });
@@ -89,7 +94,7 @@ const CategoriaNode = React.memo(({ data }: any) => {
   const isSelected = data.isSelected;
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="target" position={Position.Top} className={HIDDEN_HANDLE} isConnectable={false} />
       <div
         role="button"
         tabIndex={0}
@@ -106,7 +111,7 @@ const CategoriaNode = React.memo(({ data }: any) => {
         <span className="text-[9px] font-ui font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Categoria</span>
         <h4 className="text-xs font-heading font-bold text-gray-800 dark:text-slate-100 tracking-tight line-clamp-2 transition-colors">{data.label}</h4>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="source" position={Position.Bottom} className={HIDDEN_HANDLE} isConnectable={false} />
     </>
   );
 });
@@ -115,7 +120,7 @@ const MapaNode = React.memo(({ data }: any) => {
   const isSelected = data.isSelected;
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="target" position={Position.Top} className={HIDDEN_HANDLE} isConnectable={false} />
       <div 
         role="button"
         tabIndex={0}
@@ -148,7 +153,8 @@ const MapaNode = React.memo(({ data }: any) => {
       <Handle 
         type="source" 
         position={Position.Bottom} 
-        className={`!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800 ${data.hasChildren ? '' : 'opacity-0'}`} 
+        className={HIDDEN_HANDLE}
+        isConnectable={false}
       />
     </>
   );
@@ -158,7 +164,7 @@ const DocumentoNode = React.memo(({ data }: any) => {
   const isSelected = data.isSelected;
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800" />
+      <Handle type="target" position={Position.Top} className={HIDDEN_HANDLE} isConnectable={false} />
       <div 
         role="button"
         tabIndex={0}
@@ -191,7 +197,8 @@ const DocumentoNode = React.memo(({ data }: any) => {
       <Handle 
         type="source" 
         position={Position.Bottom} 
-        className={`!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white dark:!border-slate-800 ${data.hasChildren ? '' : 'opacity-0'}`} 
+        className={HIDDEN_HANDLE}
+        isConnectable={false}
       />
     </>
   );
@@ -283,6 +290,8 @@ interface ConexoesCanvasInnerProps {
   data: Artifact[];
   selectedItemId?: string | null;
   targetArtifactId?: string | null;
+  /** Muda a cada pedido de "Acessar na árvore", para recentralizar mesmo no mesmo mapa */
+  targetRequestKey?: number;
   onClearTargetArtifactId?: () => void;
   onOpenMap?: (map: Artifact) => void;
   onOpenItem?: (item: Artifact) => void;
@@ -292,12 +301,18 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
   data,
   selectedItemId,
   targetArtifactId,
+  targetRequestKey,
   onClearTargetArtifactId,
   onOpenMap,
   onOpenItem,
   onSelectItem
 }) => {
   const reactFlowInstance = useReactFlow();
+  // Verdadeiro quando todos os nós já foram desenhados e medidos na tela
+  const nodesInitialized = useNodesInitialized();
+  // Nó que a câmera deve centralizar assim que a árvore estiver desenhada
+  const [centerRequestId, setCenterRequestId] = useState<string | null>(null);
+  const lastProcessedKeyRef = useRef<number | undefined>(undefined);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   
@@ -349,6 +364,9 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
     return { roots: topLevel, byParent: mapByParent, byId: mapById };
   }, [data]);
 
+  const selectedItemIdRef = useRef(selectedItemId);
+  selectedItemIdRef.current = selectedItemId;
+
   const onSelectItemRef = useRef(onSelectItem);
   useEffect(() => {
     onSelectItemRef.current = onSelectItem;
@@ -362,7 +380,8 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
       return;
     }
 
-    if (lastProcessedTargetIdRef.current === targetArtifactId) {
+    // Mesmo alvo e mesmo pedido: nada a fazer. Um novo pedido para o mesmo mapa recentraliza.
+    if (lastProcessedTargetIdRef.current === targetArtifactId && lastProcessedKeyRef.current === targetRequestKey) {
       return;
     }
 
@@ -373,6 +392,7 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
     }
 
     lastProcessedTargetIdRef.current = targetArtifactId;
+    lastProcessedKeyRef.current = targetRequestKey;
     setIsTargetNotFound(false);
 
     // Collect all ancestors up to the root
@@ -393,7 +413,7 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
       onSelectItemRef.current(targetArtifactId);
     }
     setPendingCenterNodeId(targetArtifactId);
-  }, [targetArtifactId, byId, data.length]);
+  }, [targetArtifactId, targetRequestKey, byId, data.length]);
 
   // 2. Action Handlers
   const handleToggle = useCallback((nodeId: string) => {
@@ -490,31 +510,42 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
     if (newNodes.length === 0) return;
 
     const currentReactFlowNodes = reactFlowInstance.getNodes();
-    const layouted = getDagreLayout(newNodes, newEdges, lastClickedNode, currentReactFlowNodes);
+    // Mantém o destaque do item selecionado quando a árvore é redesenhada
+    const selectedId = selectedItemIdRef.current;
+    const layouted = getDagreLayout(newNodes, newEdges, lastClickedNode, currentReactFlowNodes).map(n =>
+      n.id === selectedId ? { ...n, data: { ...n.data, isSelected: true } } : n
+    );
     
     setNodes(layouted);
     setEdges(newEdges);
     
     if (pendingCenterNodeId) {
-      const targetNode = layouted.find(n => n.id === pendingCenterNodeId);
-      if (targetNode) {
+      if (layouted.some(n => n.id === pendingCenterNodeId)) {
         setPendingCenterNodeId(null);
         setIsFirstRender(false);
-        setTimeout(() => {
-          reactFlowInstance.setCenter(
-            targetNode.position.x + 150,
-            targetNode.position.y + 40,
-            { zoom: 1.0, duration: 800 }
-          );
-        }, 80);
+        // A centralização acontece no efeito abaixo, depois que a árvore estiver desenhada
+        setCenterRequestId(pendingCenterNodeId);
       }
-    } else if (isFirstRender) {
+    } else if (isFirstRender && (!targetArtifactId || isTargetNotFound)) {
+      // "Mostrar tudo" só quando ninguém pediu um mapa específico.
+      // Antes rodava junto com a centralização e, por terminar depois, deixava a árvore afastada.
       setTimeout(() => {
         reactFlowInstance.fitView({ padding: 0.3, duration: 800, minZoom: 0.1, maxZoom: 1 });
       }, 50);
       setIsFirstRender(false);
     }
-  }, [newNodes, newEdges, reactFlowInstance, isFirstRender, pendingCenterNodeId]);
+  }, [newNodes, newEdges, reactFlowInstance, isFirstRender, pendingCenterNodeId, targetArtifactId, isTargetNotFound]);
+
+  // Centraliza o mapa pedido só quando os nós já estão desenhados e medidos
+  useEffect(() => {
+    if (!centerRequestId || !nodesInitialized) return;
+    const node = reactFlowInstance.getNode(centerRequestId);
+    if (!node) return;
+    const width = node.measured?.width ?? node.width ?? 320;
+    const height = node.measured?.height ?? node.height ?? 82;
+    setCenterRequestId(null);
+    reactFlowInstance.setCenter(node.position.x + width / 2, node.position.y + height / 2, { zoom: 1, duration: 700 });
+  }, [centerRequestId, nodesInitialized, nodes, reactFlowInstance]);
 
 
   // Update selection without triggering layout recalculation
@@ -564,6 +595,7 @@ const ConexoesCanvasInner: React.FC<ConexoesCanvasInnerProps> = ({
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        nodesConnectable={false}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
@@ -600,6 +632,7 @@ export interface ConexoesCanvasProps {
   data: Artifact[];
   selectedItemId?: string | null;
   targetArtifactId?: string | null;
+  targetRequestKey?: number;
   onClearTargetArtifactId?: () => void;
   onOpenMap?: (map: Artifact) => void;
   onOpenItem?: (item: Artifact) => void;

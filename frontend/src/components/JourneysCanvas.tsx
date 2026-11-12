@@ -27,6 +27,10 @@ import {
   Code2,
 } from 'lucide-react';
 
+// Pontos de ancoragem das linhas: invisíveis e sem arrastar.
+// A jornada só é exibida; não existe criar ligação manual entre as telas.
+const HIDDEN_HANDLE = '!w-px !h-px !min-w-0 !min-h-0 !bg-transparent !border-0 !opacity-0 !pointer-events-none';
+
 // --- Medidas do layout ---------------------------------------------------------
 
 const CARD_WIDTH = 300;
@@ -77,8 +81,8 @@ const ScreenNode = React.memo(({ data, selected }: any) => {
 
   return (
     <>
-      <Handle id="l" type="target" position={Position.Left} className="!w-2 !h-2 !bg-omni-line !border-2 !border-white" />
-      <Handle id="t" type="target" position={Position.Top} className="!w-2 !h-2 !bg-omni-line !border-2 !border-white" />
+      <Handle id="l" type="target" position={Position.Left} className={HIDDEN_HANDLE} isConnectable={false} />
+      <Handle id="t" type="target" position={Position.Top} className={HIDDEN_HANDLE} isConnectable={false} />
       <div
         className={`rounded-xl border bg-white shadow-sm transition-all cursor-pointer flex flex-col overflow-hidden ${
           selected
@@ -169,8 +173,8 @@ const ScreenNode = React.memo(({ data, selected }: any) => {
           </button>
         </div>
       </div>
-      <Handle id="r" type="source" position={Position.Right} className="!w-2 !h-2 !bg-omni-bordo !border-2 !border-white" />
-      <Handle id="b" type="source" position={Position.Bottom} className="!w-2 !h-2 !bg-omni-bordo !border-2 !border-white" />
+      <Handle id="r" type="source" position={Position.Right} className={HIDDEN_HANDLE} isConnectable={false} />
+      <Handle id="b" type="source" position={Position.Bottom} className={HIDDEN_HANDLE} isConnectable={false} />
     </>
   );
 });
@@ -473,6 +477,7 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({ artifacts, selecte
         <ReactFlow
           nodes={nodes}
           edges={edges}
+          nodesConnectable={false}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           nodeTypes={nodeTypes}
