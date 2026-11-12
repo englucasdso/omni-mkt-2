@@ -271,6 +271,38 @@ interface HBarRow {
   ids?: string[];
 }
 
+type BarMetric = 'mapas' | 'homologacao';
+
+/** Alternância Mapas | Homologação, usada em Produtos e Subprodutos */
+const MetricToggle: React.FC<{ value: BarMetric; onChange: (v: BarMetric) => void; label: string }> = ({ value, onChange, label }) => (
+  <div className="inline-flex rounded-lg border border-omni-line p-0.5 shrink-0" role="group" aria-label={label}>
+    {(
+      [
+        ['mapas', 'Mapas'],
+        ['homologacao', 'Homologação'],
+      ] as const
+    ).map(([id, text]) => (
+      <button
+        key={id}
+        type="button"
+        onClick={() => onChange(id)}
+        aria-pressed={value === id}
+        className={`px-2.5 h-7 rounded-md text-xs font-semibold cursor-pointer ${
+          value === id ? 'bg-omni-ink text-white' : 'text-omni-ink-secondary hover:text-omni-ink'
+        }`}
+      >
+        {text}
+      </button>
+    ))}
+  </div>
+);
+
+/** Nome do subproduto; vazio ou "Sem Subproduto" vira um único grupo */
+function subprodutoName(art: Artifact): string {
+  const raw = String(art.subproduto || '').trim();
+  return !raw || /^sem subproduto$/i.test(raw) ? 'Sem subproduto' : raw;
+}
+
 const HBars: React.FC<{
   rows: HBarRow[];
   max: number;
@@ -363,7 +395,9 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
   selectedSubprodutoFilter,
   selectedMeasurementFilter,
 }) => {
-  const [productMetric, setProductMetric] = useState<'mapas' | 'homologacao'>('mapas');
+  const [productMetric, setProductMetric] = useState<BarMetric>('mapas');
+  const [subMetric, setSubMetric] = useState<BarMetric>('mapas');
+  const [showAllSubs, setShowAllSubs] = useState(false);
   const [drill, setDrill] = useState<DrillRequest | null>(null);
 
   const effProduct = selectedProductFilter ?? 'all';
@@ -397,6 +431,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
     const params = new Map<string, { count: number; maps: Set<string> }>();
     const events = new Map<string, { count: number; maps: Set<string> }>();
     const products = new Map<string, { ids: string[]; screens: number; validated: number; correction: number; legacy: number }>();
+    const subprodutos = new Map<string, { produto: string; subproduto: string; ids: string[]; screens: number; validated: number; homologatedMaps: number }>();
     const divergentIds: string[] = [];
     const noScreenIds: string[] = [];
     let totalScreens = 0;
@@ -442,6 +477,15 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
       p.correction += metrics.correction;
       if (mClass === 'GA3' || mClass === 'HIBRIDO') p.legacy++;
       products.set(pName, p);
+
+      const sName = subprodutoName(art);
+      const sKey = `${pName}\u0000${sName}`;
+      const sp = subprodutos.get(sKey) || { produto: pName, subproduto: sName, ids: [], screens: 0, validated: 0, homologatedMaps: 0 };
+      sp.ids.push(id);
+      sp.screens += screens.length;
+      sp.validated += metrics.validated;
+      if (metrics.homologationStatus === 'HOMOLOGADO') sp.homologatedMaps++;
+      subprodutos.set(sKey, sp);
 
       (art.parameter_summary || []).forEach((ps) => {
         const cur = params.get(ps.name) || { count: 0, maps: new Set<string>() };
@@ -504,6 +548,11 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
         .slice(0, 8),
       distinctEvents: events.size,
       products: productList,
+      subprodutos: Array.from(subprodutos.values()).map((v) => ({
+        ...v,
+        maps: v.ids.length,
+        rate: pct(v.validated, v.screens),
+      })),
       suspiciousValues,
       suspiciousParams: valueIssues.size,
       typoMapIds: Array.from(typoMapIds),
@@ -605,6 +654,25 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
       .sort((a, b) => a.rate - b.rate || b.screens - a.screens)
       .slice(0, 10);
   }, [stats.products, productMetric]);
+
+  // Subprodutos: com um produto filtrado, mostra só os dele e sem repetir o nome do produto
+  const singleProduct = effProduct !== 'all';
+  const subSummary = useMemo(() => {
+    const withScreens = stats.subprodutos.filter((s) => s.screens > 0);
+    return {
+      total: stats.subprodutos.length,
+      full: withScreens.filter((s) => s.validated === s.screens).length,
+      none: withScreens.filter((s) => s.validated === 0).length,
+      noScreens: stats.subprodutos.length - withScreens.length,
+    };
+  }, [stats.subprodutos]);
+  const subRowsAll = useMemo(() => {
+    if (subMetric === 'mapas') return [...stats.subprodutos].sort((a, b) => b.maps - a.maps || b.screens - a.screens);
+    return stats.subprodutos
+      .filter((s) => s.screens > 0)
+      .sort((a, b) => a.rate - b.rate || b.screens - a.screens);
+  }, [stats.subprodutos, subMetric]);
+  const subRows = showAllSubs ? subRowsAll : subRowsAll.slice(0, 10);
 
   const typeSegments: Segment[] = (['MAPA', 'DOCUMENTACAO', 'NO', 'NAO_CLASSIFICADO'] as const)
     .map((t) => ({
@@ -766,26 +834,7 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
           <p className="text-xs text-omni-muted">
             {productMetric === 'mapas' ? 'Os 10 com mais mapas.' : 'Os 10 com menor homologação (com telas).'} Clique para abrir os mapas.
           </p>
-          <div className="inline-flex rounded-lg border border-omni-line p-0.5 shrink-0" role="group" aria-label="Métrica dos produtos">
-            {(
-              [
-                ['mapas', 'Mapas'],
-                ['homologacao', 'Homologação'],
-              ] as const
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setProductMetric(id)}
-                aria-pressed={productMetric === id}
-                className={`px-2.5 h-7 rounded-md text-xs font-semibold cursor-pointer ${
-                  productMetric === id ? 'bg-omni-ink text-white' : 'text-omni-ink-secondary hover:text-omni-ink'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <MetricToggle value={productMetric} onChange={setProductMetric} label="Métrica dos produtos" />
         </div>
         <HBars
           rows={productRows.map((p) => ({
@@ -802,6 +851,68 @@ export const CanonicalInsightsDashboard: React.FC<CanonicalInsightsDashboardProp
           labelClass="w-44"
           onDrill={openDrill}
         />
+      </Panel>
+
+      {/* 6b. Subprodutos */}
+      <Panel title={singleProduct ? `Subprodutos de ${effProduct}` : 'Subprodutos'}>
+        <div className="flex items-start justify-between gap-3 -mt-2">
+          <div className="min-w-0">
+            <p className="text-xs text-omni-ink-secondary">
+              <span className="font-semibold text-omni-ink tabular-nums">{fmt(subSummary.total)}</span>{' '}
+              {subSummary.total === 1 ? 'subproduto' : 'subprodutos'}
+              {subSummary.total > 0 && (
+                <>
+                  {' | '}
+                  <span className="font-semibold text-omni-ink tabular-nums">{fmt(subSummary.full)}</span> 100% homologados
+                  {' | '}
+                  <span className="font-semibold text-omni-ink tabular-nums">{fmt(subSummary.none)}</span> sem nenhuma tela validada
+                  {subSummary.noScreens > 0 && (
+                    <>
+                      {' | '}
+                      <span className="font-semibold text-omni-ink tabular-nums">{fmt(subSummary.noScreens)}</span> sem telas
+                    </>
+                  )}
+                </>
+              )}
+            </p>
+            <p className="text-xs text-omni-muted mt-0.5">
+              {subMetric === 'mapas' ? 'Ordenados por quantidade de mapas.' : 'Ordenados da menor para a maior homologação (com telas).'}{' '}
+              Clique para abrir os mapas.{singleProduct ? '' : ' Para ver só os subprodutos de um produto, filtre o produto lá em cima.'}
+            </p>
+          </div>
+          <MetricToggle value={subMetric} onChange={setSubMetric} label="Métrica dos subprodutos" />
+        </div>
+        {subRows.length === 0 ? (
+          <p className="text-xs text-omni-muted">Nenhum subproduto com telas para os filtros atuais.</p>
+        ) : (
+          <HBars
+            rows={subRows.map((sp) => ({
+              key: `${sp.produto}|${sp.subproduto}`,
+              label: singleProduct ? sp.subproduto : `${sp.produto} › ${sp.subproduto}`,
+              value: subMetric === 'mapas' ? sp.maps : sp.rate,
+              display: subMetric === 'mapas' ? plural(sp.maps, 'mapa', 'mapas') : `${sp.rate}%`,
+              detail:
+                subMetric === 'mapas'
+                  ? `${fmt(sp.screens)} telas`
+                  : `${fmt(sp.validated)}/${fmt(sp.screens)} telas`,
+              ids: sp.ids,
+            }))}
+            max={subMetric === 'mapas' ? Math.max(...subRows.map((sp) => sp.maps), 1) : 100}
+            color={subMetric === 'mapas' ? NEUTRAL_BAR : STATUS_CONFIGS.VALIDADO.hex}
+            context="Subproduto"
+            labelClass={singleProduct ? 'w-44' : 'w-56'}
+            onDrill={openDrill}
+          />
+        )}
+        {subRowsAll.length > 10 && (
+          <button
+            type="button"
+            onClick={() => setShowAllSubs((v) => !v)}
+            className="mt-2 text-xs font-semibold text-omni-ink-secondary hover:text-omni-bordo cursor-pointer"
+          >
+            {showAllSubs ? 'Mostrar só os 10 primeiros' : `Mostrar todos (${fmt(subRowsAll.length)})`}
+          </button>
+        )}
       </Panel>
 
       {/* 7. Eventos e parâmetros */}
