@@ -39,6 +39,10 @@ export const EXTRACTOR_SOURCE = String.raw`(function () {
     }
     return '';
   };
+  /* Botões do Confluence (ex.: "Copiar como texto") não são conteúdo: ficam escondidos durante a leitura */
+  var hidden = Array.prototype.map.call(root.querySelectorAll('button, [role="button"]'), function (b) {
+    var prev = b.style.display; b.style.display = 'none'; return [b, prev];
+  });
   var nodes = root.querySelectorAll('h1,h2,h3,h4,h5,h6,p,ul,ol,pre,table,code[class*="language-"]');
   Array.prototype.forEach.call(nodes, function (el) {
     if (inSkipped(el)) return;
@@ -86,6 +90,7 @@ export const EXTRACTOR_SOURCE = String.raw`(function () {
       if (p) blocks.push({ type: 'paragraph', text: p });
     }
   });
+  hidden.forEach(function (h) { h[0].style.display = h[1]; });
   var doc = { source: 'confluence', version: 1, title: title, url: location.href.split('#')[0], extractedAt: new Date().toISOString(), meta: meta, blocks: blocks };
   var tables = blocks.filter(function (b) { return b.type === 'table'; }).length;
   var codes = blocks.filter(function (b) { return b.type === 'code'; }).length;

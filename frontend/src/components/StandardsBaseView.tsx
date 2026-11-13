@@ -1,14 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Upload, ExternalLink, Trash2, Copy, Check, Search, X, ChevronDown, ChevronUp, Bookmark } from 'lucide-react';
+import { Upload, ExternalLink, Trash2, Copy, Check, Search, X, ChevronDown, ChevronUp, Bookmark, Pencil } from 'lucide-react';
 import { Artifact } from '../types';
 import { StandardDoc } from '../domain/padroes/types';
 import { buildParameterCatalog, docStats, mapsByParameter } from '../domain/padroes/standardsCatalog';
 import { EXTRACTOR_BOOKMARKLET } from '../domain/padroes/extractorBookmarklet';
-import { fetchStandards, importStandards, deleteStandard, describeError } from '../services/api';
+import { fetchStandards, importStandards, deleteStandard, replaceStandard, describeError } from '../services/api';
+import { shortDocTitle } from '../domain/padroes/sanitize';
 
 interface Props {
   artifacts: Artifact[];
   onDrillDown: (label: string, ids: string[], target: 'cards' | 'inventario') => void;
+  /** Abre o Guia de tagueamento (a leitura dos padrões) */
+  onOpenGuide: () => void;
 }
 
 const fmt = (n: number) => n.toLocaleString('pt-BR');
@@ -99,13 +102,13 @@ const ExtractorHowTo: React.FC = () => {
       </li>
       <li>
         Clique em <strong className="text-omni-ink">Importar arquivos</strong> e escolha o arquivo (pode ser mais de um). Para
-        atualizar, repita: a mesma página substitui a versão anterior.
+        atualizar um documento, use o lápis ao lado dele e escolha o arquivo novo.
       </li>
     </ol>
   );
 };
 
-export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown }) => {
+export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown, onOpenGuide }) => {
   const [docs, setDocs] = useState<StandardDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,6 +120,8 @@ export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown }) =
   const [query, setQuery] = useState('');
   const [docFilter, setDocFilter] = useState<string>('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const replaceRef = useRef<HTMLInputElement>(null);
+  const [replacing, setReplacing] = useState<StandardDoc | null>(null);
 
   useEffect(() => {
     fetchStandards()
@@ -172,20 +177,47 @@ export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown }) =
     }
   };
 
+  /** Lápis: troca o documento pelo arquivo novo escolhido */
+  const handleReplace = async (file: File | undefined) => {
+    const target = replacing;
+    if (replaceRef.current) replaceRef.current.value = '';
+    setReplacing(null);
+    if (!file || !target) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(await file.text());
+      } catch {
+        throw new Error(`${file.name}: arquivo inválido. Use o arquivo .json gerado pelo Extrator OMNI.`);
+      }
+      const r = await replaceStandard(target.id, parsed);
+      setDocs(r.documentos);
+      if (docFilter === target.id) setDocFilter('');
+      setNotice(`"${shortDocTitle(target.title)}" foi substituído por "${shortDocTitle(r.importados[0] || file.name)}".`);
+    } catch (e) {
+      setError(describeError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const catalog = useMemo(() => buildParameterCatalog(docs), [docs]);
   const usage = useMemo(() => mapsByParameter(artifacts), [artifacts]);
-  const documentedKeys = useMemo(() => new Set(catalog.map((p) => p.key)), [catalog]);
   const coverage = useMemo(() => {
-    const keys = Array.from(usage.keys());
-    return { inMaps: keys.length, documented: keys.filter((k) => documentedKeys.has(k)).length };
-  }, [usage, documentedKeys]);
+    const names = Array.from(usage.keys());
+    const documented = new Set(catalog.map((p) => p.name));
+    return { inMaps: names.length, documented: names.filter((n) => documented.has(n)).length };
+  }, [usage, catalog]);
 
   const filtered = useMemo(() => {
     const q = norm(query.trim());
     return catalog.filter(
       (p) =>
-        (!docFilter || p.docId === docFilter) &&
-        (!q || [p.name, p.description, p.type, p.section, ...p.examples].some((v) => norm(v).includes(q)))
+        (!docFilter || p.sources.some((s) => s.docId === docFilter)) &&
+        (!q || [p.name, ...p.descriptions, ...p.types, ...p.examples].some((v) => norm(v).includes(q)))
     );
   }, [catalog, query, docFilter]);
 
@@ -221,8 +253,11 @@ export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown }) =
         <div className="max-w-2xl">
           <h2 className="text-xl font-heading font-bold text-omni-ink">Base de padrões</h2>
           <p className="text-sm text-omni-ink-secondary mt-1 leading-relaxed">
-            Os padrões oficiais de eventos e parâmetros do time, importados das páginas do Confluence. É a fonte do Guia de
-            tagueamento e da aderência dos mapas aos padrões.
+            Cadastro das páginas de padrões do Confluence. Para ler e consultar os padrões, use o{' '}
+            <button type="button" onClick={onOpenGuide} className="font-semibold text-omni-bordo hover:underline cursor-pointer">
+              Guia de tagueamento
+            </button>
+            .
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -252,6 +287,13 @@ export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown }) =
             multiple
             className="hidden"
             onChange={(e) => e.target.files && handleFiles(e.target.files)}
+          />
+          <input
+            ref={replaceRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={(e) => handleReplace(e.target.files?.[0])}
           />
         </div>
       </div>
@@ -288,31 +330,11 @@ export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown }) =
             </Panel>
           )}
 
-          {/* Números principais */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { label: 'Documentos de padrões', value: docs.length, detail: `${fmt(docs.reduce((n, d) => n + docStats(d).tables, 0))} tabelas importadas` },
-              {
-                label: 'Parâmetros padronizados',
-                value: new Set(catalog.map((p) => p.key)).size,
-                detail: `${fmt(catalog.length)} linhas nas tabelas de parâmetros`,
-              },
-              {
-                label: 'Parâmetros dos mapas documentados',
-                value: coverage.documented,
-                detail: `de ${fmt(coverage.inMaps)} nomes de parâmetro usados nos mapas`,
-              },
-            ].map((k) => (
-              <div key={k.label} className="panel p-5 min-w-0">
-                <p className="text-xs font-medium text-omni-muted">{k.label}</p>
-                <p className="kpi-number text-3xl font-bold text-omni-ink tabular-nums mt-1">{fmt(k.value)}</p>
-                <p className="text-[11.5px] text-omni-muted mt-1.5">{k.detail}</p>
-              </div>
-            ))}
-          </div>
-
           {/* Documentos importados */}
-          <Panel title="Documentos importados">
+          <Panel
+            title="Documentos cadastrados"
+            right={<span className="text-xs text-omni-muted tabular-nums">{fmt(docs.length)} {docs.length === 1 ? 'documento' : 'documentos'}</span>}
+          >
             <div className="divide-y divide-omni-line-subtle">
               {docs.map((d) => {
                 const st = docStats(d);
@@ -322,14 +344,12 @@ export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown }) =
                   <div key={d.id} className="py-3 flex flex-wrap items-center gap-x-4 gap-y-1">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-omni-ink truncate" title={d.title}>
-                        {d.title}
+                        {shortDocTitle(d.title)}
                       </p>
                       <p className="text-xs text-omni-muted mt-0.5">
                         {[
-                          `${fmt(st.sections)} seções`,
                           `${fmt(st.tables)} tabelas`,
                           `${fmt(st.codes)} blocos de código`,
-                          `${fmt(st.parameters)} parâmetros`,
                           status && `Status: ${status}`,
                           revisao && `Revisão: ${revisao}`,
                           `Extraído em ${fmtDate(d.extractedAt)}`,
@@ -369,6 +389,20 @@ export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown }) =
                           </button>
                         </span>
                       ) : (
+                        <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReplacing(d);
+                            replaceRef.current?.click();
+                          }}
+                          disabled={busy}
+                          aria-label={`Substituir ${d.title}`}
+                          title="Substituir por um arquivo novo"
+                          className="p-1.5 rounded-md text-omni-muted hover:text-omni-bordo hover:bg-omni-mist cursor-pointer disabled:opacity-50"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           type="button"
                           onClick={() => setConfirmRemove(d.id)}
@@ -378,6 +412,7 @@ export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown }) =
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -388,7 +423,7 @@ export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown }) =
 
           {/* Catálogo de parâmetros */}
           <Panel
-            title="Parâmetros padronizados"
+            title="Parâmetros cadastrados"
             right={
               <div className="flex items-center gap-2">
                 {docs.length > 1 && (
@@ -401,7 +436,7 @@ export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown }) =
                     <option value="">Todos os documentos</option>
                     {docs.map((d) => (
                       <option key={d.id} value={d.id}>
-                        {d.title}
+                        {shortDocTitle(d.title)}
                       </option>
                     ))}
                   </select>
@@ -419,6 +454,10 @@ export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown }) =
               </div>
             }
           >
+            <p className="text-xs text-omni-muted -mt-2">
+              {fmt(catalog.length)} parâmetros. Os que têm o mesmo nome exato aparecem uma vez só; maiúsculas e minúsculas contam como nomes diferentes.{' '}
+              {fmt(coverage.documented)} de {fmt(coverage.inMaps)} nomes de parâmetro usados nos mapas estão cadastrados.
+            </p>
             {filtered.length === 0 ? (
               <p className="text-sm text-omni-muted py-6 text-center">
                 {catalog.length === 0
@@ -434,18 +473,27 @@ export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown }) =
                       <th className="font-medium py-2 px-2">Escopo</th>
                       <th className="font-medium py-2 px-2">Descrição</th>
                       <th className="font-medium py-2 px-2">Exemplos</th>
-                      <th className="font-medium py-2 px-2">Seção</th>
+                      <th className="font-medium py-2 px-2">Documentos</th>
                       <th className="font-medium py-2 px-2 text-right whitespace-nowrap">Usado em</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((p, i) => {
-                      const ids = usage.get(p.key) || [];
+                    {filtered.map((p) => {
+                      const ids = usage.get(p.name) || [];
+                      const docsTip = p.sources.map((x) => `${shortDocTitle(x.docTitle)}${x.section ? ` > ${x.section}` : ''}`).join('\n');
+                      const docCount = new Set(p.sources.map((x) => x.docId)).size;
                       return (
-                        <tr key={`${p.docId}-${p.key}-${i}`} className="border-b border-omni-line-subtle align-top">
+                        <tr key={p.name} className="border-b border-omni-line-subtle align-top">
                           <td className="py-2.5 px-2 font-mono font-semibold text-omni-ink whitespace-nowrap">{p.name}</td>
-                          <td className="py-2.5 px-2 text-omni-ink-secondary whitespace-nowrap">{p.type}</td>
-                          <td className="py-2.5 px-2 text-omni-ink-secondary min-w-[220px] max-w-[360px] whitespace-pre-line">{p.description}</td>
+                          <td className="py-2.5 px-2 text-omni-ink-secondary whitespace-nowrap">{p.types.join(', ')}</td>
+                          <td className="py-2.5 px-2 text-omni-ink-secondary min-w-[220px] max-w-[360px]">
+                            <span className="whitespace-pre-line">{p.descriptions[0] || ''}</span>
+                            {p.descriptions.length > 1 && (
+                              <span className="block text-[11px] text-omni-muted mt-1" title={p.descriptions.slice(1).join('\n\n')}>
+                                +{p.descriptions.length - 1} {p.descriptions.length === 2 ? 'descrição diferente' : 'descrições diferentes'}
+                              </span>
+                            )}
+                          </td>
                           <td className="py-2.5 px-2">
                             <div className="flex flex-wrap gap-1 max-w-[260px]">
                               {p.examples.slice(0, 4).map((ex) => (
@@ -460,9 +508,9 @@ export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown }) =
                               )}
                             </div>
                           </td>
-                          <td className="py-2.5 px-2 text-omni-muted max-w-[180px]">
-                            <span className="block truncate" title={`${p.docTitle} > ${p.section}`}>
-                              {p.section || p.docTitle}
+                          <td className="py-2.5 px-2 text-omni-muted max-w-[200px]">
+                            <span className="block truncate" title={docsTip}>
+                              {docCount === 1 ? shortDocTitle(p.sources[0].docTitle) : `${fmt(docCount)} documentos`}
                             </span>
                           </td>
                           <td className="py-2.5 px-2 text-right whitespace-nowrap">

@@ -31,6 +31,18 @@ router.post('/', (req, res) => {
   res.json({ documentos, importados: ok.map((d) => d.title), erros: errors });
 });
 
+/** Substitui um documento por um arquivo novo (lápis na lista de documentos) */
+router.put('/:id', (req, res) => {
+  try {
+    const doc = repo.normalize(req.body);
+    const documentos = repo.replace(String(req.params.id), doc);
+    console.log(`[Padroes] Documento substituído por "${doc.title}".`);
+    res.json({ documentos, importados: [doc.title], erros: [] });
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 /** Remove um documento */
 router.delete('/:id', (req, res) => {
   res.json({ documentos: repo.remove(String(req.params.id)) });

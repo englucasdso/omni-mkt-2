@@ -28,7 +28,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Rotas que exibem a barra de filtros
-  const filterEligibleRoutes = ['results', 'inventory_table', 'produtos_analise', 'parametros_analise', 'insights', 'journeys', 'saude'];
+  const filterEligibleRoutes = ['results', 'inventory_table', 'produtos_analise', 'parametros_analise', 'insights', 'journeys', 'saude', 'guia'];
   const hasFilters = explicitHasFilters !== undefined 
     ? explicitHasFilters 
     : filterEligibleRoutes.includes(currentRouteId);

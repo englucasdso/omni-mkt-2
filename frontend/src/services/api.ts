@@ -6,6 +6,8 @@
  */
 
 import { guarded, CircuitOpenError } from '../resilience/circuitBreaker';
+import { sanitizeStandardDoc } from '../domain/padroes/sanitize';
+import { StandardDoc } from '../domain/padroes/types';
 
 /** fetch que troca o erro genérico de rede ("Failed to fetch") por uma mensagem clara. */
 export async function safeFetch(input: string, init?: RequestInit): Promise<Response> {
@@ -112,9 +114,13 @@ export async function fetchStandards() {
     const res = await safeFetch('/api/padroes');
     if (!res.ok) throw new Error(`O servidor respondeu com erro ${res.status} ao carregar os padrões.`);
     const data = await res.json();
-    return Array.isArray(data?.documentos) ? data.documentos : [];
+    return cleanDocs(data?.documentos);
   });
 }
+
+/** Tira restos da barra de ferramentas do Confluence, inclusive de documentos importados antes da correção */
+const cleanDocs = (list: unknown): StandardDoc[] =>
+  Array.isArray(list) ? (list as StandardDoc[]).map(sanitizeStandardDoc) : [];
 
 /** Envia os arquivos gerados pelo extrator. Devolve a lista atualizada e os avisos. */
 export async function importStandards(docs: unknown[]) {
@@ -125,12 +131,24 @@ export async function importStandards(docs: unknown[]) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `O servidor respondeu com erro ${res.status} ao importar.`);
-  return { documentos: data.documentos || [], importados: data.importados || [], erros: data.erros || [] };
+  return { documentos: cleanDocs(data.documentos), importados: data.importados || [], erros: data.erros || [] };
+}
+
+/** Troca um documento por um arquivo novo do extrator */
+export async function replaceStandard(id: string, doc: unknown) {
+  const res = await safeFetch(`/api/padroes/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(doc),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `O servidor respondeu com erro ${res.status} ao substituir.`);
+  return { documentos: cleanDocs(data.documentos), importados: data.importados || [], erros: data.erros || [] };
 }
 
 export async function deleteStandard(id: string) {
   const res = await safeFetch(`/api/padroes/${encodeURIComponent(id)}`, { method: 'DELETE' });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `O servidor respondeu com erro ${res.status} ao remover.`);
-  return data.documentos || [];
+  return cleanDocs(data.documentos);
 }

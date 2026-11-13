@@ -16,10 +16,10 @@ import { ExportDialog } from "../components/export/ExportDialog";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
 import { ROUTES, viewFromPath, legacyRedirect, type AppView } from "./routes";
-import { ComingSoonView } from "../components/ComingSoonView";
 import { DocumentationHealthView } from "../components/DocumentationHealthView";
 import { HealthSidebarFilters } from "../components/HealthSidebarFilters";
 import { StandardsBaseView } from "../components/StandardsBaseView";
+import { TaggingGuideView } from "../components/TaggingGuideView";
 import { DEFAULT_HEALTH_THRESHOLDS } from "../domain/health/documentationHealth";
 import { ErrorBoundary } from "../resilience/ErrorBoundary";
 import { X, AlertTriangle, Target, Network, Filter, CheckCircle2, AlertCircle, Clock, User, Info, Shield, LogOut, Trash2, Plus, Settings, Landmark, LayoutList, RefreshCw, Check, Loader2, KeyRound, Activity, ArrowRight, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, Sparkles, MessageCircleQuestion, FileText, Layers, Tag, Code2, Eye, ArrowUpDown, Calendar, RotateCcw, SlidersHorizontal } from "lucide-react";
@@ -528,6 +528,8 @@ export default function App() {
   const [healthStaleDays, setHealthStaleDays] = useState(DEFAULT_HEALTH_THRESHOLDS.staleDays);
   const [healthWasteDays, setHealthWasteDays] = useState(DEFAULT_HEALTH_THRESHOLDS.wasteDays);
   const [healthProduct, setHealthProduct] = useState("");
+  // Busca do Guia de tagueamento (no cabeçalho)
+  const [guideQuery, setGuideQuery] = useState("");
   const [tableFilter, setTableFilter] = useState("");
   const [lastSync, setLastSync] = useState<string | null>(localStorage.getItem('last_sync'));
   const [showExportModal, setShowExportModal] = useState(false);
@@ -563,7 +565,7 @@ export default function App() {
   const [searchSessionId, setSearchSessionId] = useState(0);
 
   useEffect(() => {
-    const mainCatalogStates = ["inventory_table", "results", "produtos_analise", "parametros_analise", "insights", "graph", "saude", "padroes"];
+    const mainCatalogStates = ["inventory_table", "results", "produtos_analise", "parametros_analise", "insights", "graph", "saude", "padroes", "guia"];
     // Uma busca que voltou vazia é um resultado legítimo: não recarregar a base inteira por cima dela
     if (mainCatalogStates.includes(appState) && results.length === 0 && !loading && !dataError && !isSearchingRef.current && !activeSearch && (query === "" || query === "inventario")) {
       executeSearch("inventario");
@@ -1634,6 +1636,30 @@ export default function App() {
         <ErrorBoundary area="os filtros" variant="inline" resetKey={appState}>
         {appState === 'journeys' ? (
           <JourneysSidebarFilters showCode={journeyShowCode} onShowCodeChange={setJourneyShowCode} />
+        ) : appState === 'guia' ? (
+          <div className="flex items-center gap-2 min-w-0" id="sidebar-contextual-guia">
+            <div className="relative w-[260px] shrink-0">
+              <Search className="w-3.5 h-3.5 text-omni-muted absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0" />
+              <input
+                type="text"
+                placeholder="Buscar no guia: parâmetro, evento..."
+                value={guideQuery}
+                onChange={(e) => setGuideQuery(e.target.value)}
+                className="w-full pl-8 pr-7 h-8 bg-white border border-omni-line rounded-lg text-xs font-ui text-omni-ink placeholder:text-omni-muted focus:outline-none focus:ring-2 focus:ring-omni-rubi/20 focus:border-omni-rubi transition-all truncate"
+              />
+              {guideQuery && (
+                <button
+                  type="button"
+                  onClick={() => setGuideQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-omni-muted hover:text-omni-ink p-0.5"
+                  title="Limpar busca"
+                  aria-label="Limpar busca"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          </div>
         ) : appState === 'saude' ? (
           <HealthSidebarFilters
             artifacts={fullInventory.length > 0 ? fullInventory : results}
@@ -1810,14 +1836,20 @@ export default function App() {
               <StandardsBaseView
                 artifacts={fullInventory.length > 0 ? fullInventory : results}
                 onDrillDown={handleInsightDrillDown}
+                onOpenGuide={() => setAppState("guia")}
               />
             </ErrorBoundary>
           )}
           {appState === "guia" && (
-            <ComingSoonView
-              title="Guia de tagueamento"
-              description="Consulta às regras de tagueamento do time, organizadas por assunto, com busca e ligação aos parâmetros usados nos mapas."
-            />
+            <ErrorBoundary area="o Guia de tagueamento" resetKey={appState}>
+              <TaggingGuideView
+                artifacts={fullInventory.length > 0 ? fullInventory : results}
+                query={guideQuery}
+                onQueryChange={setGuideQuery}
+                onOpenStandardsBase={() => setAppState("padroes")}
+                onDrillDown={handleInsightDrillDown}
+              />
+            </ErrorBoundary>
           )}
           {appState === "saude" && (
             <ErrorBoundary area="a Saúde da documentação" resetKey={appState}>
