@@ -550,14 +550,6 @@ export default function App() {
     () => analyzeAdherence(fullInventory.length > 0 ? fullInventory : results, standardsDocs),
     [fullInventory, results, standardsDocs]
   );
-  const navBadges = useMemo(
-    () =>
-      adherenceByMap.size > 0
-        ? { padroes: `${adherenceByMap.size} ${adherenceByMap.size === 1 ? 'mapa com pontos' : 'mapas com pontos'} para conferir com o padrão` }
-        : undefined,
-    [adherenceByMap]
-  );
-
   // Falha ao falar com o servidor: a tela continua com os últimos dados e mostra um aviso
   const [dataError, setDataError] = useState<string | null>(null);
   const [retryingData, setRetryingData] = useState(false);
@@ -1653,7 +1645,6 @@ export default function App() {
       onNewSearch={resetSearchSession}
       lastSync={lastSync}
       onSyncClick={() => startBackgroundSync()}
-      navBadges={navBadges}
       contextualContent={
         <ErrorBoundary area="os filtros" variant="inline" resetKey={appState}>
         {appState === 'journeys' ? (

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Menu } from 'lucide-react';
-import { AppSidebar, NavItem, NAV_GROUPS } from './AppSidebar';
+import { AppSidebar, NavItem } from './AppSidebar';
 
 interface AppShellProps {
   currentRouteId: string;
@@ -12,7 +12,6 @@ interface AppShellProps {
   children: React.ReactNode;
   contextualContent?: React.ReactNode;
   hasFilters?: boolean;
-  navBadges?: Record<string, string>;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
@@ -25,7 +24,6 @@ export const AppShell: React.FC<AppShellProps> = ({
   children,
   contextualContent,
   hasFilters: explicitHasFilters,
-  navBadges,
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -58,42 +56,6 @@ export const AppShell: React.FC<AppShellProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onNewSearch, onHomeClick]);
 
-  // Resolução da trilha (Breadcrumb)
-  const getBreadcrumb = () => {
-    if (currentRouteId === 'initial') {
-      return (
-        <span className="font-semibold text-omni-ink text-sm">
-          Buscar artefatos
-        </span>
-      );
-    }
-
-    for (const group of NAV_GROUPS) {
-      const match = group.items.find(item => item.id === currentRouteId);
-      if (match) {
-        return (
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-omni-ink-secondary/70 font-medium">
-              {group.title}
-            </span>
-            <span className="text-omni-muted font-normal">
-              ›
-            </span>
-            <span className="font-semibold text-omni-ink">
-              {match.label}
-            </span>
-          </div>
-        );
-      }
-    }
-
-    return (
-      <span className="font-semibold text-omni-ink text-sm">
-        OMNI
-      </span>
-    );
-  };
-
   return (
     <div className="min-h-screen flex w-full bg-[#F4F5F7] text-omni-ink relative overflow-x-hidden font-sans">
       {/* Sidebar Corporativa Fixa com Fundo em Degradê Assinatura */}
@@ -106,7 +68,6 @@ export const AppShell: React.FC<AppShellProps> = ({
         onCloseMobile={() => setIsMobileMenuOpen(false)}
         onSyncClick={onSyncClick}
         lastSync={lastSync}
-        navBadges={navBadges}
       />
 
       {/* Área Principal: recua só a faixa de ícones (72px); o menu aberto passa por cima */}
@@ -118,13 +79,11 @@ export const AppShell: React.FC<AppShellProps> = ({
         <div className="md:hidden flex items-center justify-between px-4 h-14 bg-omni-gradient text-white sticky top-0 z-30 shadow-md">
           <button
             onClick={() => setIsMobileMenuOpen(true)}
-            className="relative p-2 -ml-2 rounded-lg text-white hover:bg-white/10 cursor-pointer"
+            className="p-2 -ml-2 rounded-lg text-white hover:bg-white/10 cursor-pointer"
             aria-label="Abrir menu de navegação"
           >
             <Menu className="w-5 h-5 text-white" />
-            {navBadges && Object.keys(navBadges).length > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-violet-400 ring-2 ring-[#9a0710]" aria-hidden="true" />
-            )}
+
           </button>
           
           <button 
@@ -145,20 +104,16 @@ export const AppShell: React.FC<AppShellProps> = ({
           <div className="w-8" /> {/* Espaçador para balanceamento */}
         </div>
 
-        {/* Barra Superior Sticky Desktop: 60px, mist/85 + backdrop-blur, borda line */}
-        <header className="sticky top-0 z-20 hidden md:flex items-center justify-between min-h-[60px] px-6 lg:px-8 bg-omni-mist/85 backdrop-blur-md border-b border-omni-line transition-all">
-          {/* Trilha à esquerda */}
-          <div className="flex items-center shrink-0 pr-4">
-            {getBreadcrumb()}
-          </div>
-
-          {/* Filtros da Página à direita (envolvidos em .omni-filterbar) */}
-          {hasFilters && contextualContent && (
+        {/* Barra Superior Sticky Desktop: só aparece quando a tela tem busca/filtros (à direita) */}
+        {hasFilters && contextualContent && (
+          <header className="sticky top-0 z-20 hidden md:flex items-center justify-end min-h-[60px] px-6 lg:px-8 bg-omni-mist/85 backdrop-blur-md border-b border-omni-line transition-all">
             <div className="omni-filterbar flex-1 min-w-0 py-2">
               {contextualContent}
             </div>
-          )}
-        </header>
+          </header>
+        )}
+        {/* Sem barra: mesmo espaço no topo, para o título não pular ao trocar de aba */}
+        {!(hasFilters && contextualContent) && <div className="hidden md:block h-[60px] shrink-0" aria-hidden="true" />}
 
         {/* Barra de Filtros Mobile (quando aplicável) */}
         {hasFilters && contextualContent && (
@@ -176,13 +131,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
         {/* Rodapé corporativo: versão beta e canal de feedback */}
         <footer className="mt-auto w-full border-t border-omni-line bg-white/70 backdrop-blur-sm py-3 px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-2 text-[11.5px] font-ui text-omni-muted z-10">
-          <div className="flex items-center gap-2 text-center sm:text-left">
-            <span className="font-semibold text-omni-ink-secondary">OMNI</span>
-            <span className="px-1.5 py-px rounded border border-omni-line bg-omni-mist text-[10px] font-semibold text-omni-ink-secondary">
-              Beta
-            </span>
-            <span>Primeira versão, em avaliação. Números e telas ainda podem mudar.</span>
-          </div>
+          <p className="text-center sm:text-left">Primeira versão, em avaliação. Números e telas ainda podem mudar.</p>
           <div className="flex items-center gap-3">
             <a
               href="mailto:lucas.doliveira@bradesco.com.br?subject=OMNI%20Beta%20-%20Feedback"
