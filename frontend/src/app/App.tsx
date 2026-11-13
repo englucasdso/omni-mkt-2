@@ -1760,11 +1760,6 @@ export default function App() {
                 onDrillDown={handleInsightDrillDown}
                 onOpenGuide={() => setAppState("guia")}
                 onDocsChange={setStandardsDocs}
-                adherence={adherenceByMap}
-                onOpenMapAt={(art, target) => {
-                  setDetailTarget(target);
-                  setDetailModalItem(art);
-                }}
               />
             </ErrorBoundary>
           )}
@@ -2008,7 +2003,6 @@ export default function App() {
                     setDetailModalItem(artifact);
                   }}
                   onViewInTree={(id) => handleViewInTree(id)}
-                  adherence={adherenceByMap.get(String(item.id))}
                 />
               ))}
             </div>

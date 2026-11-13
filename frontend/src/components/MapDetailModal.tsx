@@ -14,7 +14,7 @@ import { resolveMeasurementClass, getMeasurementLabel } from '../domain/measurem
 import { getMapStatusMetrics } from '../domain/status';
 import { findArtifactValueIssues, findPatternIssues } from '../domain/quality/valueQuality';
 import { HoverHint } from './HoverHint';
-import { MapAdherence, AdherenceFlag, describeComparison, FLAG_KIND_LABEL } from '../domain/padroes/adherence';
+import { MapAdherence } from '../domain/padroes/adherence';
 
 interface MapDetailModalProps {
   item: Artifact | null;
@@ -122,30 +122,10 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
 
   if (!item) return null;
 
-  // Pontos para conferir com o padrão, por tela e por snippet
-  const flagsBySnippet = new Map<string, AdherenceFlag[]>();
+  // Bolinha roxa: parâmetros que não batem com a Base de padrões (só um sinal, sem veredito)
   const flagsByScreen = new Map<string, number>();
-  for (const f of adherence?.flags || []) {
-    const k = `${f.screenId}-snippet-${f.snippetIndex}`;
-    if (!flagsBySnippet.has(k)) flagsBySnippet.set(k, []);
-    flagsBySnippet.get(k)!.push(f);
-    flagsByScreen.set(f.screenId, (flagsByScreen.get(f.screenId) || 0) + 1);
-  }
-  const standardFlagCount = adherence?.flags.length || 0;
+  for (const f of adherence?.flags || []) flagsByScreen.set(f.screenId, (flagsByScreen.get(f.screenId) || 0) + 1);
   const flaggedParams = new Map<string, string>((adherence?.flags || []).map((f) => [f.param, f.message]));
-
-  /** Leva até o snippet com ponto para conferir */
-  const goToFlag = (f: AdherenceFlag) => {
-    setActiveTab('telas');
-    setExpandedScreens((prev) => ({ ...prev, [f.screenId]: true }));
-    setHighlightedSnippetKey(`${f.screenId}-snippet-${f.snippetIndex}`);
-    setTimeout(() => {
-      modalBodyRef.current
-        ?.querySelector(`[data-screen-id="${f.screenId}"][data-snippet-index="${f.snippetIndex}"]`)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 150);
-    setTimeout(() => setHighlightedSnippetKey(null), 3000);
-  };
 
   const screens = item.screens || [];
   const parameters = item.parameter_summary || [];
@@ -194,10 +174,10 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
   const isFigmaLink = figmaRaw && figmaRaw !== '-' && figmaRaw.trim() !== '' && (figmaRaw.startsWith('http://') || figmaRaw.startsWith('https://'));
 
   const tabs = [
-    { id: 'telas', label: 'Telas', icon: Layers, alerts: 0 },
-    { id: 'parametros', label: 'Parâmetros', icon: Tag, alerts: valueIssueCount },
-    { id: 'padroes', label: 'Padrões', icon: Code2, alerts: patternIssues.size },
-    { id: 'detalhes', label: 'Detalhes', icon: FileText, alerts: 0 }
+    { id: 'telas', label: 'Telas', icon: Layers, alerts: 0, standards: flagsByScreen.size },
+    { id: 'parametros', label: 'Parâmetros', icon: Tag, alerts: valueIssueCount, standards: flaggedParams.size },
+    { id: 'padroes', label: 'Padrões', icon: Code2, alerts: patternIssues.size, standards: 0 },
+    { id: 'detalhes', label: 'Detalhes', icon: FileText, alerts: 0, standards: 0 }
   ] as const;
 
   return (
@@ -346,20 +326,6 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                 <span className="font-bold text-gray-900 dark:text-slate-100">{patterns.length}</span>
                 <span>{patterns.length === 1 ? 'padrão' : 'padrões'}</span>
               </div>
-              {standardFlagCount > 0 && adherence && (
-                <>
-                  <span className="text-gray-300 dark:text-slate-700">|</span>
-                  <button
-                    type="button"
-                    onClick={() => goToFlag(adherence.flags[0])}
-                    title={describeComparison(adherence)}
-                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-violet-50 border border-violet-200 text-violet-800 font-medium hover:bg-violet-100 cursor-pointer"
-                  >
-                    <span className="w-2 h-2 rounded-full bg-violet-500 shrink-0" aria-hidden="true" />
-                    {standardFlagCount} {standardFlagCount === 1 ? 'ponto para conferir' : 'pontos para conferir'} com o padrão
-                  </button>
-                </>
-              )}
             </div>
           )}
 
@@ -385,6 +351,13 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                       className="w-1.5 h-1.5 rounded-full bg-amber-500"
                       title="Tem alerta para conferir"
                       aria-label="Tem alerta para conferir"
+                    />
+                  )}
+                  {tab.standards > 0 && (
+                    <span
+                      className="w-1.5 h-1.5 rounded-full bg-violet-500"
+                      title="Tem parâmetro para conferir na Base de padrões"
+                      aria-label="Tem parâmetro para conferir na Base de padrões"
                     />
                   )}
                 </button>
@@ -433,12 +406,10 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                           <StatusBadge status={screen.status} />
                           {flagsByScreen.get(screenKey) ? (
                             <span
-                              className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-violet-50 border border-violet-200 text-[10.5px] font-medium text-violet-800"
-                              title="Parâmetros para conferir com a Base de padrões"
-                            >
-                              <span className="w-1.5 h-1.5 rounded-full bg-violet-500" aria-hidden="true" />
-                              {flagsByScreen.get(screenKey)} para conferir
-                            </span>
+                              className="shrink-0 w-1.5 h-1.5 rounded-full bg-violet-500"
+                              title="Tem parâmetro para conferir na Base de padrões"
+                              aria-label="Tem parâmetro para conferir na Base de padrões"
+                            />
                           ) : null}
                           <span className="text-xs font-semibold text-gray-800 dark:text-slate-200 truncate">
                             {screen.instruction || 'Tela sem instrução especificada'}
@@ -510,27 +481,6 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                                         {snip.raw_code}
                                       </pre>
                                     </div>
-
-                                    {/* Pontos para conferir com a Base de padrões */}
-                                    {(flagsBySnippet.get(`${screenKey}-snippet-${snIdx}`) || []).length > 0 && (
-                                      <div className="rounded-xl border border-violet-200 bg-violet-50/70 px-4 py-3 space-y-2">
-                                        <p className="text-xs font-semibold text-violet-900 flex items-center gap-1.5">
-                                          <span className="w-2 h-2 rounded-full bg-violet-500" aria-hidden="true" />
-                                          Confira com a Base de padrões
-                                        </p>
-                                        <ul className="space-y-1.5">
-                                          {flagsBySnippet.get(`${screenKey}-snippet-${snIdx}`)!.map((f) => (
-                                            <li key={f.param} className="text-xs text-violet-950/80 leading-relaxed flex gap-2">
-                                              <span className="shrink-0 font-mono font-semibold text-violet-900">{f.param}</span>
-                                              <span>
-                                                <span className="font-medium text-violet-900">{FLAG_KIND_LABEL[f.kind]}.</span> {f.message}
-                                              </span>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                        {adherence && <p className="text-[11px] text-violet-900/60">{describeComparison(adherence)}</p>}
-                                      </div>
-                                    )}
 
                                     {/* Resumo neutro fora do fundo preto */}
                                     <div className="flex items-center justify-between text-xs font-ui text-gray-500 dark:text-slate-400 px-1">

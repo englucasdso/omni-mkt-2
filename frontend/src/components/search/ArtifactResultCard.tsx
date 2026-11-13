@@ -8,8 +8,6 @@ import { MeasurementBadge } from '../badges/MeasurementBadge';
 import { resolveMeasurementClass } from '../../domain/measurement';
 import { resolveArtifactTaxonomy } from '../../utils/taxonomyResolver';
 
-import { MapAdherence, describeComparison } from '../../domain/padroes/adherence';
-
 export interface ArtifactResultCardProps {
   item: Artifact;
   activeSearch?: {
@@ -51,8 +49,6 @@ export interface ArtifactResultCardProps {
   onOpenSnippet?: (item: Artifact, target: { screenId?: string; snippetIndex?: number }) => void;
   /** Mantido por compatibilidade; o card não mostra mais "Ver na árvore" */
   onViewInTree?: (artifactId: string) => void;
-  /** Pontos para conferir com a Base de padrões (roxo) */
-  adherence?: MapAdherence | null;
 }
 
 function formatPtBrDate(dateVal?: string | number | Date | null): string {
@@ -74,7 +70,6 @@ export const ArtifactResultCard: React.FC<ArtifactResultCardProps> = ({
   activeSearch,
   onOpenDetails,
   onOpenSnippet,
-  adherence,
 }) => {
   const isMapArtifact = isMap(item);
   const screensCount = Array.isArray(item.screens) ? item.screens.length : 0;
@@ -316,26 +311,6 @@ export const ArtifactResultCard: React.FC<ArtifactResultCardProps> = ({
         )}
 
         <div className="flex items-center justify-end gap-x-2 min-w-0 text-xs text-omni-ink-secondary">
-          {isMapArtifact && adherence && adherence.flags.length > 0 && (
-            <>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const f = adherence.flags[0];
-                  if (onOpenSnippet) onOpenSnippet(item, { screenId: f.screenId, snippetIndex: f.snippetIndex });
-                  else onOpenDetails(item);
-                }}
-                onKeyDown={(e) => e.stopPropagation()}
-                title={`${describeComparison(adherence)} Clique para ir ao primeiro ponto.`}
-                className="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-violet-50 border border-violet-200 text-[11px] font-medium text-violet-800 hover:bg-violet-100 cursor-pointer"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-violet-500" aria-hidden="true" />
-                {adherence.flags.length} para conferir no padrão
-              </button>
-              <span className="text-omni-muted">•</span>
-            </>
-          )}
           {isMapArtifact && (
             <>
               <span className="shrink-0">
