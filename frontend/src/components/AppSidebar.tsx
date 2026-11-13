@@ -177,8 +177,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           )}
         </div>
 
-        {/* 2. Botão "Nova busca" (40px): o mesmo botão nos dois estados, só revela o texto */}
-        <div className="p-3 shrink-0">
+        {/* 2. Nova busca: mesmo estilo dos itens do menu, com espaço em relação ao logo */}
+        <div className="px-2 pt-4 pb-1 shrink-0">
           <button
             id="sidebar-nova-busca"
             type="button"
@@ -187,13 +187,15 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               else onHomeClick();
               if (onCloseMobile) onCloseMobile();
             }}
-            className="w-full h-10 pl-4 pr-3 bg-white text-omni-bordo hover:bg-white/95 rounded-lg shadow-sm font-ui font-semibold text-xs flex items-center gap-2 transition-colors cursor-pointer group overflow-hidden"
-            title="Nova busca (/)"
             aria-label="Nova busca"
+            className="relative w-full h-9 rounded-lg flex items-center pl-[19px] pr-3 gap-3 transition-colors duration-150 cursor-pointer text-left text-white/85 hover:bg-white/[0.07] hover:text-white font-medium"
           >
-            <Search className="w-4 h-4 text-omni-bordo shrink-0 group-hover:scale-105 transition-transform" />
-            <span className={`truncate whitespace-nowrap flex-1 text-left ${labelFade}`}>Nova busca</span>
-            <kbd className={`px-1.5 py-0.5 text-[10px] font-mono bg-omni-mist text-omni-ink-secondary rounded border border-omni-line shadow-2xs ${labelFade}`}>
+            <Search className="w-[18px] h-[18px] shrink-0" />
+            <span className={`text-xs font-ui truncate whitespace-nowrap leading-none flex-1 ${labelFade}`}>Nova busca</span>
+            <kbd
+              className={`px-1.5 py-0.5 text-[10px] font-mono text-white/55 rounded border border-white/20 leading-none ${labelFade}`}
+              title="Atalho: tecla /"
+            >
               /
             </kbd>
           </button>
