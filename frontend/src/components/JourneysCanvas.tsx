@@ -18,13 +18,11 @@ import { Artifact } from '../types';
 import { StatusBadge } from './badges/StatusBadge';
 import { buildLocalJourney } from '../domain/journey/localJourney';
 import {
-  Search,
   BrainCircuit,
   Info,
   ExternalLink,
   ChevronLeft,
   ChevronRight,
-  Code2,
 } from 'lucide-react';
 
 // Pontos de ancoragem das linhas: invisíveis e sem arrastar.
@@ -212,6 +210,15 @@ interface StageInfo {
 
 const COLUMN_GAP = 72;
 const ROW_GAP = 28;
+const SUBCOLUMN_GAP = 40;
+
+/**
+ * Quantas telas empilhar antes de abrir outra coluna dentro da mesma etapa.
+ * Etapa grande vira uma grade quase quadrada, em vez de uma fileira enorme.
+ */
+function rowsPerColumn(count: number): number {
+  return Math.max(4, Math.ceil(Math.sqrt(count)));
+}
 
 /**
  * Quadro de etapas: cada etapa é uma coluna (na ordem da jornada) e as telas da
@@ -236,26 +243,37 @@ function layoutJourney(nodes: any[], stages: StageInfo[], cardHeight: number) {
   // Exceções sempre por último, para a fila principal ler da esquerda para a direita
   columns.sort((a, b) => Number(a.stage.kind === 'exception') - Number(b.stage.kind === 'exception'));
 
-  const columnOf = new Map<string, number>();
+  const columnOf = new Map<string, string>();
   const laidOut: any[] = [];
   const frames: any[] = [];
 
+  let x = 0;
   columns.forEach((col, ci) => {
-    const x = ci * (CARD_WIDTH + STAGE_PADDING * 2 + COLUMN_GAP);
-    col.members.forEach((n, ri) => {
-      columnOf.set(n.id, ci);
+    const rows = rowsPerColumn(col.members.length);
+    const subColumns = Math.ceil(col.members.length / rows);
+    col.members.forEach((n, i) => {
+      const sub = Math.floor(i / rows);
+      const row = i % rows;
+      // Coluna visual = etapa + subcoluna; define se a seta desce ou vai para o lado
+      columnOf.set(n.id, `${ci}-${sub}`);
       laidOut.push({
         ...n,
-        position: { x: x + STAGE_PADDING, y: STAGE_HEADER + ri * (cardHeight + ROW_GAP) },
+        position: {
+          x: x + STAGE_PADDING + sub * (CARD_WIDTH + SUBCOLUMN_GAP),
+          y: STAGE_HEADER + row * (cardHeight + ROW_GAP),
+        },
         zIndex: 1,
       });
     });
-    const height = STAGE_HEADER + col.members.length * (cardHeight + ROW_GAP) - ROW_GAP + STAGE_PADDING;
+    const width = STAGE_PADDING * 2 + subColumns * CARD_WIDTH + (subColumns - 1) * SUBCOLUMN_GAP;
+    const height = STAGE_HEADER + Math.min(rows, col.members.length) * (cardHeight + ROW_GAP) - ROW_GAP + STAGE_PADDING;
+    const frameX = x;
+    x += width + COLUMN_GAP;
     frames.push({
       id: col.stage.id,
       type: 'stage',
-      position: { x, y: 0 },
-      style: { width: CARD_WIDTH + STAGE_PADDING * 2, height },
+      position: { x: frameX, y: 0 },
+      style: { width, height },
       data: { name: col.stage.name, kind: col.stage.kind, description: col.stage.description, count: col.members.length },
       draggable: false,
       selectable: false,
@@ -272,6 +290,9 @@ function layoutJourney(nodes: any[], stages: StageInfo[], cardHeight: number) {
 interface JourneysCanvasProps {
   artifacts: Artifact[];
   selectedMapId: string | null;
+  /** Busca e exibição do código vêm da barra de cima (mesmo padrão das outras abas) */
+  searchQuery?: string;
+  showCode?: boolean;
   onOpenScreen: (map: Artifact, target?: { screenId?: string; snippetIndex?: number }) => void;
 }
 
@@ -281,11 +302,15 @@ const normalizeText = (t: string) =>
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '');
 
-const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({ artifacts, selectedMapId, onOpenScreen }) => {
+const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({
+  artifacts,
+  selectedMapId,
+  onOpenScreen,
+  searchQuery = '',
+  showCode = false,
+}) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [showCode, setShowCode] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebouncedSearch(searchQuery, 300);
   const { fitView, setCenter } = useReactFlow();
 
@@ -311,8 +336,6 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({ artifacts, selecte
     () => (selectedMap && screens.length > 0 ? buildLocalJourney(selectedMap) : null),
     [selectedMap, screens.length]
   );
-
-  useEffect(() => setSearchQuery(''), [selectedMap?.id]);
 
   // Desenha a análise atual
   useEffect(() => {
@@ -412,7 +435,7 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({ artifacts, selecte
         </div>
         <p className="text-base font-semibold text-omni-ink">Escolha um mapa para ver a jornada</p>
         <p className="text-xs text-omni-ink-secondary mt-1 max-w-md">
-          Use Produto, Subproduto e Mapa na barra acima. As telas aparecem agrupadas por etapa da jornada.
+          Clique em Filtros, lá em cima, e escolha o mapa. As telas aparecem agrupadas por etapa da jornada.
         </p>
       </div>
     );
@@ -435,33 +458,6 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({ artifacts, selecte
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden rounded-2xl border border-omni-line bg-white">
-      {/* Barra superior */}
-      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-omni-line bg-white">
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-omni-muted" />
-          <input
-            type="text"
-            placeholder="Buscar tela, evento ou código"
-            className="pl-9 pr-3 h-9 w-[240px] sm:w-[280px] rounded-lg border border-omni-line bg-white text-xs focus:outline-none focus:ring-2 focus:ring-omni-bordo/30"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setShowCode((v) => !v)}
-          aria-pressed={showCode}
-          className={`h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
-            showCode ? 'bg-omni-ink text-white border-omni-ink' : 'bg-white text-omni-ink-secondary border-omni-line hover:border-omni-bordo/40'
-          }`}
-        >
-          <Code2 className="w-3.5 h-3.5" />
-          {showCode ? 'Esconder código' : 'Mostrar código'}
-        </button>
-
-      </div>
-
       {/* Resumo da jornada */}
       <div className="flex items-start gap-2.5 px-4 py-2.5 border-b border-omni-line bg-omni-mist/50">
         <Info className="w-4 h-4 text-omni-muted shrink-0 mt-0.5" />

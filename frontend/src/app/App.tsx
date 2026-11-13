@@ -518,6 +518,10 @@ export default function App() {
   const [journeyProduct, setJourneyProduct] = useState("");
   const [journeySubproduct, setJourneySubproduct] = useState("");
   const [journeyMapId, setJourneyMapId] = useState("");
+  const [journeySearch, setJourneySearch] = useState("");
+  const [journeyShowCode, setJourneyShowCode] = useState(false);
+  // Trocar de mapa começa a busca da jornada do zero
+  useEffect(() => setJourneySearch(""), [journeyMapId]);
   const [tableFilter, setTableFilter] = useState("");
   const [lastSync, setLastSync] = useState<string | null>(localStorage.getItem('last_sync'));
   const [showExportModal, setShowExportModal] = useState(false);
@@ -1631,6 +1635,10 @@ export default function App() {
             onSelectSubproduct={setJourneySubproduct}
             selectedMapId={journeyMapId}
             onSelectMapId={setJourneyMapId}
+            searchQuery={journeySearch}
+            onSearchChange={setJourneySearch}
+            showCode={journeyShowCode}
+            onShowCodeChange={setJourneyShowCode}
             isLoading={loading}
           />
         ) : (
@@ -1903,6 +1911,8 @@ export default function App() {
                 <JourneysCanvas
                   artifacts={fullInventory}
                   selectedMapId={journeyMapId}
+                  searchQuery={journeySearch}
+                  showCode={journeyShowCode}
                   onOpenScreen={(map, target) => {
                     setDetailModalItem(map);
                     setDetailTarget(target || null);
