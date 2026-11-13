@@ -80,111 +80,182 @@ function extractTerms(question: string): QueryTerm[] {
   return terms;
 }
 
-function matches(text: string, t: QueryTerm): boolean {
-  return text.includes(t.term) || text.includes(t.stem);
+/** Conta quantas palavras do texto batem com o termo (palavra inteira, plural ou flexão). */
+function countIn(tokens: string[], t: QueryTerm): number {
+  let n = 0;
+  for (const tok of tokens) {
+    if (tok === t.term || tok.startsWith(t.stem)) n++;
+  }
+  return n;
 }
+
+const tokenize = (text: string): string[] => (text ? normalizeString(text).split(' ').filter(Boolean) : []);
+
+/** Onde cada termo apareceu e quantas vezes */
+type Area = 'título' | 'produto' | 'subproduto' | 'caminho' | 'instrução da tela' | 'evento' | 'parâmetros';
+const AREA_WEIGHT: Record<Area, number> = {
+  'título': 10,
+  produto: 6,
+  subproduto: 6,
+  caminho: 2,
+  'instrução da tela': 3,
+  evento: 3,
+  'parâmetros': 2,
+};
+/** Teto por área para um mapa enorme não ganhar só pelo tamanho */
+const AREA_CAP = 40;
 
 interface LocalCandidate {
   artifact: any;
-  score: number;
-  matchedTerms: Set<string>;
-  where: Set<string>;
+  /** termo -> área -> ocorrências */
+  hits: Map<string, Map<Area, number>>;
+  /** Todos os termos (2+) aparecem juntos no mesmo snippet / na mesma tela */
+  together: 'snippet' | 'tela' | null;
   bestScreen: any | null;
-  bestScreenScore: number;
   bestSnippetIndex: number;
+  weightedCoverage: number;
+  occurrenceScore: number;
+  score: number;
 }
 
-/** Ranking local: título e taxonomia pesam mais; telas e snippets confirmam. */
-function selectLocalCandidates(inventory: any[], terms: QueryTerm[], maxCandidates = 20): LocalCandidate[] {
+/**
+ * Ranking em camadas:
+ * 1. quem tem TODOS os termos vem primeiro;
+ * 2. depois, quem cobre os termos mais específicos (palavra rara na base, como "INSS",
+ *    vale mais do que palavra comum, como "cartão");
+ * 3. termos juntos no mesmo snippet/tela sobem;
+ * 4. por fim, quantas vezes os termos aparecem no título e nos parâmetros.
+ */
+function selectLocalCandidates(inventory: any[], terms: QueryTerm[], maxCandidates = 50): LocalCandidate[] {
   if (terms.length === 0) return [];
-  const scored: LocalCandidate[] = [];
+  const found: LocalCandidate[] = [];
+  const docFreq = new Map<string, number>(terms.map((t) => [t.term, 0]));
+  let totalDocs = 0;
 
   for (const item of inventory) {
     if (item.artifact_type === 'RAIZ') continue;
-    const cand: LocalCandidate = {
-      artifact: item,
-      score: 0,
-      matchedTerms: new Set(),
-      where: new Set(),
-      bestScreen: null,
-      bestScreenScore: 0,
-      bestSnippetIndex: 0,
+    totalDocs++;
+    const hits = new Map<string, Map<Area, number>>();
+    const add = (t: QueryTerm, area: Area, n: number) => {
+      if (n <= 0) return;
+      const m = hits.get(t.term) || new Map<Area, number>();
+      m.set(area, (m.get(area) || 0) + n);
+      hits.set(t.term, m);
     };
 
-    const fields: Array<[string, string, number]> = [
-      ['título', normalizeString(item.titulo || ''), 35],
-      ['produto', normalizeString(item.produto || ''), 20],
-      ['subproduto', normalizeString(item.subproduto || ''), 20],
-      ['caminho', normalizeString(item.full_path || item.pai || ''), 8],
+    const fields: Array<[Area, string]> = [
+      ['título', item.titulo || ''],
+      ['produto', item.produto || ''],
+      ['subproduto', item.subproduto || ''],
+      ['caminho', item.full_path || item.pai || ''],
     ];
-    for (const [label, text, weight] of fields) {
-      if (!text) continue;
+    for (const [area, text] of fields) {
+      const toks = tokenize(text);
+      if (toks.length) for (const t of terms) add(t, area, countIn(toks, t));
+    }
+
+    let together: LocalCandidate['together'] = null;
+    let bestScreen: any = null;
+    let bestScreenKey = -1;
+    let bestSnippetIndex = 0;
+
+    for (const screen of Array.isArray(item.screens) ? item.screens : []) {
+      const screenTerms = new Set<string>();
+      let screenOcc = 0;
+      let bestSnip = 0;
+      let bestSnipKey = -1;
+      const instToks = tokenize(`${screen.instruction || ''} ${screen.screen_name || ''} ${screen.additional_information || ''}`);
       for (const t of terms) {
-        if (matches(text, t)) {
-          cand.score += weight;
-          cand.matchedTerms.add(t.term);
-          cand.where.add(label);
+        const n = countIn(instToks, t);
+        if (n) {
+          add(t, 'instrução da tela', n);
+          screenTerms.add(t.term);
+          screenOcc += n;
         }
       }
-    }
-
-    if (Array.isArray(item.screens)) {
-      for (const screen of item.screens) {
-        let screenScore = 0;
-        let bestSnip = 0;
-        let bestSnipScore = 0;
-        const inst = normalizeString(`${screen.instruction || ''} ${screen.screen_name || ''} ${screen.additional_information || ''}`);
+      (screen.snippets || []).forEach((snip: any, snipIdx: number) => {
+        const snipTerms = new Set<string>();
+        let snipOcc = 0;
+        const evtToks = tokenize(`${snip.event_raw || ''} ${snip.event_normalized || ''}`);
+        const paramToks = tokenize(
+          (snip.parameters || []).map((p: any) => `${p.name || ''} ${p.normalized_value ?? p.value ?? ''}`).join(' ')
+        );
         for (const t of terms) {
-          if (matches(inst, t)) {
-            screenScore += 15;
-            cand.matchedTerms.add(t.term);
-            cand.where.add('instrução da tela');
+          const e = countIn(evtToks, t);
+          const v = countIn(paramToks, t);
+          add(t, 'evento', e);
+          add(t, 'parâmetros', v);
+          if (e + v > 0) {
+            snipTerms.add(t.term);
+            screenTerms.add(t.term);
+            snipOcc += e + v;
           }
         }
-        (screen.snippets || []).forEach((snip: any, snipIdx: number) => {
-          let snipScore = 0;
-          const evt = normalizeString(`${snip.event_raw || ''} ${snip.event_normalized || ''}`);
-          const values = normalizeString(
-            (snip.parameters || [])
-              .map((p: any) => `${p.name || ''} ${p.normalized_value ?? p.value ?? ''}`)
-              .join(' ')
-          );
-          for (const t of terms) {
-            if (matches(evt, t)) {
-              snipScore += 12;
-              cand.matchedTerms.add(t.term);
-              cand.where.add('evento');
-            }
-            if (matches(values, t)) {
-              snipScore += 9;
-              cand.matchedTerms.add(t.term);
-              cand.where.add('parâmetros');
-            }
-          }
-          if (snipScore > bestSnipScore) {
-            bestSnipScore = snipScore;
-            bestSnip = snipIdx;
-          }
-          screenScore += snipScore;
-        });
-        cand.score += Math.min(screenScore, 60);
-        if (screenScore > cand.bestScreenScore) {
-          cand.bestScreenScore = screenScore;
-          cand.bestScreen = screen;
-          cand.bestSnippetIndex = bestSnip;
+        screenOcc += snipOcc;
+        if (terms.length > 1 && snipTerms.size === terms.length) together = 'snippet';
+        const key = snipTerms.size * 1000 + snipOcc;
+        if (key > bestSnipKey) {
+          bestSnipKey = key;
+          bestSnip = snipIdx;
         }
+      });
+      if (terms.length > 1 && screenTerms.size === terms.length && together !== 'snippet') together = 'tela';
+      // Melhor tela: a que tem mais termos diferentes, depois mais ocorrências
+      const key = screenTerms.size * 1000 + screenOcc;
+      if (screenTerms.size > 0 && key > bestScreenKey) {
+        bestScreenKey = key;
+        bestScreen = screen;
+        bestSnippetIndex = bestSnip;
       }
     }
 
-    if (cand.matchedTerms.size === 0) continue;
-    // Cobrir mais termos da pergunta vale mais do que repetir o mesmo termo
-    const coverage = cand.matchedTerms.size / terms.length;
-    cand.score = cand.score * (0.4 + coverage);
-    scored.push(cand);
+    if (hits.size === 0) continue;
+    hits.forEach((_, term) => docFreq.set(term, (docFreq.get(term) || 0) + 1));
+    found.push({
+      artifact: item,
+      hits,
+      together,
+      bestScreen,
+      bestSnippetIndex,
+      weightedCoverage: 0,
+      occurrenceScore: 0,
+      score: 0,
+    });
   }
 
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, maxCandidates);
+  // Peso de cada termo: quanto mais raro na base, mais ele define a pergunta
+  const idf = new Map<string, number>();
+  for (const t of terms) idf.set(t.term, Math.log(1 + totalDocs / Math.max(1, docFreq.get(t.term) || 0)));
+  const idfTotal = terms.reduce((sum, t) => sum + (idf.get(t.term) || 0), 0) || 1;
+
+  for (const c of found) {
+    let covered = 0;
+    let occ = 0;
+    c.hits.forEach((areas, term) => {
+      const w = idf.get(term) || 0;
+      covered += w;
+      areas.forEach((n, area) => (occ += w * AREA_WEIGHT[area] * Math.min(n, AREA_CAP)));
+    });
+    c.weightedCoverage = covered / idfTotal;
+    c.occurrenceScore = occ;
+  }
+
+  const hasAll = (c: LocalCandidate) => c.hits.size === terms.length;
+  const anyFull = found.some(hasAll);
+  // Havendo resultados com todos os termos, só entram parciais que tenham os termos mais específicos
+  const pool = anyFull ? found.filter((c) => hasAll(c) || c.weightedCoverage >= 0.5) : found;
+
+  const togetherRank = (c: LocalCandidate) => (c.together === 'snippet' ? 2 : c.together === 'tela' ? 1 : 0);
+  pool.sort(
+    (a, b) =>
+      Number(hasAll(b)) - Number(hasAll(a)) ||
+      b.weightedCoverage - a.weightedCoverage ||
+      togetherRank(b) - togetherRank(a) ||
+      b.occurrenceScore - a.occurrenceScore
+  );
+  const top = pool[0]?.occurrenceScore || 1;
+  pool.forEach((c) => (c.score = Math.round((c.weightedCoverage * 0.7 + Math.min(c.occurrenceScore / top, 1) * 0.3) * 100) / 100));
+  return pool.slice(0, maxCandidates);
 }
 
 function screenLabel(screen: any, fallbackIdx = 0): string {
@@ -216,24 +287,36 @@ function buildResult(
   };
 }
 
+function describeHits(areas: Map<Area, number>): string {
+  return Array.from(areas.entries())
+    .sort((x, y) => y[1] - x[1])
+    .map(([area, n]) => (n > 1 ? `${area} (${n}x)` : area))
+    .join(', ');
+}
+
 function localResults(candidates: LocalCandidate[], terms: QueryTerm[], limit: number): SemanticSearchResultItem[] {
-  const top = candidates[0]?.score || 1;
   return candidates.slice(0, limit).map((c) => {
-    const coverage = c.matchedTerms.size / Math.max(terms.length, 1);
-    const confidence: 'ALTA' | 'MEDIA' | 'BAIXA' = coverage >= 0.99 ? 'ALTA' : coverage >= 0.5 ? 'MEDIA' : 'BAIXA';
-    const shown = terms.filter((t) => c.matchedTerms.has(t.term)).map((t) => t.display);
-    const evidence = [`Termos encontrados: ${shown.join(', ')}`, `Onde: ${Array.from(c.where).join(', ')}`];
-    if (c.bestScreen) evidence.push(screenLabel(c.bestScreen));
-    return buildResult(c.artifact, c.bestScreenScore > 0 ? c.bestScreen : null, c.bestSnippetIndex, {
-      score: Math.round((c.score / top) * 100) / 100,
+    const all = c.hits.size === terms.length;
+    const confidence: 'ALTA' | 'MEDIA' | 'BAIXA' = all ? 'ALTA' : c.weightedCoverage >= 0.5 ? 'MEDIA' : 'BAIXA';
+    const evidence = terms
+      .filter((t) => c.hits.has(t.term))
+      .map((t) => `${t.display}: ${describeHits(c.hits.get(t.term)!)}`);
+    const missing = terms.filter((t) => !c.hits.has(t.term)).map((t) => t.display);
+    if (c.together === 'snippet') evidence.push('Os termos aparecem juntos no mesmo código de disparo.');
+    else if (c.together === 'tela') evidence.push('Os termos aparecem juntos na mesma tela.');
+    const reason = all
+      ? `Contém ${terms.length === 1 ? 'o termo' : `os ${terms.length} termos`} da pergunta.`
+      : `Contém ${c.hits.size} de ${terms.length} termos. Não tem: ${missing.join(', ')}.`;
+    return buildResult(c.artifact, c.bestScreen, c.bestSnippetIndex, {
+      score: c.score,
       confidence,
-      reason: `Contém ${c.matchedTerms.size} de ${terms.length} termos da pergunta.`,
+      reason,
       evidence,
     });
   });
 }
 
-export function searchSemantic(question: string, limit = 10): SemanticSearchResponse {
+export function searchSemantic(question: string, limit = 50): SemanticSearchResponse {
   const trimmedQuestion = question.trim();
   const terms = extractTerms(trimmedQuestion);
   const candidates = selectLocalCandidates(getInventoryData(), terms, limit);
@@ -248,12 +331,18 @@ export function searchSemantic(question: string, limit = 10): SemanticSearchResp
       terms: [],
     };
   }
-  return {
-    message:
-      results.length > 0
-        ? `Encontrei ${results.length} artefato${results.length > 1 ? 's' : ''} com os termos ${terms.map((t) => `"${t.display}"`).join(', ')}.`
-        : `Nenhum artefato contém ${terms.map((t) => `"${t.display}"`).join(', ')}. Tente outra palavra ou o nome do evento.`,
-    results,
-    terms: terms.map((t) => t.display),
-  };
+  const fullCount = results.filter((r) => r.confidence === 'ALTA').length;
+  const quoted = terms.map((t) => `"${t.display}"`).join(', ');
+  let message: string;
+  if (results.length === 0) {
+    message = `Nenhum artefato contém ${quoted}. Tente outra palavra ou o nome do evento.`;
+  } else if (fullCount === results.length) {
+    message = `Encontrei ${fullCount} artefato${fullCount > 1 ? 's' : ''} com ${terms.length > 1 ? 'todos os termos' : 'o termo'} ${quoted}, olhando título e parâmetros. Os que mais citam os termos vêm primeiro.`;
+  } else if (fullCount > 0) {
+    const partial = results.length - fullCount;
+    message = `Encontrei ${fullCount} artefato${fullCount > 1 ? 's' : ''} com todos os termos ${quoted}. Depois ${partial === 1 ? 'vem 1 artefato' : `vêm ${partial}`} com parte dos termos.`;
+  } else {
+    message = `Nenhum artefato tem todos os termos ${quoted}. Mostrando os que têm a maior parte, com prioridade para os termos mais específicos.`;
+  }
+  return { message, results, terms: terms.map((t) => t.display) };
 }
