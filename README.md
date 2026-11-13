@@ -1,138 +1,78 @@
-# Omni Marketing Platform
+# OMNI
 
-A Plataforma Omni Marketing é o portal centralizado do time de Martech, unindo gestão de artefatos de dados, inventário de propriedades digitais, visualização de conexões e geração de insights e integração automatizada com Confluence e GA4. Nenhuma função depende de IA ou de serviço externo.
+O OMNI organiza os mapas de mensuração (tagueamento) que estão no Confluence. Ele lê a árvore de páginas, reconhece telas, status e códigos de disparo e mostra tudo num inventário pesquisável. Nada depende de IA ou de serviço externo: tudo roda na máquina, com regras fixas.
 
----
+## O que tem
 
-## 🚀 O Que a Plataforma Faz
+- **Nova busca**: por nome, por parâmetro ou trecho de código e por pergunta.
+- **Cards** e **Inventário**: a base inteira, com filtros e exportação (Excel, CSV ou JSON).
+- **Conexões**: a árvore Produto > Subproduto > Mapa.
+- **Jornadas**: as telas de um mapa agrupadas em etapas.
+- **Por produto**, **Por parâmetro** e **Insights**: homologação, GA4 x Universal Analytics, parâmetros e idade da documentação.
+- **Base de padrões**: cadastro das páginas de padrões do Confluence (pelo favorito Extrator OMNI) e os pontos roxos "para conferir" nos mapas.
+- **Guia de tagueamento**: leitura dos padrões cadastrados, com busca.
+- **Saúde da documentação**: mapas parados, correções esquecidas e desperdício.
 
-- **Copilot Central:** Assistente conversacional na página inicial ajudando a guiar os usuários de acordo com seu perfil de acesso e fornecendo resumos contextuais.
-- **Hub de Artefatos:** Busca unificada (Fuzzy Search) em todos os mapeamentos de tagueamento e documentos, facilitando encontrar a jornada de cada subproduto.
-- **Conexões (Canvas):** Uma visão inteligente em árvore mostrando a relação hierárquica `Produto -> Subproduto -> Mapas`, usando layout de grafos com Dagre e React Flow.
-- **Insights:** indicadores de homologação, maturidade GA4 x Universal Analytics, parâmetros recorrentes e idade da documentação, calculados pelas regras canônicas de `frontend/src/domain`.
-- **Extrair dados:** relatórios de Artefatos, Telas ou Parâmetros com colunas configuráveis, em Excel (pt-BR), CSV ou JSON.
-- **Hub de Eventos:** Integração automatizada com Google Analytics 4 utilizando Service Accounts via script em Python, possibilitando o monitoramento de eventos que estão ativos versus inativos.
-- **Integração Confluence:** Scraping inteligente das páginas de documentação do Confluence via API (Basic Auth) para auto-povoamento do inventário de métricas.
-- **Visão Dark / Light Mode:** Uma interface moderna baseada em Glassmorphism, Design Tokens e TailwindCSS, implementando o "Bradesco Neo-Dark".
-- **Gestão de Controle de Acesso (RBAC):** Múltiplos níveis de permissão (Administrador, Gestor 360, Estratégico, Eventos, Artefatos).
+## Como rodar
 
----
+Requisitos: **Node 18.17.x** e **npm 9.6.x** (outras versões não são suportadas) e o **Google Chrome** instalado (a sincronização usa o Chrome pelo Playwright).
 
-## 🏗️ Arquitetura do Projeto (Atualizada)
+Na pasta do projeto:
 
-O projeto evoluiu para uma arquitetura Enterprise Limpa, adotando **Monorepo / Full-Stack** utilizando Node.js (com TSX), Express, React e Vite. A separação estrita de domínios garante a escalabilidade do sistema.
-
-### Estrutura Global
-```text
-/
-├── backend/                  # Monolito Backend isolado em sua infra
-│   ├── src/                  
-│   │   ├── certs/            # Certificados Root caso existam proxies corporativos
-│   │   ├── config/           # Configurações de ambiente / chaves
-│   │   ├── controllers/      # Handlers (se expandir rotas mvc)
-│   │   ├── data/             # Banco de dados local Base (.json de estados atuais)
-│   │   ├── integrations/     # Python Scripts (sync_ga4.py) e SDKs (confluenceClient.js)
-│   │   ├── middlewares/      # Interceptores do Express (Autenticadores futuros)
-│   │   ├── providers/        # Integração estrita de infra (BDs)
-│   │   ├── routes/           # Mapeamento do Express (search, users, ga4)
-│   │   ├── services/         # Lógica de negócio (busca por pergunta, Levenshtein, inventário)
-│   │   ├── types/            # Tipos e interfaces estritos do lado server
-│   │   ├── utils/            # Utilitários (parsings)
-│   │   └── index.ts          # Arquivo Central - Entrypoint Express Backend
-│   ├── requirements.txt      # Dependências para Integração Python GA4
-│
-├── frontend/                 # Aplicação React (SPA servida pelo Vite/Middleware)
-│   ├── src/
-│   │   ├── app/              # Lógica core visual (App.tsx global, router-wrapper)
-│   │   ├── assets/           # Imagens e fontes estáticas
-│   │   ├── components/       # Componentes Globais reutilizáveis (Canvas, UI solta)
-│   │   ├── contexts/         # React Contexts
-│   │   ├── features/         # Módulos estritos por Página/Domínio. 
-│   │   │   ├── catalog/      
-│   │   │   ├── copilot/      
-│   │   │   ├── event-capture/
-│   │   │   └── home/
-│   │   ├── hooks/            # Custom Hooks Compartilhados
-│   │   ├── layouts/          # Estruturas padrão de Container
-│   │   ├── routes/           # Declaração das trilhas do Router
-│   │   ├── services/         # Wrappers Fetch pra enviar requests à nossa API (api.ts)
-│   │   ├── styles/           # Tailwind CSS index de classes
-│   │   ├── types/            # Contratos de tipos (Interfaces e Tipagens)
-│   │   ├── utils/            # Helpers de formatação frontend, datas e manipulação visual
-│   │   └── main.tsx          # Ponto de Injeção no index.html
-│
-├── package.json              # Gerenciador único de módulos (Vite + Express)
-```
-
----
-
-## 💻 Setup Completo: Como Rodar Localmente
-
-Siga o passo a passo de forma exata para subir seu projeto do zero, sem gambiarras:
-
-### 1. Requisitos do Sistema
-- **Node.js** (versão 18.17.0+ - Preferência ao LTS).
-- **Python 3** instalado (preferencialmente >= 3.10) (Crucial para a sync do GA4).
-- Terminal padrão com permissões de read/write.
-
-### 2. Instalar Dependências do JS/TS
-No diretório *raiz* do projeto:
 ```sh
 npm install
 ```
 
-### 3. Configuração de Variáveis de Ambiente
-Crie um arquivo `.env` na **raiz** do projeto a partir do `.env.example`.
+Para usar no dia a dia (mais rápido):
 
-Nenhuma chave de IA é necessária.
-
-- **Fazer uma pergunta** (Nova busca): tira da pergunta as palavras vazias, tolera plural e flexão e pontua cada artefato pelo título, taxonomia, instrução das telas, eventos e valores de parâmetros. Cada card mostra os termos encontrados e a tela a abrir.
-- **Jornadas**: as telas são agrupadas em etapas (Entrada, Identificação, Simulação e escolha, Dados e preenchimento, Revisão e confirmação, Conclusão, Erros e exceções) pelo texto, evento e parâmetros de cada tela. As regras ficam em `frontend/src/domain/journey/localJourney.ts`.
-
-### 4. Configuração Python & Integração Google Analytics 4
-O Módulo de Hub de Eventos consulta a API do Google Analytics usando Python:
-1. Certifique-se de ter obtido um arquivo `ga4-service-account.json`. (Credenciais do GC para extrair a conta UA/GA4).
-2. Cole esse arquivo em `/backend/src/secrets/ga4-service-account.json`.
-3. Instale as bibliotecas padrão do Python (Analytics API) presentes no "requirements.txt". 
-Dentro de `/backend/`:
 ```sh
-cd backend
-pip install -r requirements.txt
+npm run producao
 ```
 
-### 5. Configurar o Executável Global do Python (Opcional, porém recomendado para Windows)
-No arquivo `/backend/src/routes/ga4.routes.ts`, caso você não possua o python mapeado mundialmente no seu Env Path (só se aplicável), existe a constante `PYTHON_EXE`. Pode ser alterada para `'python'` ou `'python3'` num mac/linux.
+Para mexer no código (recompila a cada alteração, mais lento):
 
-### 6. Executando para Desenvolvimento
-Na máquina dev, você quer Hot-reload (Fast Refresh) e Logs verbosos no Express. 
-Volte para a **raiz** do projeto e digite:
 ```sh
 npm run dev
 ```
-O framework "tsx" subirá o `backend/src/index.ts`, e ele mesmo embarca o `vite.middlewares` para compilar o Frontend via SSR-mock-routing no mesmo porto.
-**URL Local:** `http://localhost:3000`
 
----
+Nos dois casos o OMNI abre em `http://localhost:3000`.
 
-## 🚀 Build e Produção Integrados
+Outros comandos:
 
-Na hora de fazer Deploy ou ir para a Nuvem (Cloud Run, EC2, Azure), o projeto não utilizará o Middleware do Vite, mas sim servirá a pasta de assets já engessada (com cache agresivo).
+- `npm run lint`: confere os tipos do TypeScript.
+- `npm run build`: só gera a pasta `dist` (o `producao` já faz isso).
 
-1. Compilar todo o JS, TS e CSS para estáticos mimificados:
-```sh
-npm run build
+O arquivo `.env` é opcional. O `.env.example` mostra o que dá para ajustar.
+
+## Sincronizar com o Confluence
+
+O botão **Atualizar do Confluence** relê a árvore inteira. Na primeira vez (ou quando a sessão expira) o Chrome abre para você entrar com SSO/MFA; depois a coleta segue sozinha, em segundo plano. Se der erro ou você cancelar, o inventário anterior é mantido.
+
+## Onde ficam os dados
+
+Tudo em `backend/data/`:
+
+| Arquivo | O que é | Vai para o Git? |
+|---|---|---|
+| `inventario.json` | Inventário sincronizado do Confluence | Só a versão de exemplo |
+| `users.json` | Usuários locais | Sim |
+| `padroes.json` | Páginas de padrões importadas na Base de padrões | Não |
+| `playwright_session/` | Sessão do Chrome usada na sincronização | Não, nunca |
+
+## Estrutura
+
+```text
+backend/src/
+  index.ts                  servidor Express (API em /api e o site)
+  routes/                   rotas: inventário e busca, usuários, padrões
+  integrations/confluence/  sessão do Chrome, leitura da árvore, leitura dos mapas, parâmetros, Unicode
+  services/                 inventário, classificação (taxonomia, GA4/GA3), busca por pergunta
+  repositories/             leitura e gravação segura dos .json
+
+frontend/src/
+  app/                      App.tsx e as rotas
+  components/               telas e peças da interface
+  domain/                   regras: status, homologação, mensuração, saúde, jornadas, padrões
+  services/                 chamadas à API e motor de busca
+  workers/                  busca rodando fora da tela (não trava a interface)
 ```
-*(O output estará na raiz da pasta `dist/`)*
-
-2. Iniciar o Server simulando produção real:
-```sh
-NODE_ENV=production npm start
-```
-A partir daqui, quem recebe `/*` é a infra de fallback SPA do `express.static('dist')`. O painel subirá com máximo de performance.
-
----
-
-## 🛠️ Manutenção e Limpeza Técnica
-A refatoração da v2.0 removeu lixos como scripts órfãos `test-app`, versões aleatórias de cores (white.txt, bg50), aglomerando as chamadas em Services dedicados (`semanticSearch.service`, `inventory.service`). Ninguém do frontend tem o direito de realizar um lookup pro Banco de Dados local de forma exposta; tudo converge mediante as rotas da porta 3000. 
-
-*Felicidade no código! O projeto está homologado com padrão Enterprise.*

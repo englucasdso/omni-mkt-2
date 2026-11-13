@@ -11,20 +11,15 @@
  * devem morar no Backend. O frontend repassa ordens (api.ts) e obedece
  * os dados JSON que voltam da porta 3000.
  */
-import React, { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue } from "react";
-import { ExportDialog } from "../components/export/ExportDialog";
+import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ROUTES, viewFromPath, legacyRedirect, type AppView } from "./routes";
-import { DocumentationHealthView } from "../components/DocumentationHealthView";
 import { HealthSidebarFilters } from "../components/HealthSidebarFilters";
-import { StandardsBaseView } from "../components/StandardsBaseView";
-import { TaggingGuideView } from "../components/TaggingGuideView";
 import { DEFAULT_HEALTH_THRESHOLDS } from "../domain/health/documentationHealth";
 import { ErrorBoundary } from "../resilience/ErrorBoundary";
-import { X, AlertTriangle, Target, Network, Filter, CheckCircle2, AlertCircle, Clock, User, Info, Shield, LogOut, Trash2, Plus, Settings, Landmark, LayoutList, RefreshCw, Check, Loader2, KeyRound, Activity, ArrowRight, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, Sparkles, MessageCircleQuestion, FileText, Layers, Tag, Code2, Eye, ArrowUpDown, Calendar, RotateCcw, SlidersHorizontal } from "lucide-react";
-import { ConexoesCanvas } from "../components/ConexoesCanvas";
-import { JourneysCanvas } from "../components/JourneysCanvas";
+import { lazyView, preloadLazyViews } from "../utils/lazyView";
+import { X, AlertTriangle, CheckCircle2, Shield, Trash2, Plus, Loader2, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, MessageCircleQuestion } from "lucide-react";
 import { JourneysSidebarFilters, JourneyMapPicker } from "../components/JourneysSidebarFilters";
 import { fetchStandards } from "../services/api";
 import { analyzeAdherence } from "../domain/padroes/adherence";
@@ -42,44 +37,26 @@ import {
   useDebouncedSearch 
 } from "../utils/contextualSearch";
 import { ContextualEmptyState } from "../components/ContextualEmptyState";
-import { MultiSelect } from "../components/MultiSelect";
-import { FilterField } from "../components/FilterField";
-import { TypewriterText } from "../components/TypewriterText";
-import { MapDetailModal } from "../components/MapDetailModal";
-import { ProductAnalysisView } from "../components/ProductAnalysisView";
-import { ParameterAnalysisView } from "../components/ParameterAnalysisView";
-import { CanonicalInsightsDashboard } from "../components/CanonicalInsightsDashboard";
 import { AppShell } from "../components/AppShell";
 import { PageHeader } from "../components/PageHeader";
 import { SidebarContextualArea } from "../components/SidebarContextualArea";
 import { CardFilters, EMPTY_CARD_FILTERS, countCardFilters, matchesCardFilters, buildCardFilterOptions } from "../domain/filters/cardFilters";
 import { SearchCenter } from "../components/search/SearchCenter";
 import { ArtifactResultCard } from "../components/search/ArtifactResultCard";
-import { isMap, isDocumentation, isNode, isRoot, isCataloged, getArtifactTypeLabel, ARTIFACT_TYPE_CONFIGS } from "../domain/artifacts";
+import { isMap, isRoot, isCataloged, getArtifactTypeLabel, ARTIFACT_TYPE_CONFIGS } from "../domain/artifacts";
 import { resolveMeasurementClass, getMeasurementLabel, MEASUREMENT_CONFIGS, ORDERED_MEASUREMENT_CLASSES } from "../domain/measurement";
-import { getMapStatusMetrics } from "../domain/status";
 
-// Espaçamento lateral global reutilizado no cabeçalho e rodapé para alinhamento no mesmo eixo vertical
-const GLOBAL_SCREEN_PADDING = "px-6 sm:px-8";
-
-const INITIAL_USERS: UserType[] = [
-  {
-    id: '1',
-    name: 'Lucas Admin',
-    email: 'lucas.doliveira@bradesco.com.br',
-    role: 'admin',
-    status: 'ativo',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: '2',
-    name: 'Usuário Teste',
-    email: 'teste@bradesco.com.br',
-    role: 'gestor360',
-    status: 'ativo',
-    createdAt: new Date().toISOString()
-  }
-];
+// Telas carregadas sob demanda (o pacote inicial fica só com busca e cards)
+const ExportDialog = lazyView(() => import("../components/export/ExportDialog").then((m) => m.ExportDialog));
+const DocumentationHealthView = lazyView(() => import("../components/DocumentationHealthView").then((m) => m.DocumentationHealthView));
+const StandardsBaseView = lazyView(() => import("../components/StandardsBaseView").then((m) => m.StandardsBaseView));
+const TaggingGuideView = lazyView(() => import("../components/TaggingGuideView").then((m) => m.TaggingGuideView));
+const ConexoesCanvas = lazyView(() => import("../components/ConexoesCanvas").then((m) => m.ConexoesCanvas));
+const JourneysCanvas = lazyView(() => import("../components/JourneysCanvas").then((m) => m.JourneysCanvas));
+const MapDetailModal = lazyView(() => import("../components/MapDetailModal").then((m) => m.MapDetailModal));
+const ProductAnalysisView = lazyView(() => import("../components/ProductAnalysisView").then((m) => m.ProductAnalysisView));
+const ParameterAnalysisView = lazyView(() => import("../components/ParameterAnalysisView").then((m) => m.ParameterAnalysisView));
+const CanonicalInsightsDashboard = lazyView(() => import("../components/CanonicalInsightsDashboard").then((m) => m.CanonicalInsightsDashboard));
 
 const GraphView = ({ 
   data, 
@@ -521,8 +498,6 @@ export default function App() {
     }
   }, [location.pathname, location.search]);
 
-  const [isSyncAuthOpen, setIsSyncAuthOpen] = useState(false);
-  const [isSearchActive, setIsSearchActive] = useState(false);
   const [journeyProduct, setJourneyProduct] = useState("");
   const [journeySubproduct, setJourneySubproduct] = useState("");
   const [journeyMapId, setJourneyMapId] = useState("");
@@ -535,6 +510,10 @@ export default function App() {
   const [standardsDocs, setStandardsDocs] = useState<StandardDoc[]>([]);
   useEffect(() => {
     fetchStandards().then(setStandardsDocs).catch(() => setStandardsDocs([]));
+  }, []);
+  // Depois da primeira tela, baixa as outras abas em segundo plano
+  useEffect(() => {
+    preloadLazyViews();
   }, []);
   // Busca do Guia de tagueamento (no cabeçalho)
   const [guideQuery, setGuideQuery] = useState("");
@@ -819,17 +798,6 @@ export default function App() {
 
 
 
-  const handleBarClick = (items: Artifact[]) => {
-    if(items.length === 0) return;
-    setResults(items);
-    setAppState("results");
-  };
-
-  const handleActivityClick = (item: Artifact) => {
-    setResults([item]);
-    setAppState("results");
-  };
-  
 
 
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
@@ -1030,23 +998,6 @@ export default function App() {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleBack = () => {
-    switch (appState) {
-      case 'inventory_table':
-      case 'results':
-      case 'graph':
-      case 'insights':
-      case 'empty':
-      case 'produtos_analise':
-      case 'parametros_analise':
-        setAppState('initial');
-        break;
-      case 'initial':
-      default:
-        setAppState('initial');
-    }
-  };
-
   useEffect(() => {
     // Connect to Users API
     fetchUsers().then(users => {
@@ -1058,7 +1009,7 @@ export default function App() {
 
   const handleAddUser = async (userData: Omit<UserType, 'id' | 'createdAt'>) => {
     try {
-      const newUser = await createUser(userData);
+      await createUser(userData);
       const updatedUsers = await fetchUsers();
       setUsersDb(updatedUsers);
     } catch (err: any) {
@@ -1267,18 +1218,6 @@ export default function App() {
     return list.map(({ artifact }) => artifact);
   }, [inventorySelection, indexedInventory, debouncedTableFilter, inventoryFilters, inventorySort, onlyDivergent, onlyWithoutResponsible, onlyWithoutSubproduct]);
 
-  const inventorySummary = useMemo(() => {
-    return {
-      total: filteredInventory.length,
-      ga4: filteredInventory.filter(i => normalizar(i.tipo_mapa) === 'ga4').length,
-      universalAnalytics: filteredInventory.filter(i => normalizar(i.tipo_mapa) === 'universal analytics').length,
-      docs: filteredInventory.filter(i => {
-        const t = normalizar(i.tipo_mapa);
-        return t === 'doc' || (t !== 'ga4' && t !== 'universal analytics');
-      }).length
-    };
-  }, [filteredInventory]);
-
   const startResize = (e: React.MouseEvent, key: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1314,30 +1253,6 @@ export default function App() {
     resizingRef.current = null;
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
-  };
-
-  const handleViewArtifactDetails = (id: string) => {
-    setAppState("inventory_table");
-    setTableFilter(id);
-    setInventoryFilters({
-      tipo_mapa: [],
-      produto: [],
-      subproduto: [],
-      responsavel: [],
-      measurement_class: [],
-      parametro: [],
-      ano: []
-    });
-    setOnlyDivergent(false);
-    setOnlyWithoutResponsible(false);
-    setOnlyWithoutSubproduct(false);
-    
-    setTimeout(() => {
-      const art = results.find(r => r.id === id);
-      if (art) setDetailModalItem(art);
-      const el = document.getElementById(`row-${id}`);
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 300);
   };
 
   const hasActiveInventoryFilters = useMemo(() => {
@@ -1529,11 +1444,6 @@ export default function App() {
     );
   };
 
-  const useSuggestion = (text: string) => {
-    setQuery(text);
-    executeSearch(text);
-  };
-
   // Função central única para encerrar completamente a pesquisa atual e voltar ao estado inicial da busca
   const resetSearchSession = useCallback(() => {
     // 1. Interromper qualquer processo de busca assíncrona ativo
@@ -1567,7 +1477,6 @@ export default function App() {
     setConexoesTargetArtifactId(null);
     setShowAdmin(false);
     setShowExportModal(false);
-    setIsSyncAuthOpen(false);
 
     // 7. Limpar chaves residuais de busca em sessionStorage e localStorage (caso existam)
     try {
@@ -2322,7 +2231,6 @@ export default function App() {
                             </tr>
                           ) : (
                             filteredInventory.map((item) => {
-                              const isDoc = isDocumentation(item);
                               const isMapItem = isMap(item);
                               const artifactLabel = getArtifactTypeLabel(item.artifact_type);
 
@@ -2430,7 +2338,9 @@ export default function App() {
       </div>
 
       {/* Extrair dados: relatórios configuráveis (domain/export) */}
+        {showExportModal && (
         <ErrorBoundary area="a extração de dados" variant="modal" resetKey={showExportModal} onDismiss={() => setShowExportModal(false)}>
+        <Suspense fallback={null}>
         <ExportDialog
           open={showExportModal}
           onClose={() => setShowExportModal(false)}
@@ -2438,7 +2348,9 @@ export default function App() {
           allItems={fullInventory.length > 0 ? fullInventory : results}
           sourceLabel={exportSource === 'cards' ? 'Cards exibidos' : 'Inventário filtrado'}
         />
+        </Suspense>
         </ErrorBoundary>
+        )}
 
       {/* Modal de Detalhes Canônico de Telas e Snippets */}
       <ErrorBoundary
@@ -2450,6 +2362,8 @@ export default function App() {
           setDetailTarget(null);
         }}
       >
+      {detailModalItem && (
+      <Suspense fallback={null}>
       <MapDetailModal 
         item={detailModalItem} 
         initialTab={detailTarget ? 'telas' : undefined}
@@ -2462,6 +2376,8 @@ export default function App() {
           setDetailTarget(null);
         }} 
       />
+      </Suspense>
+      )}
       </ErrorBoundary>
 
       </div>

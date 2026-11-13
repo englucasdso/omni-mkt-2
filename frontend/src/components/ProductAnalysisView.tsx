@@ -6,7 +6,7 @@ import {
 import { Artifact, ResolvedArtifactTaxonomy } from '../types';
 import { PageHeader } from './PageHeader';
 import { StatusDistribution } from './badges/StatusDistribution';
-import { normalizarStatus, OfficialStatus, getMapStatusMetrics, ScreenStatusMetrics as MapStatusMetrics } from '../domain/status';
+import { OfficialStatus, getMapStatusMetrics, ScreenStatusMetrics as MapStatusMetrics } from '../domain/status';
 import { 
   normalizeSearchText, 
   getQueryTokens, 
@@ -15,7 +15,7 @@ import {
   useDebouncedSearch 
 } from '../utils/contextualSearch';
 import { isMap } from '../domain/artifacts/artifactSelectors';
-import { resolveMeasurementClass, getMeasurementLabel } from '../domain/measurement/measurementResolver';
+import { resolveMeasurementClass } from '../domain/measurement/measurementResolver';
 import { MEASUREMENT_CONFIGS } from '../domain/measurement/measurementConfig';
 import { resolveArtifactTaxonomy } from '../utils/taxonomyResolver';
 import { ContextualEmptyState } from './ContextualEmptyState';

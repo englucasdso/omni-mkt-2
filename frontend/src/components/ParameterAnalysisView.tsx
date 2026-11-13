@@ -1,9 +1,6 @@
-import React, { useState, useMemo, useEffect, useDeferredValue } from 'react';
-import { 
-  Tag, Search, Filter, Code2, Layers, ChevronRight, ChevronDown,
-  Sparkles, Database, FileText, Check
-} from 'lucide-react';
-import { Artifact, ParameterSummaryItem } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { ChevronRight, ChevronDown } from 'lucide-react';
+import { Artifact } from '../types';
 import { isMap } from '../domain/artifacts';
 import { PageHeader } from './PageHeader';
 import { 

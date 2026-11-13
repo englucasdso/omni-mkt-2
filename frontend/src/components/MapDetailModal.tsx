@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StatusBadge } from './badges/StatusBadge';
 import { HomologationBadge } from './badges/HomologationBadge';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { 
-  X, ExternalLink, FileText, AlertTriangle, Layers, Tag, Code2, Copy, Check, 
-  ChevronDown, ChevronUp, Image as ImageIcon, ArrowRight, CheckCircle2, AlertCircle,
+  X, ExternalLink, FileText, Layers, Tag, Code2, Copy, Check, 
+  ChevronDown, ChevronUp, Image as ImageIcon, ArrowRight, 
   Network
 } from 'lucide-react';
-import { Artifact, ScreenItem, SnippetItem } from '../types';
-import { getStatusStyle, normalizarStatus } from '../utils/statusUtils';
+import { Artifact } from '../types';
 import { formatUltimaSincronizacao } from '../utils/helpers';
 import { isMap as checkIsMap, isDocumentation, getArtifactTypeLabel } from '../domain/artifacts';
 import { resolveMeasurementClass, getMeasurementLabel } from '../domain/measurement';
