@@ -12,6 +12,7 @@ import {
   Code2,
   ChevronDown,
   ChevronUp,
+  ArrowRight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -92,6 +93,37 @@ tipo_pessoa: "PF"`,
     description: 'Engenharia reversa a partir de snippet completo',
   },
 ];
+
+type SearchMode = 'conteudo' | 'parametros' | 'pergunta';
+
+/** Modos da busca: ficam como ícones dentro da barra, com o nome ao passar o mouse */
+const SEARCH_MODES: Array<{ id: SearchMode; label: string; icon: React.ElementType }> = [
+  { id: 'conteudo', label: 'Buscar por conteúdo', icon: FileText },
+  { id: 'parametros', label: 'Buscar por parâmetros ou código', icon: SlidersHorizontal },
+  { id: 'pergunta', label: 'Fazer uma pergunta', icon: MessageCircleQuestion },
+];
+
+/** Mesmo gradiente do menu lateral, na horizontal para ler bem no texto */
+const TITLE_GRADIENT = 'linear-gradient(100deg, #3D000B 0%, #7B0209 40%, #CC092F 100%)';
+
+/** Exemplo clicável: o mesmo visual nos três modos */
+const ExampleChip: React.FC<{ label: string; title?: string; onClick: () => void }> = ({ label, title, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    title={title}
+    className="h-8 px-3 rounded-full bg-white border border-omni-line text-[12.5px] text-omni-ink-secondary hover:text-omni-bordo hover:border-omni-bordo/30 transition-colors cursor-pointer whitespace-nowrap"
+  >
+    {label}
+  </button>
+);
+
+const ExampleRow: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="flex flex-wrap items-center gap-2">
+    <span className="text-xs text-omni-muted mr-0.5">Exemplos:</span>
+    {children}
+  </div>
+);
 
 export const SearchCenter: React.FC<SearchCenterProps> = ({
   artifacts,
@@ -497,7 +529,8 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.18 }}
-            className="text-3xl sm:text-[38px] font-heading font-bold text-omni-ink tracking-[-0.025em] leading-tight"
+            className="text-3xl sm:text-[38px] font-heading font-bold tracking-[-0.025em] leading-tight pb-1 bg-clip-text text-transparent"
+            style={{ backgroundImage: TITLE_GRADIENT }}
           >
             {getModeTitle()}
           </motion.h2>
@@ -505,48 +538,6 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
         <p className="text-sm text-omni-ink-secondary text-center max-w-xl font-sans mt-2">
           {stats.total} artefatos sincronizados do Confluence, dos quais {stats.mapas} são mapas com {stats.telas} telas documentadas.
         </p>
-      </div>
-
-      {/* Mode Selector Segmented Control */}
-      <div className="flex items-center gap-1 p-1 rounded-[12px] bg-white border border-omni-line shadow-neu-card mb-6">
-        <button
-          type="button"
-          onClick={() => setMode('conteudo')}
-          className={`h-9 flex items-center gap-2 px-4 rounded-[8px] text-[13px] font-medium transition-all duration-200 cursor-pointer ${
-            mode === 'conteudo'
-              ? 'bg-omni-bordo text-white shadow-sm'
-              : 'text-omni-ink-secondary hover:text-omni-ink'
-          }`}
-        >
-          <FileText className="w-3.5 h-3.5" />
-          <span>Conteúdo</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setMode('parametros')}
-          className={`h-9 flex items-center gap-2 px-4 rounded-[8px] text-[13px] font-medium transition-all duration-200 cursor-pointer ${
-            mode === 'parametros'
-              ? 'bg-omni-bordo text-white shadow-sm'
-              : 'text-omni-ink-secondary hover:text-omni-ink'
-          }`}
-        >
-          <SlidersHorizontal className="w-3.5 h-3.5" />
-          <span>Parâmetros</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setMode('pergunta')}
-          className={`h-9 flex items-center gap-2 px-4 rounded-[8px] text-[13px] font-medium transition-all duration-200 cursor-pointer ${
-            mode === 'pergunta'
-              ? 'bg-omni-bordo text-white shadow-sm'
-              : 'text-omni-ink-secondary hover:text-omni-ink'
-          }`}
-        >
-          <MessageCircleQuestion className="w-3.5 h-3.5" />
-          <span>Fazer uma pergunta</span>
-        </button>
       </div>
 
       {/* Central Unified Search Bar */}
@@ -615,17 +606,50 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
             <Loader2 className={`w-4 h-4 animate-spin text-omni-bordo shrink-0 ${mode === 'parametros' ? 'mt-2' : ''}`} />
           )}
 
-          {/* Submit Action Button */}
-          <button
-            type="button"
-            onClick={handleExecuteSearch}
-            disabled={isSearching || questionLoading}
-            className={`btn-primary h-10 px-5 text-xs font-semibold rounded-[8px] flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50 ${
-              mode === 'parametros' ? 'mt-0.5' : ''
-            }`}
-          >
-            {mode === 'pergunta' ? 'Perguntar' : 'Buscar'}
-          </button>
+          {/* Modos (ícones) + enviar (seta) */}
+          <div className={`flex items-center gap-1 shrink-0 ${mode === 'parametros' ? 'mt-1' : ''}`}>
+            <div className="flex items-center gap-0.5" role="radiogroup" aria-label="Tipo de busca">
+              {SEARCH_MODES.map(({ id, label, icon: Icon }) => {
+                const active = mode === id;
+                return (
+                  <span key={id} className="relative group/mode">
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      aria-label={label}
+                      onClick={() => {
+                        setMode(id);
+                        requestAnimationFrame(() => (id === 'parametros' ? textareaRef.current : inputRef.current)?.focus());
+                      }}
+                      className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+                        active ? 'bg-omni-bordo/10 text-omni-bordo' : 'text-omni-muted hover:text-omni-ink hover:bg-omni-mist'
+                      }`}
+                    >
+                      <Icon className="w-[18px] h-[18px]" />
+                    </button>
+                    <span
+                      role="tooltip"
+                      className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 rounded-md bg-omni-ink text-white text-[11px] font-medium whitespace-nowrap opacity-0 group-hover/mode:opacity-100 transition-opacity duration-150 delay-150 z-20"
+                    >
+                      {label}
+                    </span>
+                  </span>
+                );
+              })}
+            </div>
+            <span className="w-px h-6 bg-omni-line mx-1.5" aria-hidden="true" />
+            <button
+              type="button"
+              onClick={handleExecuteSearch}
+              disabled={isSearching || questionLoading || !currentInputValue.trim()}
+              aria-label={mode === 'pergunta' ? 'Perguntar' : 'Buscar'}
+              title={mode === 'pergunta' ? 'Perguntar (Enter)' : 'Buscar (Enter)'}
+              className="w-10 h-10 rounded-full bg-omni-bordo text-white flex items-center justify-center shadow-sm hover:brightness-110 transition-colors cursor-pointer disabled:bg-omni-mist disabled:text-omni-muted disabled:shadow-none disabled:cursor-not-allowed disabled:hover:brightness-100"
+            >
+              <ArrowRight className="w-[18px] h-[18px]" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -633,72 +657,41 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
 
       {/* Mode 1: Conteúdo Assistance */}
       {mode === 'conteudo' && (
-        <div className="w-full flex flex-col items-start gap-3 mt-4 px-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setContentQuery('Abertura de Contas');
-                executeContentSearch('Abertura de Contas');
-              }}
-              className="h-8 text-[12.5px] font-sans text-omni-ink-secondary hover:text-omni-ink transition-colors flex items-center gap-1.5 px-3 rounded-lg bg-white border border-omni-line hover:bg-omni-mist hover:border-omni-bordo/30 shadow-neu-card cursor-pointer"
-            >
-              <Search className="w-3 h-3 text-omni-muted" />
-              <span>Abertura de contas PF e PJ</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setContentQuery('Cartões');
-                executeContentSearch('Cartões');
-              }}
-              className="h-8 text-[12.5px] font-sans text-omni-ink-secondary hover:text-omni-ink transition-colors flex items-center gap-1.5 px-3 rounded-lg bg-white border border-omni-line hover:bg-omni-mist hover:border-omni-bordo/30 shadow-neu-card cursor-pointer"
-            >
-              <Search className="w-3 h-3 text-omni-muted" />
-              <span>Cartões de crédito ou BIA</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setContentQuery('inventario');
-                executeContentSearch('inventario');
-              }}
-              className="h-8 text-[12.5px] font-sans text-omni-ink-secondary hover:text-omni-ink transition-colors flex items-center gap-1.5 px-3 rounded-lg bg-white border border-omni-line hover:bg-omni-mist hover:border-omni-bordo/30 shadow-neu-card cursor-pointer"
-            >
-              <Search className="w-3 h-3 text-omni-muted" />
-              <span>Digite "inventário" para ver toda a base</span>
-            </button>
-
-          </div>
+        <div className="w-full flex flex-col items-start gap-3 mt-3 px-2">
+          <ExampleRow>
+            {[
+              ['Abertura de contas PF e PJ', 'Abertura de Contas'],
+              ['Cartões de crédito ou BIA', 'Cartões'],
+              ['"inventário" mostra toda a base', 'inventario'],
+            ].map(([label, q]) => (
+              <ExampleChip
+                key={q}
+                label={label}
+                onClick={() => {
+                  setContentQuery(q);
+                  executeContentSearch(q);
+                }}
+              />
+            ))}
+          </ExampleRow>
         </div>
       )}
 
       {/* Mode 2: Parâmetros Assistance & Advanced Options */}
       {mode === 'parametros' && (
         <div className="w-full flex flex-col gap-3 px-1 mt-1">
-          {/* Clickable Quick Examples */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-omni-muted mr-1">
-              Exemplos rápidos:
-            </span>
-            {PARAM_EXAMPLES.map((ex, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => handleSelectParamExample(ex.code)}
-                className="h-8 text-[12.5px] font-mono text-omni-ink-secondary hover:text-omni-bordo transition-all flex items-center gap-1.5 px-3 rounded-lg bg-white hover:bg-omni-mist border border-omni-line hover:border-omni-bordo/30 cursor-pointer shadow-neu-card"
-                title={ex.description}
-              >
-                <span className="text-[11px] font-sans text-omni-muted">
-                  {ex.title}:
-                </span>
-                <span className="font-semibold text-omni-ink">
-                  {ex.label}
-                </span>
-              </button>
-            ))}
+          {/* Exemplos: mesmo visual dos outros modos */}
+          <div className="px-1">
+            <ExampleRow>
+              {PARAM_EXAMPLES.map((ex) => (
+                <ExampleChip
+                  key={ex.title}
+                  label={ex.label}
+                  title={`${ex.title}: ${ex.description}`}
+                  onClick={() => handleSelectParamExample(ex.code)}
+                />
+              ))}
+            </ExampleRow>
           </div>
 
           {/* Advanced Options Toggle */}
@@ -866,50 +859,24 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
             </div>
           )}
 
-          {/* Example AI questions */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-omni-muted">
-              Exemplos:
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                const q = 'Existe jornada de INSS relacionada à contratação de cartão?';
-                setQuestionText(q);
-                executeQuestionSearch(q);
-              }}
-              className="h-8 text-[12.5px] font-sans text-omni-ink-secondary hover:text-omni-ink transition-colors flex items-center gap-1.5 px-3 rounded-lg bg-white border border-omni-line hover:bg-omni-mist hover:border-omni-bordo/30 shadow-neu-card cursor-pointer"
-            >
-              <MessageCircleQuestion className="w-3 h-3 text-omni-bordo" />
-              <span>INSS e cartão</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                const q = 'Onde aparece o evento de pagamento com Pix?';
-                setQuestionText(q);
-                executeQuestionSearch(q);
-              }}
-              className="h-8 text-[12.5px] font-sans text-omni-ink-secondary hover:text-omni-ink transition-colors flex items-center gap-1.5 px-3 rounded-lg bg-white border border-omni-line hover:bg-omni-mist hover:border-omni-bordo/30 shadow-neu-card cursor-pointer"
-            >
-              <MessageCircleQuestion className="w-3 h-3 text-omni-bordo" />
-              <span>Pagamento com Pix</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                const q = 'Em qual tela é coletado o CPF do usuário?';
-                setQuestionText(q);
-                executeQuestionSearch(q);
-              }}
-              className="h-8 text-[12.5px] font-sans text-omni-ink-secondary hover:text-omni-ink transition-colors flex items-center gap-1.5 px-3 rounded-lg bg-white border border-omni-line hover:bg-omni-mist hover:border-omni-bordo/30 shadow-neu-card cursor-pointer"
-            >
-              <MessageCircleQuestion className="w-3 h-3 text-omni-bordo" />
-              <span>Coleta de CPF</span>
-            </button>
-          </div>
+          {/* Exemplos: mesmo visual dos outros modos */}
+          <ExampleRow>
+            {[
+              ['INSS e cartão', 'Existe jornada de INSS relacionada à contratação de cartão?'],
+              ['Pagamento com Pix', 'Onde aparece o evento de pagamento com Pix?'],
+              ['Coleta de CPF', 'Em qual tela é coletado o CPF do usuário?'],
+            ].map(([label, q]) => (
+              <ExampleChip
+                key={label}
+                label={label}
+                title={q}
+                onClick={() => {
+                  setQuestionText(q);
+                  executeQuestionSearch(q);
+                }}
+              />
+            ))}
+          </ExampleRow>
         </div>
       )}
     </div>
