@@ -12,6 +12,7 @@ interface AppShellProps {
   children: React.ReactNode;
   contextualContent?: React.ReactNode;
   hasFilters?: boolean;
+  navBadges?: Record<string, string>;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
@@ -24,6 +25,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   children,
   contextualContent,
   hasFilters: explicitHasFilters,
+  navBadges,
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -104,6 +106,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         onCloseMobile={() => setIsMobileMenuOpen(false)}
         onSyncClick={onSyncClick}
         lastSync={lastSync}
+        navBadges={navBadges}
       />
 
       {/* Área Principal: recua só a faixa de ícones (72px); o menu aberto passa por cima */}
@@ -115,10 +118,13 @@ export const AppShell: React.FC<AppShellProps> = ({
         <div className="md:hidden flex items-center justify-between px-4 h-14 bg-omni-gradient text-white sticky top-0 z-30 shadow-md">
           <button
             onClick={() => setIsMobileMenuOpen(true)}
-            className="p-2 -ml-2 rounded-lg text-white hover:bg-white/10 cursor-pointer"
+            className="relative p-2 -ml-2 rounded-lg text-white hover:bg-white/10 cursor-pointer"
             aria-label="Abrir menu de navegação"
           >
             <Menu className="w-5 h-5 text-white" />
+            {navBadges && Object.keys(navBadges).length > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-violet-400 ring-2 ring-[#9a0710]" aria-hidden="true" />
+            )}
           </button>
           
           <button 

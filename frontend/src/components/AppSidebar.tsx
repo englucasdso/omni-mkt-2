@@ -62,6 +62,8 @@ interface AppSidebarProps {
   onCloseMobile?: () => void;
   onSyncClick?: () => void;
   lastSync?: string | null;
+  /** Bolinha roxa em um item do menu (ex.: Base de padrões com pontos para conferir) */
+  navBadges?: Record<string, string>;
 }
 
 // Menu que abre ao passar o mouse (expand on hover): fica como faixa de ícones
@@ -78,6 +80,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   isMobileOpen = false,
   onCloseMobile,
   onSyncClick,
+  navBadges,
   lastSync,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -245,7 +248,16 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                       <span className="absolute left-0 inset-y-1.5 w-[3px] bg-white rounded-r" aria-hidden="true" />
                     )}
 
-                    <Icon className="w-[18px] h-[18px] shrink-0" />
+                    <span className="relative shrink-0">
+                      <Icon className="w-[18px] h-[18px]" />
+                      {navBadges?.[item.id] && (
+                        <span
+                          className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-violet-400 ring-2 ring-[#9a0710]"
+                          title={navBadges[item.id]}
+                          aria-label={navBadges[item.id]}
+                        />
+                      )}
+                    </span>
 
                     <span className={`text-xs font-ui truncate whitespace-nowrap leading-none ${labelFade}`}>
                       {item.label}

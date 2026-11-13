@@ -6,13 +6,162 @@ import { buildParameterCatalog, docStats, mapsByParameter } from '../domain/padr
 import { EXTRACTOR_BOOKMARKLET } from '../domain/padroes/extractorBookmarklet';
 import { fetchStandards, importStandards, deleteStandard, replaceStandard, describeError } from '../services/api';
 import { shortDocTitle } from '../domain/padroes/sanitize';
+import { MapAdherence, AdherenceFlag, FlagKind, FLAG_KIND_LABEL } from '../domain/padroes/adherence';
 
 interface Props {
   artifacts: Artifact[];
   onDrillDown: (label: string, ids: string[], target: 'cards' | 'inventario') => void;
   /** Abre o Guia de tagueamento (a leitura dos padrões) */
   onOpenGuide: () => void;
+  /** Avisa o App quando os documentos mudam (importar, substituir, remover) */
+  onDocsChange?: (docs: StandardDoc[]) => void;
+  /** Pontos para conferir, por mapa (calculados no App) */
+  adherence?: Map<string, MapAdherence>;
+  onOpenMapAt?: (art: Artifact, target: { screenId?: string; snippetIndex?: number }) => void;
 }
+
+interface FlagGroup {
+  param: string;
+  kind: FlagKind;
+  message: string;
+  mapIds: string[];
+  first: { mapId: string; flag: AdherenceFlag };
+}
+
+/** Pontos para conferir agrupados por parâmetro: os mais frequentes primeiro */
+function groupFlags(adherence: Map<string, MapAdherence>): FlagGroup[] {
+  const groups = new Map<string, FlagGroup>();
+  adherence.forEach((a) => {
+    for (const f of a.flags) {
+      const key = `${f.kind}|${f.param}`;
+      let g = groups.get(key);
+      if (!g) {
+        g = { param: f.param, kind: f.kind, message: f.message, mapIds: [], first: { mapId: a.mapId, flag: f } };
+        groups.set(key, g);
+      }
+      if (!g.mapIds.includes(a.mapId)) g.mapIds.push(a.mapId);
+    }
+  });
+  const order: Record<FlagKind, number> = { CAIXA: 0, OUTRO_PADRAO: 1, NAO_ENCONTRADO: 2 };
+  return Array.from(groups.values()).sort((a, b) => order[a.kind] - order[b.kind] || b.mapIds.length - a.mapIds.length || a.param.localeCompare(b.param));
+}
+
+/** Pontos roxos: parâmetros dos mapas que não batem com a Base de padrões */
+const AdherencePanel: React.FC<{
+  adherence: Map<string, MapAdherence>;
+  artifacts: Artifact[];
+  onDrillDown: Props['onDrillDown'];
+  onOpenMapAt?: Props['onOpenMapAt'];
+}> = ({ adherence, artifacts, onDrillDown, onOpenMapAt }) => {
+  const [showAll, setShowAll] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const groups = useMemo(() => groupFlags(adherence), [adherence]);
+  const byId = useMemo(() => new Map(artifacts.map((a) => [String(a.id), a])), [artifacts]);
+  const total = useMemo(() => Array.from(adherence.values()).reduce((n, a) => n + a.flags.length, 0), [adherence]);
+  const visible = showAll ? groups : groups.slice(0, 12);
+
+  return (
+    <section className="panel min-w-0 p-6 space-y-4 border-violet-200">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-heading font-bold text-omni-ink flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-violet-500" aria-hidden="true" />
+            Para conferir nos mapas
+          </h3>
+          <p className="text-xs text-omni-ink-secondary mt-1">
+            {fmt(adherence.size)} {adherence.size === 1 ? 'mapa tem' : 'mapas têm'} {fmt(total)}{' '}
+            {total === 1 ? 'parâmetro' : 'parâmetros'} que não batem com os padrões cadastrados. É uma comparação automática: confira a
+            documentação antes de corrigir.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowHelp((v) => !v)}
+          className="h-8 px-3 rounded-lg text-xs font-semibold text-omni-ink-secondary hover:text-omni-bordo inline-flex items-center gap-1 cursor-pointer"
+        >
+          Como funciona {showHelp ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </button>
+      </div>
+
+      {showHelp && (
+        <ul className="text-xs text-omni-ink-secondary leading-relaxed space-y-1.5 list-disc pl-5 rounded-xl bg-violet-50/60 border border-violet-100 py-3 pr-4">
+          <li>
+            O mapa não diz qual padrão segue. O OMNI deduz o canal (App, Web, Webview, GTM) pelo título do mapa; se o título não disser,
+            pelo caminho na árvore; e, por último, pelo código (dataLayer é Web, Bundle e Firebase são App).
+          </li>
+          <li>
+            Valem os documentos daquele canal e os documentos gerais (sem canal no título). Sem canal nenhum, o mapa é comparado com
+            todos.
+          </li>
+          <li>Os nomes são comparados exatamente: "Action" e "action" são diferentes.</li>
+          <li>Códigos de Universal Analytics (GA3) ficam de fora, porque são o padrão antigo.</li>
+        </ul>
+      )}
+
+      <div className="overflow-x-auto -mx-2">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-left text-omni-muted border-b border-omni-line">
+              <th className="font-medium py-2 px-2">Parâmetro no mapa</th>
+              <th className="font-medium py-2 px-2">Situação</th>
+              <th className="font-medium py-2 px-2">O que conferir</th>
+              <th className="font-medium py-2 px-2 text-right whitespace-nowrap">Mapas</th>
+              <th className="font-medium py-2 px-2" />
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((g) => {
+              const art = byId.get(g.first.mapId);
+              return (
+                <tr key={`${g.kind}-${g.param}`} className="border-b border-omni-line-subtle align-top">
+                  <td className="py-2.5 px-2 font-mono font-semibold text-omni-ink whitespace-nowrap">{g.param}</td>
+                  <td className="py-2.5 px-2 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-violet-50 border border-violet-200 text-[11px] font-medium text-violet-800">
+                      <span className="w-1.5 h-1.5 rounded-full bg-violet-500" aria-hidden="true" />
+                      {FLAG_KIND_LABEL[g.kind]}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-2 text-omni-ink-secondary min-w-[260px] max-w-[460px]">{g.message}</td>
+                  <td className="py-2.5 px-2 text-right whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => onDrillDown(`Mapas com "${g.param}" para conferir`, g.mapIds, 'cards')}
+                      className="font-semibold text-omni-ink hover:text-omni-bordo cursor-pointer tabular-nums"
+                      title="Abrir esses mapas em Cards"
+                    >
+                      {fmt(g.mapIds.length)} {g.mapIds.length === 1 ? 'mapa' : 'mapas'}
+                    </button>
+                  </td>
+                  <td className="py-2.5 px-2 text-right whitespace-nowrap">
+                    {art && onOpenMapAt && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenMapAt(art, { screenId: g.first.flag.screenId, snippetIndex: g.first.flag.snippetIndex })}
+                        className="font-semibold text-omni-bordo hover:text-omni-rubi cursor-pointer"
+                        title={`${art.titulo}, tela ${g.first.flag.screenIndex + 1}`}
+                      >
+                        Ver no mapa
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {groups.length > 12 && (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          className="text-xs font-semibold text-omni-ink-secondary hover:text-omni-bordo cursor-pointer"
+        >
+          {showAll ? 'Mostrar menos' : `Mostrar todos (${fmt(groups.length)})`}
+        </button>
+      )}
+    </section>
+  );
+};
 
 const fmt = (n: number) => n.toLocaleString('pt-BR');
 const fmtDate = (iso: string) => {
@@ -108,7 +257,7 @@ const ExtractorHowTo: React.FC = () => {
   );
 };
 
-export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown, onOpenGuide }) => {
+export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown, onOpenGuide, onDocsChange, adherence, onOpenMapAt }) => {
   const [docs, setDocs] = useState<StandardDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +278,12 @@ export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown, onO
       .catch((e) => setError(describeError(e)))
       .finally(() => setLoading(false));
   }, []);
+
+  // Mantém o App em dia (os pontos roxos dependem dos documentos)
+  useEffect(() => {
+    if (!loading && !error) onDocsChange?.(docs);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docs, loading]);
 
   const handleFiles = async (files: FileList | File[]) => {
     const list = Array.from(files).filter((f) => /\.json$/i.test(f.name));
@@ -328,6 +483,10 @@ export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown, onO
             <Panel title="Como extrair do Confluence">
               <ExtractorHowTo />
             </Panel>
+          )}
+
+          {adherence && adherence.size > 0 && (
+            <AdherencePanel adherence={adherence} artifacts={artifacts} onDrillDown={onDrillDown} onOpenMapAt={onOpenMapAt} />
           )}
 
           {/* Documentos importados */}

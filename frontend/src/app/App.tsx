@@ -26,6 +26,9 @@ import { X, AlertTriangle, Target, Network, Filter, CheckCircle2, AlertCircle, C
 import { ConexoesCanvas } from "../components/ConexoesCanvas";
 import { JourneysCanvas } from "../components/JourneysCanvas";
 import { JourneysSidebarFilters, JourneyMapPicker } from "../components/JourneysSidebarFilters";
+import { fetchStandards } from "../services/api";
+import { analyzeAdherence } from "../domain/padroes/adherence";
+import type { StandardDoc } from "../domain/padroes/types";
 import { fetchInventory, searchContent, fetchUsers, createUser, updateUser, deleteUser, safeFetch, describeError } from "../services/api";
 import { guarded } from "../resilience/circuitBreaker";
 import { Artifact, SearchResponse, User as UserType, UserRole, UserStatus, ActiveSearch, ParameterArtifactGroupSummary, ContentMatchSummary, QuestionMatchSummary } from "../types";
@@ -528,6 +531,11 @@ export default function App() {
   const [healthStaleDays, setHealthStaleDays] = useState(DEFAULT_HEALTH_THRESHOLDS.staleDays);
   const [healthWasteDays, setHealthWasteDays] = useState(DEFAULT_HEALTH_THRESHOLDS.wasteDays);
   const [healthProduct, setHealthProduct] = useState("");
+  // Base de padrões: documentos cadastrados (para os pontos roxos "para conferir")
+  const [standardsDocs, setStandardsDocs] = useState<StandardDoc[]>([]);
+  useEffect(() => {
+    fetchStandards().then(setStandardsDocs).catch(() => setStandardsDocs([]));
+  }, []);
   // Busca do Guia de tagueamento (no cabeçalho)
   const [guideQuery, setGuideQuery] = useState("");
   const [tableFilter, setTableFilter] = useState("");
@@ -537,6 +545,19 @@ export default function App() {
 
 
   const [fullInventory, setFullInventory] = useState<Artifact[]>([]);
+  // Pontos para conferir com a Base de padrões, calculados uma vez para todas as telas
+  const adherenceByMap = useMemo(
+    () => analyzeAdherence(fullInventory.length > 0 ? fullInventory : results, standardsDocs),
+    [fullInventory, results, standardsDocs]
+  );
+  const navBadges = useMemo(
+    () =>
+      adherenceByMap.size > 0
+        ? { padroes: `${adherenceByMap.size} ${adherenceByMap.size === 1 ? 'mapa com pontos' : 'mapas com pontos'} para conferir com o padrão` }
+        : undefined,
+    [adherenceByMap]
+  );
+
   // Falha ao falar com o servidor: a tela continua com os últimos dados e mostra um aviso
   const [dataError, setDataError] = useState<string | null>(null);
   const [retryingData, setRetryingData] = useState(false);
@@ -1632,6 +1653,7 @@ export default function App() {
       onNewSearch={resetSearchSession}
       lastSync={lastSync}
       onSyncClick={() => startBackgroundSync()}
+      navBadges={navBadges}
       contextualContent={
         <ErrorBoundary area="os filtros" variant="inline" resetKey={appState}>
         {appState === 'journeys' ? (
@@ -1837,6 +1859,12 @@ export default function App() {
                 artifacts={fullInventory.length > 0 ? fullInventory : results}
                 onDrillDown={handleInsightDrillDown}
                 onOpenGuide={() => setAppState("guia")}
+                onDocsChange={setStandardsDocs}
+                adherence={adherenceByMap}
+                onOpenMapAt={(art, target) => {
+                  setDetailTarget(target);
+                  setDetailModalItem(art);
+                }}
               />
             </ErrorBoundary>
           )}
@@ -2080,6 +2108,7 @@ export default function App() {
                     setDetailModalItem(artifact);
                   }}
                   onViewInTree={(id) => handleViewInTree(id)}
+                  adherence={adherenceByMap.get(String(item.id))}
                 />
               ))}
             </div>
@@ -2436,6 +2465,7 @@ export default function App() {
         initialScreenId={detailTarget?.screenId}
         initialSnippetIndex={detailTarget?.snippetIndex}
         onViewInTree={handleViewInTree}
+        adherence={detailModalItem ? adherenceByMap.get(String(detailModalItem.id)) : null}
         onClose={() => {
           setDetailModalItem(null);
           setDetailTarget(null);
