@@ -7,7 +7,15 @@
  *
  * Regras:
  * - Nomes são comparados exatamente: "Action" e "action" são nomes diferentes.
- * - Snippets de Universal Analytics (GA3) ficam de fora: são o padrão antigo.
+ * - Só entram códigos classificados como GA4. Universal Analytics (GA3), códigos não
+ *   classificados e mapas legados ficam de fora: não seguem os padrões atuais.
+ * - Aparece só na Saúde da documentação ("Fora do padrão") e no mapa aberto a partir
+ *   dela. A comparação não é 100% certa, então não aparece nas outras telas.
+ * - Só aponta o que tem evidência: nome escrito diferente (maiúsculas) ou nome que só
+ *   existe na documentação de outro canal. Nome que não aparece em nenhuma
+ *   documentação não é apontado.
+ * - A mensagem cita a documentação exata quando ela é uma ou duas; se não, o mapa
+ *   mostra o link para acessar as documentações.
  */
 import { Artifact } from '../../types';
 import { StandardDoc } from './types';
@@ -16,14 +24,12 @@ import { shortDocTitle } from './sanitize';
 
 export type Channel = 'APP' | 'WEB' | 'WEBVIEW' | 'GTM';
 
-export const CHANNEL_LABEL: Record<Channel, string> = {
-  APP: 'App',
-  WEB: 'Web',
-  WEBVIEW: 'Webview',
-  GTM: 'GTM',
+export const FLAG_KIND_LABEL: Record<FlagKind, string> = {
+  CAIXA: 'Escrito diferente',
+  OUTRO_PADRAO: 'Padrão de outro canal',
 };
 
-export type FlagKind = 'CAIXA' | 'OUTRO_PADRAO' | 'NAO_ENCONTRADO';
+export type FlagKind = 'CAIXA' | 'OUTRO_PADRAO';
 
 export interface AdherenceFlag {
   kind: FlagKind;
@@ -101,10 +107,20 @@ function mapChannels(art: Artifact): { channels: Set<Channel>; source: MapAdhere
   return { channels: new Set(), source: 'indefinido', usesDataLayer };
 }
 
-const isLegacySnippet = (sn: any, art: Artifact) => {
-  const cls = String(sn.measurement_class || art.measurement_class || '').toUpperCase();
-  return cls === 'GA3' || cls.includes('UNIVERSAL');
-};
+/** Só códigos GA4 são comparados */
+/** Nome das documentações numa frase: "A", "A" e "B" ou null quando são mais de duas */
+const docPhrase = (titles: string[]): { text: string; plural: boolean } | null =>
+  titles.length === 1
+    ? { text: `"${titles[0]}"`, plural: false }
+    : titles.length === 2
+      ? { text: `"${titles[0]}" e "${titles[1]}"`, plural: true }
+      : null;
+
+const isGa4Snippet = (sn: any) => String(sn.measurement_class || '').toUpperCase() === 'GA4';
+
+/** Mapas legados ficam de fora (ex.: "Mapa de Métricas (Legado) - ...", subproduto "Legado - Consórcio") */
+const isLegacyMap = (art: Artifact) =>
+  /legado/.test(norm([art.titulo, art.subproduto, art.full_path, ...(art.ancestor_titles || [])].filter(Boolean).join(' ')));
 
 /** Nomes do catálogo: exato e por minúsculas (para achar diferença de caixa) */
 function nameIndex(docs: StandardDoc[]) {
@@ -116,8 +132,6 @@ function nameIndex(docs: StandardDoc[]) {
   }
   return { exact, lower };
 }
-
-const list = (titles: string[]) => (titles.length > 1 ? `${titles.slice(0, -1).join(', ')} e ${titles[titles.length - 1]}` : titles[0] || '');
 
 /** Analisa todos os mapas. Só devolve os que têm pontos para conferir. */
 export function analyzeAdherence(artifacts: Artifact[], docs: StandardDoc[]): Map<string, MapAdherence> {
@@ -137,7 +151,7 @@ export function analyzeAdherence(artifacts: Artifact[], docs: StandardDoc[]): Ma
   const indexCache = new Map<string, { exact: Set<string>; lower: Map<string, string>; titles: string[] }>();
 
   for (const art of artifacts || []) {
-    if (art.artifact_type !== 'MAPA') continue;
+    if (art.artifact_type !== 'MAPA' || isLegacyMap(art)) continue;
     const { channels, source, usesDataLayer } = mapChannels(art);
     if (usesDataLayer && (channels.has('WEB') || channels.has('WEBVIEW'))) channels.add('GTM');
 
@@ -159,7 +173,7 @@ export function analyzeAdherence(artifacts: Artifact[], docs: StandardDoc[]): Ma
     (art.screens || []).forEach((screen: any, sIdx: number) => {
       const screenIndex = typeof screen.screen_index === 'number' ? screen.screen_index : sIdx;
       (screen.snippets || []).forEach((sn: any, snIdx: number) => {
-        if (isLegacySnippet(sn, art)) return;
+        if (!isGa4Snippet(sn)) return;
         const seen = new Set<string>();
         for (const p of sn.parameters || []) {
           const name = parameterName(p.name_raw || p.name || '');
@@ -176,32 +190,43 @@ export function analyzeAdherence(artifacts: Artifact[], docs: StandardDoc[]): Ma
           };
           const sameLetters = idx.lower.get(name.toLowerCase());
           if (sameLetters) {
+            const where = docPhrase((docsByName.get(sameLetters) || []).filter((t) => usedTitles.includes(t)));
             flags.push({
               ...base,
               kind: 'CAIXA',
               expected: sameLetters,
-              message: `"${name}" está escrito diferente do padrão "${sameLetters}" (maiúsculas e minúsculas). Confira se é o mesmo parâmetro.`,
+              message: where
+                ? `"${name}" está escrito diferente. ${where.plural ? 'Nas documentações' : 'Na documentação'} ${where.text} aparece "${sameLetters}".`
+                : `"${name}" está escrito diferente. Nas documentações aparece "${sameLetters}".`,
             });
             continue;
           }
           const elsewhere = (docsByName.get(name) || []).filter((t) => !usedTitles.includes(t));
           if (allIndex.exact.has(name) && elsewhere.length) {
+            const where = docPhrase(elsewhere);
             flags.push({
               ...base,
               kind: 'OUTRO_PADRAO',
-              message: `"${name}" está no padrão de ${list(elsewhere)}, não no de ${list(usedTitles)}. Confira qual padrão vale para este mapa.`,
+              message: where
+                ? `"${name}" só aparece ${where.plural ? 'nas documentações' : 'na documentação'} ${where.text}, de outro canal.`
+                : `"${name}" só aparece em documentações de outro canal.`,
             });
             continue;
           }
-          const lowerElsewhere = allIndex.lower.get(name.toLowerCase());
-          flags.push({
-            ...base,
-            kind: 'NAO_ENCONTRADO',
-            expected: lowerElsewhere,
-            message: lowerElsewhere
-              ? `"${name}" não está em ${list(usedTitles)}. Existe "${lowerElsewhere}" em outro documento. Confira a documentação.`
-              : `"${name}" não está nos padrões cadastrados (${list(usedTitles)}). Confira a documentação.`,
-          });
+          // Nome que não aparece em nenhuma documentação não é apontado: muitos parâmetros
+          // válidos simplesmente não estão nas páginas de padrões.
+          const otherCase = allIndex.lower.get(name.toLowerCase());
+          if (otherCase) {
+            const where = docPhrase(docsByName.get(otherCase) || []);
+            flags.push({
+              ...base,
+              kind: 'CAIXA',
+              expected: otherCase,
+              message: where
+                ? `"${name}" está escrito diferente. ${where.plural ? 'Nas documentações' : 'Na documentação'} ${where.text} aparece "${otherCase}".`
+                : `"${name}" está escrito diferente. Nas documentações aparece "${otherCase}".`,
+            });
+          }
         }
       });
     });
@@ -218,18 +243,3 @@ export function analyzeAdherence(artifacts: Artifact[], docs: StandardDoc[]): Ma
   }
   return out;
 }
-
-/** Frase curta sobre como o canal foi escolhido */
-export function describeComparison(a: MapAdherence): string {
-  const ch = a.channels.map((c) => CHANNEL_LABEL[c]).join(', ');
-  const via = { titulo: 'pelo título', caminho: 'pelo caminho na árvore', codigo: 'pelo código', indefinido: '' }[a.channelSource];
-  return a.channelSource === 'indefinido'
-    ? `Não deu para saber o canal do mapa; comparado com todos os padrões.`
-    : `Canal ${ch}, deduzido ${via}. Comparado com: ${a.docTitles.join(', ')}.`;
-}
-
-export const FLAG_KIND_LABEL: Record<FlagKind, string> = {
-  CAIXA: 'Maiúscula diferente',
-  OUTRO_PADRAO: 'Padrão de outro canal',
-  NAO_ENCONTRADO: 'Fora dos padrões',
-};

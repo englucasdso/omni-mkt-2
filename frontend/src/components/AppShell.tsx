@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Menu } from 'lucide-react';
 import { AppSidebar, NavItem } from './AppSidebar';
 
@@ -126,7 +126,10 @@ export const AppShell: React.FC<AppShellProps> = ({
 
         {/* Conteúdo Principal */}
         <main className="flex-1 flex flex-col w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-2">
-          {children}
+          {/* Telas carregadas sob demanda mostram este aviso só no primeiro acesso */}
+          <Suspense fallback={<p className="py-16 text-center text-sm text-omni-muted">Carregando...</p>}>
+            {children}
+          </Suspense>
         </main>
 
         {/* Rodapé corporativo: versão beta e canal de feedback */}

@@ -1,15 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  Search,
   X,
   SlidersHorizontal,
   MessageCircleQuestion,
   FileText,
   Loader2,
-  Activity,
   AlertCircle,
   RefreshCw,
-  Code2,
   ChevronDown,
   ChevronUp,
   ArrowRight,
@@ -26,7 +23,6 @@ import { searchWorkerClient } from '../../services/searchWorkerClient';
 import { safeFetch, describeError } from '../../services/api';
 import { guarded } from '../../resilience/circuitBreaker';
 import {
-  artifactSearchEngine,
   getContentMatchLabel,
   type ContentSearchResult,
   type ParameterCriterion,

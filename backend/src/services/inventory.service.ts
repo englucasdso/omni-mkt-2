@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { resolveCanonicalTaxonomy, evaluateStructuredContent, getTreeLevel } from "./classification/treeClassifier.js";
+import { resolveCanonicalTaxonomy, evaluateStructuredContent } from "./classification/treeClassifier.js";
 
 const DATA_FILE = path.join(process.cwd(), "backend/data/inventario.json");
 

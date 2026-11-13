@@ -1,6 +1,3 @@
-import { Artifact } from "../types";
-import { isMap, isDocumentation } from "../domain/artifacts";
-import { resolveMeasurementClass } from "../domain/measurement";
 
 export const normalizar = (txt: string): string => {
   return String(txt || "")

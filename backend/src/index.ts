@@ -10,13 +10,9 @@ import 'dotenv/config';
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
-import { fileURLToPath } from "url";
 import searchRoutes from "./routes/search.routes";
 import usersRoutes from "./routes/users.routes";
 import padroesRoutes from "./routes/padroes.routes";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
@@ -51,8 +47,12 @@ async function startServer() {
     // Modo de Produção (Pronto para o ar):
     // Serve os arquivos já empacotados e otimizados pelo vite (que ficam na pasta /dist).
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
+    // Arquivos de /assets têm o conteúdo no nome (ex.: index-ColsAN6y.js): o navegador pode guardar por 1 ano.
+    // O index.html é sempre conferido, para uma versão nova aparecer na hora.
+    app.use("/assets", express.static(path.join(distPath, "assets"), { immutable: true, maxAge: "1y", fallthrough: false }));
+    app.use(express.static(distPath, { index: false }));
+    app.get("*", (_req, res) => {
+      res.setHeader("Cache-Control", "no-cache");
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
@@ -60,7 +60,7 @@ async function startServer() {
   // Inicializa o servidor e o faz "escutar" os acessos na porta definida
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}${isProduction ? " (modo produção)" : ""}`);
-    console.log(`Frontend integration active via Vite middleware`);
+    console.log(isProduction ? "Servindo o site empacotado (pasta dist)" : "Modo de desenvolvimento: Vite compilando em tempo real");
   });
 }
 
