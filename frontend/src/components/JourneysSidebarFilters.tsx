@@ -1,9 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
+import { ChevronRight, Code2 } from 'lucide-react';
 import { Artifact } from '../types';
 import { isMap } from '../domain/artifacts';
 import { resolveArtifactTaxonomy } from '../utils/taxonomyResolver';
+import { SidebarFilterPopover } from './SidebarFilterPopover';
 
-interface Props {
+const NO_SUB = 'SEM_SUBPRODUTO';
+
+// --- Escolha do mapa: Produto → Subproduto → Mapa, centralizada no topo da jornada ---
+
+interface PickerProps {
   artifacts: Artifact[];
   selectedProduct: string;
   onSelectProduct: (val: string) => void;
@@ -14,7 +20,17 @@ interface Props {
   isLoading?: boolean;
 }
 
-export const JourneysSidebarFilters: React.FC<Props> = ({
+const selectClass =
+  'h-9 w-full rounded-lg border border-omni-line bg-white text-xs px-3 text-omni-ink focus:outline-none focus:ring-2 focus:ring-omni-rubi/20 focus:border-omni-rubi transition-all cursor-pointer truncate shadow-neu-card disabled:opacity-50 disabled:cursor-not-allowed';
+
+const Step: React.FC<{ label: string; className: string; children: React.ReactNode }> = ({ label, className, children }) => (
+  <label className={`flex flex-col gap-1 min-w-0 ${className}`}>
+    <span className="text-[11px] font-medium text-omni-ink-secondary">{label}</span>
+    {children}
+  </label>
+);
+
+export const JourneyMapPicker: React.FC<PickerProps> = ({
   artifacts,
   selectedProduct,
   onSelectProduct,
@@ -22,24 +38,22 @@ export const JourneysSidebarFilters: React.FC<Props> = ({
   onSelectSubproduct,
   selectedMapId,
   onSelectMapId,
-  isLoading
+  isLoading,
 }) => {
-  const eligibleMaps = useMemo(() => {
-    return (artifacts || []).filter(a => isMap(a) && Array.isArray(a.screens) && a.screens.length > 0);
-  }, [artifacts]);
+  const mapTaxonomies = useMemo(
+    () =>
+      (artifacts || [])
+        .filter((a) => isMap(a) && Array.isArray(a.screens) && a.screens.length > 0)
+        .map((a) => ({ artifact: a, taxonomy: resolveArtifactTaxonomy(a) })),
+    [artifacts]
+  );
 
-  const mapTaxonomies = useMemo(() => {
-    return eligibleMaps.map(a => ({
-      artifact: a,
-      taxonomy: resolveArtifactTaxonomy(a)
-    }));
-  }, [eligibleMaps]);
+  const subOf = (t: any) => (t.subproduto_nome === 'Sem Subproduto' ? NO_SUB : t.subproduto_nome);
 
   const products = useMemo(() => {
     const set = new Set<string>();
     mapTaxonomies.forEach(({ taxonomy }) => {
-      const p = taxonomy.produto_nome;
-      if (p && p !== 'Sem Produto') set.add(p);
+      if (taxonomy.produto_nome && taxonomy.produto_nome !== 'Sem Produto') set.add(taxonomy.produto_nome);
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [mapTaxonomies]);
@@ -48,104 +62,155 @@ export const JourneysSidebarFilters: React.FC<Props> = ({
     if (!selectedProduct) return [];
     const set = new Set<string>();
     mapTaxonomies.forEach(({ taxonomy }) => {
-      if (taxonomy.produto_nome === selectedProduct) {
-        const sub = taxonomy.subproduto_nome === 'Sem Subproduto' ? 'SEM_SUBPRODUTO' : taxonomy.subproduto_nome;
-        set.add(sub);
-      }
+      if (taxonomy.produto_nome === selectedProduct) set.add(subOf(taxonomy));
     });
-    return Array.from(set).sort((a, b) => {
-      const displayA = a === 'SEM_SUBPRODUTO' ? 'Sem subproduto' : a;
-      const displayB = b === 'SEM_SUBPRODUTO' ? 'Sem subproduto' : b;
-      return displayA.localeCompare(displayB);
-    });
+    const label = (v: string) => (v === NO_SUB ? 'Sem subproduto' : v);
+    return Array.from(set).sort((a, b) => label(a).localeCompare(label(b)));
   }, [mapTaxonomies, selectedProduct]);
 
   const maps = useMemo(() => {
     if (!selectedProduct || !selectedSubproduct) return [];
-    const list: {id: string, name: string}[] = [];
     const seen = new Set<string>();
+    const list: { id: string; name: string }[] = [];
     mapTaxonomies.forEach(({ artifact, taxonomy }) => {
-      const p = taxonomy.produto_nome;
-      const sub = taxonomy.subproduto_nome === 'Sem Subproduto' ? 'SEM_SUBPRODUTO' : taxonomy.subproduto_nome;
-      
-      if (p === selectedProduct && sub === selectedSubproduct) {
-        const title = String(artifact.titulo || artifact.id).trim();
-        const idStr = String(artifact.id);
-        if (!seen.has(idStr)) {
-          seen.add(idStr);
-          list.push({ id: idStr, name: title });
-        }
-      }
+      if (taxonomy.produto_nome !== selectedProduct || subOf(taxonomy) !== selectedSubproduct) return;
+      const id = String(artifact.id);
+      if (seen.has(id)) return;
+      seen.add(id);
+      list.push({ id, name: String(artifact.titulo || artifact.id).trim() });
     });
     return list.sort((a, b) => a.name.localeCompare(b.name));
   }, [mapTaxonomies, selectedProduct, selectedSubproduct]);
 
   if (isLoading) {
-    return (
-      <div className="p-4 text-sm text-gray-500 dark:text-slate-400">
-        Carregando filtros...
-      </div>
-    );
+    return <p className="text-xs text-omni-muted text-center">Carregando mapas...</p>;
   }
-
-  if (eligibleMaps.length === 0) {
-    return (
-      <div className="p-4 text-sm text-gray-500 dark:text-slate-400">
-        Nenhum mapa com telas disponível.
-      </div>
-    );
+  if (mapTaxonomies.length === 0) {
+    return <p className="text-xs text-omni-muted text-center">Nenhum mapa com telas disponível.</p>;
   }
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <div className="flex items-center gap-1.5">
-        <label className="text-xs font-medium text-omni-ink-secondary shrink-0">Produto</label>
-        <select
-          className="h-8 max-w-[160px] rounded-lg border border-omni-line bg-white text-xs px-2.5 text-omni-ink focus:outline-none focus:ring-2 focus:ring-omni-rubi/20 focus:border-omni-rubi transition-all cursor-pointer truncate shadow-neu-card"
-          value={selectedProduct}
-          onChange={(e) => {
-            onSelectProduct(e.target.value);
-            onSelectSubproduct('');
-            onSelectMapId('');
-          }}
-        >
-          <option value="">Selecione...</option>
-          {products.map(p => (
-            <option key={p} value={p}>{p}</option>
-          ))}
-        </select>
+    <div className="w-full flex justify-center">
+      <div className="flex items-end gap-2 w-full max-w-4xl">
+        <Step label="Produto" className="w-[22%]">
+          <select
+            className={selectClass}
+            value={selectedProduct}
+            onChange={(e) => {
+              onSelectProduct(e.target.value);
+              onSelectSubproduct('');
+              onSelectMapId('');
+            }}
+          >
+            <option value="">Selecione...</option>
+            {products.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </Step>
+
+        <ChevronRight className="w-4 h-4 text-omni-muted shrink-0 mb-2.5" aria-hidden="true" />
+
+        <Step label="Subproduto" className="w-[26%]">
+          <select
+            className={selectClass}
+            value={selectedSubproduct}
+            disabled={!selectedProduct}
+            onChange={(e) => {
+              onSelectSubproduct(e.target.value);
+              onSelectMapId('');
+            }}
+          >
+            <option value="">{selectedProduct ? 'Selecione...' : 'Escolha o produto'}</option>
+            {subproducts.map((s) => (
+              <option key={s} value={s}>
+                {s === NO_SUB ? 'Sem subproduto' : s}
+              </option>
+            ))}
+          </select>
+        </Step>
+
+        <ChevronRight className="w-4 h-4 text-omni-muted shrink-0 mb-2.5" aria-hidden="true" />
+
+        <Step label={maps.length ? `Mapa (${maps.length})` : 'Mapa'} className="flex-1">
+          <select
+            className={selectClass}
+            value={selectedMapId}
+            disabled={!selectedSubproduct}
+            onChange={(e) => onSelectMapId(e.target.value)}
+            title={maps.find((m) => m.id === selectedMapId)?.name}
+          >
+            <option value="">{selectedSubproduct ? 'Selecione...' : 'Escolha o subproduto'}</option>
+            {maps.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </Step>
       </div>
-      <div className="flex items-center gap-1.5">
-        <label className="text-xs font-medium text-omni-ink-secondary shrink-0">Subproduto</label>
-        <select
-          className="h-8 max-w-[160px] rounded-lg border border-omni-line bg-white text-xs px-2.5 text-omni-ink focus:outline-none focus:ring-2 focus:ring-omni-rubi/20 focus:border-omni-rubi transition-all cursor-pointer truncate shadow-neu-card disabled:opacity-50 disabled:cursor-not-allowed"
-          value={selectedSubproduct}
-          onChange={(e) => {
-            onSelectSubproduct(e.target.value);
-            onSelectMapId('');
-          }}
-          disabled={!selectedProduct}
-        >
-          <option value="">Selecione...</option>
-          {subproducts.map(s => (
-            <option key={s} value={s}>{s === 'SEM_SUBPRODUTO' ? 'Sem subproduto' : s}</option>
-          ))}
-        </select>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <label className="text-xs font-medium text-omni-ink-secondary shrink-0">Mapa</label>
-        <select
-          className="h-8 max-w-[200px] rounded-lg border border-omni-line bg-white text-xs px-2.5 text-omni-ink focus:outline-none focus:ring-2 focus:ring-omni-rubi/20 focus:border-omni-rubi transition-all cursor-pointer truncate shadow-neu-card disabled:opacity-50 disabled:cursor-not-allowed"
-          value={selectedMapId}
-          onChange={(e) => onSelectMapId(e.target.value)}
-          disabled={!selectedSubproduct}
-        >
-          <option value="">Selecione...</option>
-          {maps.map(m => (
-            <option key={m.id} value={m.id}>{m.name}</option>
-          ))}
-        </select>
-      </div>
+    </div>
+  );
+};
+
+// --- Barra de cima (canto direito): botão Filtros, no mesmo padrão das outras abas ---
+
+interface FiltersProps {
+  showCode: boolean;
+  onShowCodeChange: (val: boolean) => void;
+}
+
+export const JourneysSidebarFilters: React.FC<FiltersProps> = ({ showCode, onShowCodeChange }) => {
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const filterButtonRef = useRef<HTMLButtonElement>(null);
+
+  return (
+    <div className="flex items-center gap-2 min-w-0" id="sidebar-contextual-journeys">
+      <button
+        ref={filterButtonRef}
+        type="button"
+        onClick={() => setIsPopoverOpen(!isPopoverOpen)}
+        aria-expanded={isPopoverOpen}
+        className={`h-8 shrink-0 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
+          isPopoverOpen || showCode
+            ? 'bg-red-50 text-omni-bordo border-omni-bordo/30 font-semibold'
+            : 'bg-white border-omni-line text-omni-ink-secondary hover:text-omni-ink hover:border-gray-300 shadow-neu-card'
+        }`}
+      >
+        <span>Filtros</span>
+        {showCode && <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-omni-bordo text-white">1</span>}
+      </button>
+
+      <SidebarFilterPopover
+        isOpen={isPopoverOpen}
+        onClose={() => setIsPopoverOpen(false)}
+        anchorRef={filterButtonRef}
+        title="Filtros da jornada"
+        activeCount={showCode ? 1 : 0}
+        onResetAll={() => onShowCodeChange(false)}
+      >
+        {/* Exibição (mesmo estilo do bloco "Exceções e status" das outras abas) */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-ui font-semibold text-omni-ink-secondary block">Exibição</label>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => onShowCodeChange(!showCode)}
+              aria-pressed={showCode}
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-ui font-medium border transition-colors cursor-pointer flex items-center gap-1 ${
+                showCode
+                  ? 'bg-red-50 text-[#7B0209] border-[#7B0209]/40 font-semibold'
+                  : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              <Code2 className="w-3 h-3" />
+              Mostrar código nas telas
+            </button>
+          </div>
+        </div>
+      </SidebarFilterPopover>
     </div>
   );
 };

@@ -20,7 +20,7 @@ import { ErrorBoundary } from "../resilience/ErrorBoundary";
 import { X, AlertTriangle, Target, Network, Filter, CheckCircle2, AlertCircle, Clock, User, Info, Shield, LogOut, Trash2, Plus, Settings, Landmark, LayoutList, RefreshCw, Check, Loader2, KeyRound, Activity, ArrowRight, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, Sparkles, MessageCircleQuestion, FileText, Layers, Tag, Code2, Eye, ArrowUpDown, Calendar, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { ConexoesCanvas } from "../components/ConexoesCanvas";
 import { JourneysCanvas } from "../components/JourneysCanvas";
-import { JourneysSidebarFilters } from "../components/JourneysSidebarFilters";
+import { JourneysSidebarFilters, JourneyMapPicker } from "../components/JourneysSidebarFilters";
 import { fetchInventory, searchContent, fetchUsers, createUser, updateUser, deleteUser, safeFetch, describeError } from "../services/api";
 import { guarded } from "../resilience/circuitBreaker";
 import { Artifact, SearchResponse, User as UserType, UserRole, UserStatus, ActiveSearch, ParameterArtifactGroupSummary, ContentMatchSummary, QuestionMatchSummary } from "../types";
@@ -518,6 +518,7 @@ export default function App() {
   const [journeyProduct, setJourneyProduct] = useState("");
   const [journeySubproduct, setJourneySubproduct] = useState("");
   const [journeyMapId, setJourneyMapId] = useState("");
+  const [journeyShowCode, setJourneyShowCode] = useState(false);
   const [tableFilter, setTableFilter] = useState("");
   const [lastSync, setLastSync] = useState<string | null>(localStorage.getItem('last_sync'));
   const [showExportModal, setShowExportModal] = useState(false);
@@ -1623,16 +1624,7 @@ export default function App() {
       contextualContent={
         <ErrorBoundary area="os filtros" variant="inline" resetKey={appState}>
         {appState === 'journeys' ? (
-          <JourneysSidebarFilters
-            artifacts={fullInventory}
-            selectedProduct={journeyProduct}
-            onSelectProduct={setJourneyProduct}
-            selectedSubproduct={journeySubproduct}
-            onSelectSubproduct={setJourneySubproduct}
-            selectedMapId={journeyMapId}
-            onSelectMapId={setJourneyMapId}
-            isLoading={loading}
-          />
+          <JourneysSidebarFilters showCode={journeyShowCode} onShowCodeChange={setJourneyShowCode} />
         ) : (
         <SidebarContextualArea
           currentRouteId={appState}
@@ -1900,9 +1892,21 @@ export default function App() {
                 style={{ height: 'calc(100vh - 100px)' }}
               >
                 <ErrorBoundary area="as Jornadas">
+                {/* Escolha do mapa, centralizada no topo: Produto → Subproduto → Mapa */}
+                <JourneyMapPicker
+                  artifacts={fullInventory}
+                  selectedProduct={journeyProduct}
+                  onSelectProduct={setJourneyProduct}
+                  selectedSubproduct={journeySubproduct}
+                  onSelectSubproduct={setJourneySubproduct}
+                  selectedMapId={journeyMapId}
+                  onSelectMapId={setJourneyMapId}
+                  isLoading={loading}
+                />
                 <JourneysCanvas
                   artifacts={fullInventory}
                   selectedMapId={journeyMapId}
+                  showCode={journeyShowCode}
                   onOpenScreen={(map, target) => {
                     setDetailModalItem(map);
                     setDetailTarget(target || null);
