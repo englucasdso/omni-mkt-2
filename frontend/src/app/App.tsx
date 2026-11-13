@@ -18,6 +18,8 @@ import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
 import { ROUTES, viewFromPath, legacyRedirect, type AppView } from "./routes";
 import { ComingSoonView } from "../components/ComingSoonView";
 import { DocumentationHealthView } from "../components/DocumentationHealthView";
+import { HealthSidebarFilters } from "../components/HealthSidebarFilters";
+import { DEFAULT_HEALTH_THRESHOLDS } from "../domain/health/documentationHealth";
 import { ErrorBoundary } from "../resilience/ErrorBoundary";
 import { X, AlertTriangle, Target, Network, Filter, CheckCircle2, AlertCircle, Clock, User, Info, Shield, LogOut, Trash2, Plus, Settings, Landmark, LayoutList, RefreshCw, Check, Loader2, KeyRound, Activity, ArrowRight, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, Sparkles, MessageCircleQuestion, FileText, Layers, Tag, Code2, Eye, ArrowUpDown, Calendar, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { ConexoesCanvas } from "../components/ConexoesCanvas";
@@ -521,6 +523,10 @@ export default function App() {
   const [journeySubproduct, setJourneySubproduct] = useState("");
   const [journeyMapId, setJourneyMapId] = useState("");
   const [journeyShowCode, setJourneyShowCode] = useState(false);
+  // Saúde da documentação: limites de tempo e produto (botão Filtros)
+  const [healthStaleDays, setHealthStaleDays] = useState(DEFAULT_HEALTH_THRESHOLDS.staleDays);
+  const [healthWasteDays, setHealthWasteDays] = useState(DEFAULT_HEALTH_THRESHOLDS.wasteDays);
+  const [healthProduct, setHealthProduct] = useState("");
   const [tableFilter, setTableFilter] = useState("");
   const [lastSync, setLastSync] = useState<string | null>(localStorage.getItem('last_sync'));
   const [showExportModal, setShowExportModal] = useState(false);
@@ -1627,6 +1633,16 @@ export default function App() {
         <ErrorBoundary area="os filtros" variant="inline" resetKey={appState}>
         {appState === 'journeys' ? (
           <JourneysSidebarFilters showCode={journeyShowCode} onShowCodeChange={setJourneyShowCode} />
+        ) : appState === 'saude' ? (
+          <HealthSidebarFilters
+            artifacts={fullInventory.length > 0 ? fullInventory : results}
+            staleDays={healthStaleDays}
+            onStaleDaysChange={setHealthStaleDays}
+            wasteDays={healthWasteDays}
+            onWasteDaysChange={setHealthWasteDays}
+            product={healthProduct}
+            onProductChange={setHealthProduct}
+          />
         ) : (
         <SidebarContextualArea
           currentRouteId={appState}
@@ -1804,6 +1820,9 @@ export default function App() {
             <ErrorBoundary area="a Saúde da documentação" resetKey={appState}>
               <DocumentationHealthView
                 artifacts={fullInventory.length > 0 ? fullInventory : results}
+                staleDays={healthStaleDays}
+                wasteDays={healthWasteDays}
+                product={healthProduct}
                 onOpenMap={(art) => setDetailModalItem(art)}
                 onDrillDown={handleInsightDrillDown}
               />

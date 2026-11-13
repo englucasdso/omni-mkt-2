@@ -19,8 +19,9 @@ export interface HealthThresholds {
 export const DEFAULT_HEALTH_THRESHOLDS: HealthThresholds = { staleDays: 90, wasteDays: 180 };
 
 /**
- * DESPERDICIO: nenhuma tela validada, telas em Novo, parado além do limite de desperdício.
- *   O mapa foi pedido e criado, mas a homologação nunca aconteceu.
+ * DESPERDICIO: nenhuma tela validada, pendências só em Novo (nenhuma em Correção), parado além do
+ *   limite de desperdício. O mapa foi pedido e criado, mas a homologação nunca aconteceu.
+ *   Com tela em Correção, alguém já olhou o mapa: vira CORRECAO_ESQUECIDA.
  * CORRECAO_ESQUECIDA: telas em Correção num mapa parado.
  * PARADO: outras telas pendentes (Novo) num mapa parado.
  */
@@ -112,7 +113,7 @@ export function analyzeDocumentationHealth(
     evaluated++;
 
     let kind: HealthKind | null = null;
-    if (m.validated === 0 && m.new > 0 && days >= thresholds.wasteDays) kind = 'DESPERDICIO';
+    if (m.validated === 0 && m.new > 0 && m.correction === 0 && days >= thresholds.wasteDays) kind = 'DESPERDICIO';
     else if (m.correction > 0 && days >= thresholds.staleDays) kind = 'CORRECAO_ESQUECIDA';
     else if (m.new > 0 && days >= thresholds.staleDays) kind = 'PARADO';
     if (!kind) continue;

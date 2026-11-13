@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { HelpCircle, X } from 'lucide-react';
 import { Artifact } from '../types';
 import {
   analyzeDocumentationHealth,
@@ -11,6 +12,10 @@ import { STATUS_CONFIGS } from '../domain/status';
 
 interface Props {
   artifacts: Artifact[];
+  /** Limites e produto vêm do botão Filtros, no topo */
+  staleDays: number;
+  wasteDays: number;
+  product: string;
   onOpenMap: (map: Artifact) => void;
   /** Abre os mapas em Cards (mesmo clique dos Insights) */
   onDrillDown: (label: string, ids: string[], target: 'cards' | 'inventario') => void;
@@ -26,32 +31,6 @@ const KIND_HEX: Record<HealthKind, string> = {
   CORRECAO_ESQUECIDA: STATUS_CONFIGS['CORREÇÃO'].hex,
   PARADO: NEUTRAL_BAR,
 };
-
-const Segmented: React.FC<{
-  label: string;
-  value: number;
-  options: Array<[number, string]>;
-  onChange: (v: number) => void;
-}> = ({ label, value, options, onChange }) => (
-  <div className="flex items-center gap-2">
-    <span className="text-xs text-omni-ink-secondary">{label}</span>
-    <div className="inline-flex rounded-lg border border-omni-line p-0.5 bg-white" role="group" aria-label={label}>
-      {options.map(([v, text]) => (
-        <button
-          key={v}
-          type="button"
-          onClick={() => onChange(v)}
-          aria-pressed={value === v}
-          className={`px-2.5 h-7 rounded-md text-xs font-semibold cursor-pointer ${
-            value === v ? 'bg-omni-ink text-white' : 'text-omni-ink-secondary hover:text-omni-ink'
-          }`}
-        >
-          {text}
-        </button>
-      ))}
-    </div>
-  </div>
-);
 
 const Panel: React.FC<{ title: string; hint?: React.ReactNode; className?: string; children: React.ReactNode }> = ({
   title,
@@ -101,16 +80,19 @@ const Bars: React.FC<{
   );
 };
 
-export const DocumentationHealthView: React.FC<Props> = ({ artifacts, onOpenMap, onDrillDown }) => {
-  const [staleDays, setStaleDays] = useState(90);
-  const [wasteDays, setWasteDays] = useState(180);
+export const DocumentationHealthView: React.FC<Props> = ({ artifacts, staleDays, wasteDays, product, onOpenMap, onDrillDown }) => {
+  const [showHelp, setShowHelp] = useState(false);
   const [groupBy, setGroupBy] = useState<'produto' | 'responsavel'>('produto');
   const [kindFilter, setKindFilter] = useState<HealthKind | 'TODOS'>('TODOS');
   const [showAll, setShowAll] = useState(false);
 
+  const scoped = useMemo(
+    () => (product ? (artifacts || []).filter((a) => String(a.produto || '').trim() === product) : artifacts),
+    [artifacts, product]
+  );
   const report = useMemo(
-    () => analyzeDocumentationHealth(artifacts, { staleDays, wasteDays: Math.max(wasteDays, staleDays) }),
-    [artifacts, staleDays, wasteDays]
+    () => analyzeDocumentationHealth(scoped, { staleDays, wasteDays: Math.max(wasteDays, staleDays) }),
+    [scoped, staleDays, wasteDays]
   );
 
   const drill = (label: string, ids: string[]) => ids.length && onDrillDown(label, ids, 'cards');
@@ -139,36 +121,75 @@ export const DocumentationHealthView: React.FC<Props> = ({ artifacts, onOpenMap,
 
   return (
     <div className="space-y-6 pb-16">
-      {/* Cabeçalho e limites */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="max-w-2xl">
-          <h2 className="text-xl font-heading font-bold text-omni-ink">Saúde da documentação</h2>
-          <p className="text-sm text-omni-ink-secondary mt-1 leading-relaxed">
-            Mapas que pararam no meio do caminho: sem atualização há muito tempo e com telas que ainda não foram validadas.
-          </p>
+      {/* Cabeçalho com "Como funciona" */}
+      <div className="max-w-3xl">
+        <div className="flex items-center gap-2">
+          <h2 className="text-xl font-heading font-bold text-omni-ink">
+            Saúde da documentação{product ? `: ${product}` : ''}
+          </h2>
+          <button
+            type="button"
+            onClick={() => setShowHelp((v) => !v)}
+            aria-expanded={showHelp}
+            aria-label="Como funciona"
+            title="Como funciona"
+            className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+              showHelp ? 'bg-omni-bordo/10 text-omni-bordo' : 'text-omni-muted hover:text-omni-bordo hover:bg-omni-mist'
+            }`}
+          >
+            <HelpCircle className="w-[18px] h-[18px]" />
+          </button>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <Segmented
-            label="Parado há mais de"
-            value={staleDays}
-            onChange={setStaleDays}
-            options={[
-              [60, '60 dias'],
-              [90, '90 dias'],
-              [180, '180 dias'],
-            ]}
-          />
-          <Segmented
-            label="Desperdício há mais de"
-            value={wasteDays}
-            onChange={setWasteDays}
-            options={[
-              [180, '180 dias'],
-              [365, '1 ano'],
-              [730, '2 anos'],
-            ]}
-          />
-        </div>
+        <p className="text-sm text-omni-ink-secondary mt-1 leading-relaxed">
+          Mapas que pararam no meio do caminho: sem atualização há muito tempo e com telas que ainda não foram validadas.
+        </p>
+
+        {showHelp && (
+          <div className="relative mt-3 rounded-xl border border-omni-line bg-white p-4 pr-10 text-sm text-omni-ink-secondary leading-relaxed space-y-2">
+            <button
+              type="button"
+              onClick={() => setShowHelp(false)}
+              aria-label="Fechar explicação"
+              className="absolute top-3 right-3 p-1 rounded-md text-omni-muted hover:text-omni-ink cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <p className="font-semibold text-omni-ink">Como funciona</p>
+            <p>
+              Para cada mapa, o OMNI olha o status das telas e a data da última atualização no Confluence. Cada mapa entra numa só
+              situação, a mais grave:
+            </p>
+            <ul className="space-y-1.5">
+              <li className="flex gap-2">
+                <span className="mt-1.5 w-2 h-2 rounded-full shrink-0" style={{ background: KIND_HEX.DESPERDICIO }} aria-hidden="true" />
+                <span>
+                  <strong className="text-omni-ink">Desperdício:</strong> nenhuma tela validada, as pendentes só em Novo, e sem atualização há mais de{' '}
+                  {wasteDays >= 365 ? `${wasteDays / 365 === 1 ? '1 ano' : `${wasteDays / 365} anos`}` : `${wasteDays} dias`}. O mapa foi
+                  pedido e criado, mas a homologação nunca aconteceu.
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1.5 w-2 h-2 rounded-full shrink-0" style={{ background: KIND_HEX.CORRECAO_ESQUECIDA }} aria-hidden="true" />
+                <span>
+                  <strong className="text-omni-ink">Correção esquecida:</strong> tem telas em Correção e está sem atualização há mais de{' '}
+                  {staleDays} dias. Um problema foi apontado e ninguém voltou para resolver.
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1.5 w-2 h-2 rounded-full shrink-0" style={{ background: KIND_HEX.PARADO }} aria-hidden="true" />
+                <span>
+                  <strong className="text-omni-ink">Parado:</strong> tem telas em Novo e está sem atualização há mais de {staleDays} dias,
+                  mas não chegou a desperdício: ou a homologação começou e ficou pela metade, ou o mapa ainda não passou do limite de
+                  desperdício.
+                </span>
+              </li>
+            </ul>
+            <p>
+              Mapas atualizados recentemente ou 100% validados não aparecem. Os limites de tempo e o produto mudam no botão{' '}
+              <strong className="text-omni-ink">Filtros</strong>, no canto de cima.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Números principais: clique abre os mapas em Cards */}
