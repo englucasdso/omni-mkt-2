@@ -1,11 +1,15 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Search, X, Code2 } from 'lucide-react';
+import { ChevronRight, Code2 } from 'lucide-react';
 import { Artifact } from '../types';
 import { isMap } from '../domain/artifacts';
 import { resolveArtifactTaxonomy } from '../utils/taxonomyResolver';
-import { SidebarFilterPopover, FilterSearchableSingle } from './SidebarFilterPopover';
+import { SidebarFilterPopover } from './SidebarFilterPopover';
 
-interface Props {
+const NO_SUB = 'SEM_SUBPRODUTO';
+
+// --- Escolha do mapa: Produto → Subproduto → Mapa, centralizada no topo da jornada ---
+
+interface PickerProps {
   artifacts: Artifact[];
   selectedProduct: string;
   onSelectProduct: (val: string) => void;
@@ -13,23 +17,20 @@ interface Props {
   onSelectSubproduct: (val: string) => void;
   selectedMapId: string;
   onSelectMapId: (val: string) => void;
-  /** Busca dentro da jornada aberta (tela, evento ou código) */
-  searchQuery: string;
-  onSearchChange: (val: string) => void;
-  showCode: boolean;
-  onShowCodeChange: (val: boolean) => void;
   isLoading?: boolean;
 }
 
-const NO_SUB = 'Sem subproduto';
-/** O "Todos" da lista única devolve um destes valores: tratamos como "nenhum" */
-const isAllValue = (v: string) => !v || ['todos', 'todas', 'all', 'TODOS'].includes(v);
+const selectClass =
+  'h-9 w-full rounded-lg border border-omni-line bg-white text-xs px-3 text-omni-ink focus:outline-none focus:ring-2 focus:ring-omni-rubi/20 focus:border-omni-rubi transition-all cursor-pointer truncate shadow-neu-card disabled:opacity-50 disabled:cursor-not-allowed';
 
-/**
- * Barra da aba Jornadas no mesmo padrão das outras abas:
- * busca de 260px + botão Filtros com Produto, Subproduto, Mapa e exibição do código.
- */
-export const JourneysSidebarFilters: React.FC<Props> = ({
+const Step: React.FC<{ label: string; className: string; children: React.ReactNode }> = ({ label, className, children }) => (
+  <label className={`flex flex-col gap-1 min-w-0 ${className}`}>
+    <span className="text-[11px] font-medium text-omni-ink-secondary">{label}</span>
+    {children}
+  </label>
+);
+
+export const JourneyMapPicker: React.FC<PickerProps> = ({
   artifacts,
   selectedProduct,
   onSelectProduct,
@@ -37,177 +38,159 @@ export const JourneysSidebarFilters: React.FC<Props> = ({
   onSelectSubproduct,
   selectedMapId,
   onSelectMapId,
-  searchQuery,
-  onSearchChange,
-  showCode,
-  onShowCodeChange,
   isLoading,
 }) => {
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const filterButtonRef = useRef<HTMLButtonElement>(null);
-
-  const mapEntries = useMemo(
+  const mapTaxonomies = useMemo(
     () =>
       (artifacts || [])
         .filter((a) => isMap(a) && Array.isArray(a.screens) && a.screens.length > 0)
-        .map((a) => {
-          const t = resolveArtifactTaxonomy(a);
-          const produto = t.produto_nome && t.produto_nome !== 'Sem Produto' ? t.produto_nome : '';
-          const sub = !t.subproduto_nome || t.subproduto_nome === 'Sem Subproduto' ? NO_SUB : t.subproduto_nome;
-          return { id: String(a.id), title: String(a.titulo || a.id).trim(), produto, sub };
-        }),
+        .map((a) => ({ artifact: a, taxonomy: resolveArtifactTaxonomy(a) })),
     [artifacts]
   );
 
-  const products = useMemo(
-    () => Array.from(new Set(mapEntries.map((m) => m.produto).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
-    [mapEntries]
-  );
+  const subOf = (t: any) => (t.subproduto_nome === 'Sem Subproduto' ? NO_SUB : t.subproduto_nome);
+
+  const products = useMemo(() => {
+    const set = new Set<string>();
+    mapTaxonomies.forEach(({ taxonomy }) => {
+      if (taxonomy.produto_nome && taxonomy.produto_nome !== 'Sem Produto') set.add(taxonomy.produto_nome);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [mapTaxonomies]);
 
   const subproducts = useMemo(() => {
     if (!selectedProduct) return [];
-    return Array.from(new Set(mapEntries.filter((m) => m.produto === selectedProduct).map((m) => m.sub))).sort((a, b) =>
-      a.localeCompare(b)
-    );
-  }, [mapEntries, selectedProduct]);
+    const set = new Set<string>();
+    mapTaxonomies.forEach(({ taxonomy }) => {
+      if (taxonomy.produto_nome === selectedProduct) set.add(subOf(taxonomy));
+    });
+    const label = (v: string) => (v === NO_SUB ? 'Sem subproduto' : v);
+    return Array.from(set).sort((a, b) => label(a).localeCompare(label(b)));
+  }, [mapTaxonomies, selectedProduct]);
 
-  // Mapas visíveis: filtrados pelo produto/subproduto, se escolhidos. Títulos repetidos levam o ID.
-  const mapOptions = useMemo(() => {
-    const list = mapEntries
-      .filter((m) => (!selectedProduct || m.produto === selectedProduct) && (!selectedSubproduct || m.sub === selectedSubproduct))
-      .sort((a, b) => a.title.localeCompare(b.title));
-    const count = new Map<string, number>();
-    list.forEach((m) => count.set(m.title, (count.get(m.title) || 0) + 1));
-    return list.map((m) => ({ ...m, label: (count.get(m.title) || 0) > 1 ? `${m.title} (${m.id})` : m.title }));
-  }, [mapEntries, selectedProduct, selectedSubproduct]);
-
-  const selectedMapLabel = useMemo(() => {
-    const inList = mapOptions.find((m) => m.id === selectedMapId);
-    if (inList) return inList.label;
-    return mapEntries.find((m) => m.id === selectedMapId)?.title || '';
-  }, [mapOptions, mapEntries, selectedMapId]);
-
-  const activeCount = (selectedProduct ? 1 : 0) + (selectedSubproduct ? 1 : 0) + (selectedMapId ? 1 : 0) + (showCode ? 1 : 0);
-
-  const resetAll = () => {
-    onSelectProduct('');
-    onSelectSubproduct('');
-    onSelectMapId('');
-    onShowCodeChange(false);
-  };
+  const maps = useMemo(() => {
+    if (!selectedProduct || !selectedSubproduct) return [];
+    const seen = new Set<string>();
+    const list: { id: string; name: string }[] = [];
+    mapTaxonomies.forEach(({ artifact, taxonomy }) => {
+      if (taxonomy.produto_nome !== selectedProduct || subOf(taxonomy) !== selectedSubproduct) return;
+      const id = String(artifact.id);
+      if (seen.has(id)) return;
+      seen.add(id);
+      list.push({ id, name: String(artifact.titulo || artifact.id).trim() });
+    });
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  }, [mapTaxonomies, selectedProduct, selectedSubproduct]);
 
   if (isLoading) {
-    return <div className="text-xs text-omni-muted">Carregando filtros...</div>;
+    return <p className="text-xs text-omni-muted text-center">Carregando mapas...</p>;
+  }
+  if (mapTaxonomies.length === 0) {
+    return <p className="text-xs text-omni-muted text-center">Nenhum mapa com telas disponível.</p>;
   }
 
   return (
-    <div className="flex items-center gap-2 min-w-0" id="sidebar-contextual-journeys">
-      {/* Busca dentro da jornada */}
-      <div className="relative w-[260px] shrink-0">
-        <Search className="w-3.5 h-3.5 text-omni-muted absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0" />
-        <input
-          type="text"
-          placeholder={selectedMapId ? 'Buscar tela, evento ou código...' : 'Escolha um mapa em Filtros'}
-          value={searchQuery}
-          disabled={!selectedMapId}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full pl-8 pr-7 h-8 bg-white border border-omni-line rounded-lg text-xs font-ui text-omni-ink placeholder:text-omni-muted focus:outline-none focus:ring-2 focus:ring-omni-rubi/20 focus:border-omni-rubi transition-all truncate disabled:bg-omni-mist disabled:cursor-not-allowed"
-        />
-        {searchQuery && (
-          <button
-            type="button"
-            onClick={() => onSearchChange('')}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-omni-muted hover:text-omni-ink p-0.5"
-            title="Limpar busca"
-            aria-label="Limpar busca"
+    <div className="w-full flex justify-center">
+      <div className="flex items-end gap-2 w-full max-w-4xl">
+        <Step label="Produto" className="w-[22%]">
+          <select
+            className={selectClass}
+            value={selectedProduct}
+            onChange={(e) => {
+              onSelectProduct(e.target.value);
+              onSelectSubproduct('');
+              onSelectMapId('');
+            }}
           >
-            <X className="w-3 h-3" />
-          </button>
-        )}
-      </div>
+            <option value="">Selecione...</option>
+            {products.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </Step>
 
-      {/* Botão de Filtros */}
+        <ChevronRight className="w-4 h-4 text-omni-muted shrink-0 mb-2.5" aria-hidden="true" />
+
+        <Step label="Subproduto" className="w-[26%]">
+          <select
+            className={selectClass}
+            value={selectedSubproduct}
+            disabled={!selectedProduct}
+            onChange={(e) => {
+              onSelectSubproduct(e.target.value);
+              onSelectMapId('');
+            }}
+          >
+            <option value="">{selectedProduct ? 'Selecione...' : 'Escolha o produto'}</option>
+            {subproducts.map((s) => (
+              <option key={s} value={s}>
+                {s === NO_SUB ? 'Sem subproduto' : s}
+              </option>
+            ))}
+          </select>
+        </Step>
+
+        <ChevronRight className="w-4 h-4 text-omni-muted shrink-0 mb-2.5" aria-hidden="true" />
+
+        <Step label={maps.length ? `Mapa (${maps.length})` : 'Mapa'} className="flex-1">
+          <select
+            className={selectClass}
+            value={selectedMapId}
+            disabled={!selectedSubproduct}
+            onChange={(e) => onSelectMapId(e.target.value)}
+            title={maps.find((m) => m.id === selectedMapId)?.name}
+          >
+            <option value="">{selectedSubproduct ? 'Selecione...' : 'Escolha o subproduto'}</option>
+            {maps.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </Step>
+      </div>
+    </div>
+  );
+};
+
+// --- Barra de cima (canto direito): botão Filtros, no mesmo padrão das outras abas ---
+
+interface FiltersProps {
+  showCode: boolean;
+  onShowCodeChange: (val: boolean) => void;
+}
+
+export const JourneysSidebarFilters: React.FC<FiltersProps> = ({ showCode, onShowCodeChange }) => {
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const filterButtonRef = useRef<HTMLButtonElement>(null);
+
+  return (
+    <div className="flex items-center gap-2 min-w-0" id="sidebar-contextual-journeys">
       <button
         ref={filterButtonRef}
         type="button"
         onClick={() => setIsPopoverOpen(!isPopoverOpen)}
         aria-expanded={isPopoverOpen}
         className={`h-8 shrink-0 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
-          isPopoverOpen || activeCount > 0
+          isPopoverOpen || showCode
             ? 'bg-red-50 text-omni-bordo border-omni-bordo/30 font-semibold'
             : 'bg-white border-omni-line text-omni-ink-secondary hover:text-omni-ink hover:border-gray-300 shadow-neu-card'
         }`}
       >
         <span>Filtros</span>
-        {activeCount > 0 && (
-          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-omni-bordo text-white">{activeCount}</span>
-        )}
+        {showCode && <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-omni-bordo text-white">1</span>}
       </button>
-
-      {/* Mapa aberto, para saber o que está na tela sem abrir os filtros */}
-      {selectedMapLabel && (
-        <span className="text-xs text-omni-ink-secondary truncate min-w-0" title={selectedMapLabel}>
-          {selectedMapLabel}
-        </span>
-      )}
 
       <SidebarFilterPopover
         isOpen={isPopoverOpen}
         onClose={() => setIsPopoverOpen(false)}
         anchorRef={filterButtonRef}
         title="Filtros da jornada"
-        activeCount={activeCount}
-        onResetAll={resetAll}
+        activeCount={showCode ? 1 : 0}
+        onResetAll={() => onShowCodeChange(false)}
       >
-        <FilterSearchableSingle
-          label="Produto"
-          options={products}
-          value={selectedProduct || 'todos'}
-          onChange={(v) => {
-            onSelectProduct(isAllValue(v) ? '' : v);
-            onSelectSubproduct('');
-            onSelectMapId('');
-          }}
-          allOptionLabel="Todos os produtos"
-          placeholder="Buscar produto..."
-        />
-
-        {selectedProduct && (
-          <FilterSearchableSingle
-            label="Subproduto"
-            options={subproducts}
-            value={selectedSubproduct || 'todos'}
-            onChange={(v) => {
-              onSelectSubproduct(isAllValue(v) ? '' : v);
-              onSelectMapId('');
-            }}
-            allOptionLabel="Todos os subprodutos"
-            placeholder="Buscar subproduto..."
-          />
-        )}
-
-        <FilterSearchableSingle
-          label={`Mapa (${mapOptions.length})`}
-          options={mapOptions.map((m) => m.label)}
-          value={mapOptions.find((m) => m.id === selectedMapId)?.label || 'todos'}
-          onChange={(label) => {
-            if (isAllValue(label)) {
-              onSelectMapId('');
-              return;
-            }
-            const m = mapOptions.find((o) => o.label === label);
-            if (!m) return;
-            // Escolher o mapa direto também preenche produto e subproduto
-            if (m.produto && m.produto !== selectedProduct) onSelectProduct(m.produto);
-            if (m.sub !== selectedSubproduct) onSelectSubproduct(m.sub);
-            onSelectMapId(m.id);
-            onSearchChange('');
-            setIsPopoverOpen(false);
-          }}
-          allOptionLabel="Nenhum mapa"
-          placeholder="Buscar mapa..."
-        />
-
         {/* Exibição (mesmo estilo do bloco "Exceções e status" das outras abas) */}
         <div className="space-y-1.5">
           <label className="text-xs font-ui font-semibold text-omni-ink-secondary block">Exibição</label>

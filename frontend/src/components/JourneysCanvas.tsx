@@ -435,7 +435,7 @@ const JourneysCanvasInner: React.FC<JourneysCanvasProps> = ({
         </div>
         <p className="text-base font-semibold text-omni-ink">Escolha um mapa para ver a jornada</p>
         <p className="text-xs text-omni-ink-secondary mt-1 max-w-md">
-          Clique em Filtros, lá em cima, e escolha o mapa. As telas aparecem agrupadas por etapa da jornada.
+          Escolha o produto, o subproduto e o mapa logo acima. As telas aparecem agrupadas por etapa da jornada.
         </p>
       </div>
     );
