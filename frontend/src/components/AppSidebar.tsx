@@ -133,7 +133,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         aria-label="Navegação principal"
       >
         {/* 1. Topo (64px): logo fixo; nome aparece ao abrir */}
-        <div className="h-16 flex items-center shrink-0 border-b border-white/10 pl-5 pr-3">
+        <div className="h-16 flex items-center shrink-0 border-b border-white/10 pl-[18px] pr-3">
           <button
             onClick={() => {
               onHomeClick();
@@ -143,14 +143,12 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
             title="OMNI - Governança de mensuração"
             aria-label="OMNI - Página inicial"
           >
-            <div className="w-8 h-8 rounded-lg ring-1 ring-white/25 shadow-sm overflow-hidden flex items-center justify-center shrink-0 bg-black/20 group-hover:ring-white/40 transition-all">
-              <img
-                src="/omni-logo-1-icone.png"
-                alt="OMNI"
-                className="w-full h-full object-contain"
-                referrerPolicy="no-referrer"
-              />
-            </div>
+            {/* Só o símbolo branco: o fundo do menu já é vermelho */}
+            <img
+              src="/omni-logo-branco.png"
+              alt="OMNI"
+              className="w-9 h-9 object-contain shrink-0 opacity-95 group-hover:opacity-100 transition-opacity"
+            />
             <div className={`flex flex-col min-w-0 whitespace-nowrap ${labelFade}`} aria-hidden={!showLabels}>
               <span className="flex items-center gap-2 leading-tight">
                 <span className="font-heading font-bold text-white text-base tracking-[0.08em]">OMNI</span>
