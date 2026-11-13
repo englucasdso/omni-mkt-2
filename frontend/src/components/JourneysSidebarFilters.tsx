@@ -134,7 +134,7 @@ export const JourneyMapPicker: React.FC<PickerProps> = ({
 
         <ChevronRight className="w-4 h-4 text-omni-muted shrink-0 mb-2.5" aria-hidden="true" />
 
-        <Step label={maps.length ? `Mapa (${maps.length})` : 'Mapa'} className="flex-1">
+        <Step label="Mapa" className="flex-1">
           <select
             className={selectClass}
             value={selectedMapId}

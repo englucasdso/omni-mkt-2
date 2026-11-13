@@ -1392,30 +1392,30 @@ export default function App() {
       tipoArtefato: [
         { v: 'all', l: 'Todos' },
         ...(['MAPA', 'DOCUMENTACAO', 'NO', 'NAO_CLASSIFICADO'] as const).map((t) => ({
-          v: t, l: `${ARTIFACT_TYPE_CONFIGS[t].pluralLabel} (${typeCounts.get(t) || 0})`
+          v: t, l: ARTIFACT_TYPE_CONFIGS[t].pluralLabel
         }))
       ],
       classificacao: [
         { v: 'all', l: 'Todos' },
         ...ORDERED_MEASUREMENT_CLASSES.map((m) => ({
-          v: m, l: `${MEASUREMENT_CONFIGS[m].label} (${measurementCounts.get(m) || 0})`
+          v: m, l: MEASUREMENT_CONFIGS[m].label
         }))
       ],
       produtos: [
         { v: 'all', l: 'Todos' },
-        ...Array.from(prodCounts.entries()).sort().map(([p, c]) => ({ v: p, l: `${p} (${c})` }))
+        ...Array.from(prodCounts.keys()).sort().map((p) => ({ v: p, l: p }))
       ],
       subprodutos: [
         { v: 'all', l: 'Todos' },
-        ...Array.from(subCounts.entries()).sort().map(([s, c]) => ({ v: s, l: `${s} (${c})` }))
+        ...Array.from(subCounts.keys()).sort().map((s) => ({ v: s, l: s }))
       ],
       parametros: [
         { v: 'all', l: 'Todos' },
-        ...topParams.map(([p, c]) => ({ v: p, l: `${p} (${c})` }))
+        ...topParams.map(([p]) => ({ v: p, l: p }))
       ],
       anos: [
         { v: 'all', l: 'Todos' },
-        ...Array.from(yearCounts.entries()).sort((a, b) => b[0].localeCompare(a[0])).map(([y, c]) => ({ v: y, l: `${y} (${c})` }))
+        ...Array.from(yearCounts.keys()).sort((a, b) => b.localeCompare(a)).map((y) => ({ v: y, l: y }))
       ]
     };
   }, [results]);

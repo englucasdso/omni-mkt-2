@@ -125,7 +125,8 @@ export function buildCardFilterOptions(items: Artifact[]): CardFilterOptions {
     }
   }
 
-  const withCount = (label: string, n = 0) => `${label} (${n})`;
+  // Nomes sem contagem no final (padrão do app); as contagens seguem servindo para mostrar só o que existe
+  const withCount = (label: string, _n = 0) => label;
   const sorted = (m: Map<string, number>) => Array.from(m.keys()).sort((x, y) => x.localeCompare(y, 'pt-BR'));
 
   return {

@@ -486,7 +486,7 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
                           : 'btn-neu text-omni-ink-secondary hover:text-omni-ink'
                       }`}
                     >
-                      Todos ({activeProduct.mapas.length})
+                      Todos
                     </button>
                     {activeProduct.pathsList.map(pathItem => {
                       const isPathSelected = effectiveSubproduto === pathItem.key || effectiveSubproduto === pathItem.displayText;
@@ -501,7 +501,7 @@ export const ProductAnalysisView: React.FC<ProductAnalysisViewProps> = ({
                               : 'btn-neu text-omni-ink-secondary hover:text-omni-ink'
                           }`}
                         >
-                          {pathItem.displayText} ({pathItem.count})
+                          {pathItem.displayText}
                         </button>
                       );
                     })}
