@@ -127,9 +127,9 @@ export const AppShell: React.FC<AppShellProps> = ({
             aria-label="Ir para o início"
           >
             <img
-              src="/omni-logo-1-icone.png"
+              src="/omni-logo-branco.png"
               alt="OMNI"
-              className="w-7 h-7 rounded-md ring-1 ring-white/30 object-contain shadow-xs"
+              className="w-7 h-7 object-contain"
             />
             <span className="font-heading font-bold text-sm tracking-[0.08em] text-white">
               OMNI
