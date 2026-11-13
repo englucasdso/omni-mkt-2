@@ -13,7 +13,7 @@ import {
   Search,
   Database,
   BookOpen,
-  ShieldCheck
+  HeartPulse
 } from 'lucide-react';
 import { formatUltimaSincronizacao } from '../utils/helpers';
 
@@ -47,7 +47,7 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     items: [
       { id: 'padroes', label: 'Base de padrões', path: ROUTES.padroes, icon: Database },
       { id: 'guia', label: 'Guia de tagueamento', path: ROUTES.guia, icon: BookOpen },
-      { id: 'aderencia', label: 'Aderência ao padrão', path: ROUTES.aderencia, icon: ShieldCheck },
+      { id: 'saude', label: 'Saúde da documentação', path: ROUTES.saude, icon: HeartPulse },
     ]
   }
 ];

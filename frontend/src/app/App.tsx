@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
 import { ROUTES, viewFromPath, legacyRedirect, type AppView } from "./routes";
 import { ComingSoonView } from "../components/ComingSoonView";
+import { DocumentationHealthView } from "../components/DocumentationHealthView";
 import { ErrorBoundary } from "../resilience/ErrorBoundary";
 import { X, AlertTriangle, Target, Network, Filter, CheckCircle2, AlertCircle, Clock, User, Info, Shield, LogOut, Trash2, Plus, Settings, Landmark, LayoutList, RefreshCw, Check, Loader2, KeyRound, Activity, ArrowRight, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, Sparkles, MessageCircleQuestion, FileText, Layers, Tag, Code2, Eye, ArrowUpDown, Calendar, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { ConexoesCanvas } from "../components/ConexoesCanvas";
@@ -555,7 +556,7 @@ export default function App() {
   const [searchSessionId, setSearchSessionId] = useState(0);
 
   useEffect(() => {
-    const mainCatalogStates = ["inventory_table", "results", "produtos_analise", "parametros_analise", "insights", "graph"];
+    const mainCatalogStates = ["inventory_table", "results", "produtos_analise", "parametros_analise", "insights", "graph", "saude"];
     // Uma busca que voltou vazia é um resultado legítimo: não recarregar a base inteira por cima dela
     if (mainCatalogStates.includes(appState) && results.length === 0 && !loading && !dataError && !isSearchingRef.current && !activeSearch && (query === "" || query === "inventario")) {
       executeSearch("inventario");
@@ -1799,11 +1800,14 @@ export default function App() {
               description="Consulta às regras de tagueamento do time, organizadas por assunto, com busca e ligação aos parâmetros usados nos mapas."
             />
           )}
-          {appState === "aderencia" && (
-            <ComingSoonView
-              title="Aderência ao padrão"
-              description="Mostra quais mapas seguem os padrões oficiais e aponta o que está fora deles, por mapa e por produto."
-            />
+          {appState === "saude" && (
+            <ErrorBoundary area="a Saúde da documentação" resetKey={appState}>
+              <DocumentationHealthView
+                artifacts={fullInventory.length > 0 ? fullInventory : results}
+                onOpenMap={(art) => setDetailModalItem(art)}
+                onDrillDown={handleInsightDrillDown}
+              />
+            </ErrorBoundary>
           )}
 
           {/* Canonical Insights Dashboard */}

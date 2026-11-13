@@ -13,7 +13,7 @@ export type AppView =
   | 'journeys'
   | 'padroes'
   | 'guia'
-  | 'aderencia';
+  | 'saude';
 
 export const ROUTES: Record<AppView, string> = {
   initial: '/',
@@ -26,7 +26,7 @@ export const ROUTES: Record<AppView, string> = {
   journeys: '/jornadas',
   padroes: '/base-de-padroes',
   guia: '/guia-de-tagueamento',
-  aderencia: '/aderencia-ao-padrao',
+  saude: '/saude-da-documentacao',
 };
 
 const VIEW_BY_PATH: Record<string, AppView> = Object.fromEntries(
