@@ -9,8 +9,10 @@
  * - Nomes são comparados exatamente: "Action" e "action" são nomes diferentes.
  * - Só entram códigos classificados como GA4. Universal Analytics (GA3), códigos não
  *   classificados e mapas legados ficam de fora: não seguem os padrões atuais.
- * - Na tela aparece só uma bolinha roxa, com uma dica curta. A comparação não é 100%
- *   certa, então não vira contagem nem mensagem longa.
+ * - Aparece só na Saúde da documentação ("Fora do padrão") e no mapa aberto a partir
+ *   dela. A comparação não é 100% certa, então não aparece nas outras telas.
+ * - A mensagem cita a documentação exata quando ela é uma ou duas; se não, o mapa
+ *   mostra o link para acessar as documentações.
  */
 import { Artifact } from '../../types';
 import { StandardDoc } from './types';
@@ -18,6 +20,12 @@ import { buildParameterCatalog, parameterName } from './standardsCatalog';
 import { shortDocTitle } from './sanitize';
 
 export type Channel = 'APP' | 'WEB' | 'WEBVIEW' | 'GTM';
+
+export const FLAG_KIND_LABEL: Record<FlagKind, string> = {
+  CAIXA: 'Escrito diferente',
+  OUTRO_PADRAO: 'Padrão de outro canal',
+  NAO_ENCONTRADO: 'Fora das documentações',
+};
 
 export type FlagKind = 'CAIXA' | 'OUTRO_PADRAO' | 'NAO_ENCONTRADO';
 
@@ -98,6 +106,14 @@ function mapChannels(art: Artifact): { channels: Set<Channel>; source: MapAdhere
 }
 
 /** Só códigos GA4 são comparados */
+/** Nome das documentações numa frase: "A", "A" e "B" ou null quando são mais de duas */
+const docPhrase = (titles: string[]): { text: string; plural: boolean } | null =>
+  titles.length === 1
+    ? { text: `"${titles[0]}"`, plural: false }
+    : titles.length === 2
+      ? { text: `"${titles[0]}" e "${titles[1]}"`, plural: true }
+      : null;
+
 const isGa4Snippet = (sn: any) => String(sn.measurement_class || '').toUpperCase() === 'GA4';
 
 /** Mapas legados ficam de fora (ex.: "Mapa de Métricas (Legado) - ...", subproduto "Legado - Consórcio") */
@@ -172,29 +188,40 @@ export function analyzeAdherence(artifacts: Artifact[], docs: StandardDoc[]): Ma
           };
           const sameLetters = idx.lower.get(name.toLowerCase());
           if (sameLetters) {
+            const where = docPhrase((docsByName.get(sameLetters) || []).filter((t) => usedTitles.includes(t)));
             flags.push({
               ...base,
               kind: 'CAIXA',
               expected: sameLetters,
-              message: `Confira na Base de padrões: o padrão escreve "${sameLetters}".`,
+              message: where
+                ? `"${name}" está escrito diferente. ${where.plural ? 'Nas documentações' : 'Na documentação'} ${where.text} aparece "${sameLetters}".`
+                : `"${name}" está escrito diferente. Nas documentações aparece "${sameLetters}".`,
             });
             continue;
           }
           const elsewhere = (docsByName.get(name) || []).filter((t) => !usedTitles.includes(t));
           if (allIndex.exact.has(name) && elsewhere.length) {
+            const where = docPhrase(elsewhere);
             flags.push({
               ...base,
               kind: 'OUTRO_PADRAO',
-              message: `Confira na Base de padrões: aparece no padrão de outro canal.`,
+              message: where
+                ? `"${name}" só aparece ${where.plural ? 'nas documentações' : 'na documentação'} ${where.text}, de outro canal.`
+                : `"${name}" só aparece em documentações de outro canal.`,
             });
             continue;
           }
           const lowerElsewhere = allIndex.lower.get(name.toLowerCase());
+          const where = lowerElsewhere ? docPhrase(docsByName.get(lowerElsewhere) || []) : null;
           flags.push({
             ...base,
             kind: 'NAO_ENCONTRADO',
             expected: lowerElsewhere,
-            message: `Confira na Base de padrões: não aparece nos padrões cadastrados.`,
+            message: lowerElsewhere
+              ? where
+                ? `"${name}" não aparece nas documentações deste mapa. ${where.plural ? 'Nas documentações' : 'Na documentação'} ${where.text} aparece "${lowerElsewhere}".`
+                : `"${name}" não aparece nas documentações deste mapa. Em outras aparece "${lowerElsewhere}".`
+              : `"${name}" não aparece em nenhuma documentação cadastrada.`,
           });
         }
       });

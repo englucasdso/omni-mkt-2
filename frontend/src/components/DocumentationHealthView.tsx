@@ -9,6 +9,8 @@ import {
   HEALTH_KIND_LABEL,
 } from '../domain/health/documentationHealth';
 import { STATUS_CONFIGS } from '../domain/status';
+import { MapAdherence } from '../domain/padroes/adherence';
+import { daysSinceUpdate } from '../domain/metrics/documentationFreshness';
 
 interface Props {
   artifacts: Artifact[];
@@ -16,10 +18,19 @@ interface Props {
   staleDays: number;
   wasteDays: number;
   product: string;
-  onOpenMap: (map: Artifact) => void;
+  /** Abre o detalhe do mapa (no ponto exato, quando é "Fora do padrão") */
+  onOpenMap: (map: Artifact, target?: { screenId?: string; snippetIndex?: number }) => void;
   /** Abre os mapas em Cards (mesmo clique dos Insights) */
   onDrillDown: (label: string, ids: string[], target: 'cards' | 'inventario') => void;
+  /** Parâmetros GA4 que não batem com a Base de padrões, por mapa */
+  adherence?: Map<string, MapAdherence>;
+  /** Há documentos cadastrados na Base de padrões */
+  hasStandards?: boolean;
 }
+
+/** Roxo: fora do padrão (cor própria, separada das situações de tempo) */
+const OUT_HEX = '#8b5cf6';
+type ListFilter = HealthKind | 'TODOS' | 'FORA';
 
 const fmt = (n: number) => n.toLocaleString('pt-BR');
 const pct = (part: number, total: number) => (total > 0 ? Math.round((part / total) * 100) : 0);
@@ -80,10 +91,19 @@ const Bars: React.FC<{
   );
 };
 
-export const DocumentationHealthView: React.FC<Props> = ({ artifacts, staleDays, wasteDays, product, onOpenMap, onDrillDown }) => {
+export const DocumentationHealthView: React.FC<Props> = ({
+  artifacts,
+  staleDays,
+  wasteDays,
+  product,
+  onOpenMap,
+  onDrillDown,
+  adherence,
+  hasStandards = false,
+}) => {
   const [showHelp, setShowHelp] = useState(false);
   const [groupBy, setGroupBy] = useState<'produto' | 'responsavel'>('produto');
-  const [kindFilter, setKindFilter] = useState<HealthKind | 'TODOS'>('TODOS');
+  const [kindFilter, setKindFilter] = useState<ListFilter>('TODOS');
   const [showAll, setShowAll] = useState(false);
 
   const scoped = useMemo(
@@ -97,7 +117,29 @@ export const DocumentationHealthView: React.FC<Props> = ({ artifacts, staleDays,
 
   const drill = (label: string, ids: string[]) => ids.length && onDrillDown(label, ids, 'cards');
 
-  const listAll = kindFilter === 'TODOS' ? report.items : report.items.filter((i) => i.kind === kindFilter);
+  // Fora do padrão: mapas com parâmetros GA4 que não batem com a Base de padrões
+  const outItems = useMemo(() => {
+    if (!adherence || !adherence.size) return [];
+    return (scoped || [])
+      .filter((a) => adherence.has(String(a.id)))
+      .map((a) => {
+        const ad = adherence.get(String(a.id))!;
+        return {
+          artifact: a,
+          id: String(a.id),
+          title: String(a.titulo || a.id),
+          produto: String(a.produto || '').trim() || 'Sem produto',
+          responsavel: String(a.responsavel || '').trim() || 'Sem responsável',
+          days: daysSinceUpdate(a),
+          params: new Set(ad.flags.map((f) => f.param)).size,
+          first: ad.flags[0],
+        };
+      })
+      .sort((x, y) => y.params - x.params || x.title.localeCompare(y.title, 'pt-BR'));
+  }, [adherence, scoped]);
+  const outParams = outItems.reduce((n, i) => n + i.params, 0);
+
+  const listAll = kindFilter === 'TODOS' ? report.items : kindFilter === 'FORA' ? [] : report.items.filter((i) => i.kind === kindFilter);
   const list = showAll ? listAll : listAll.slice(0, 25);
   const groups: HealthGroup[] = groupBy === 'produto' ? report.wasteByProduct : report.wasteByOwner;
 
@@ -183,6 +225,15 @@ export const DocumentationHealthView: React.FC<Props> = ({ artifacts, staleDays,
                   desperdício.
                 </span>
               </li>
+              <li className="flex gap-2">
+                <span className="mt-1.5 w-2 h-2 rounded-full shrink-0" style={{ background: OUT_HEX }} aria-hidden="true" />
+                <span>
+                  <strong className="text-omni-ink">Fora do padrão:</strong> parâmetros dos códigos GA4 que não aparecem do mesmo jeito
+                  nas documentações da Base de padrões. O OMNI escolhe as documentações pelo canal do mapa (app, web, webview), que
+                  ele deduz pelo título, pelo caminho ou pelo código. Mapas legados ficam de fora. É uma comparação automática: confira
+                  na documentação antes de corrigir.
+                </span>
+              </li>
             </ul>
             <p>
               Mapas atualizados recentemente ou 100% validados não aparecem. Os limites de tempo e o produto mudam no botão{' '}
@@ -193,7 +244,7 @@ export const DocumentationHealthView: React.FC<Props> = ({ artifacts, staleDays,
       </div>
 
       {/* Números principais: clique abre os mapas em Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {tiles.map((t) => {
           const ids = report.byKind[t.kind].ids;
           return (
@@ -218,10 +269,35 @@ export const DocumentationHealthView: React.FC<Props> = ({ artifacts, staleDays,
             </button>
           );
         })}
+        <button
+          type="button"
+          disabled={!outItems.length}
+          onClick={() => {
+            setKindFilter('FORA');
+            setShowAll(false);
+            document.getElementById('saude-mapas-para-revisar')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }}
+          className={`panel p-5 min-w-0 text-left ${outItems.length ? 'cursor-pointer hover:border-omni-bordo/30' : 'cursor-default'}`}
+        >
+          <p className="text-xs font-medium text-omni-muted flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full" style={{ background: OUT_HEX }} aria-hidden="true" />
+            Fora do padrão
+          </p>
+          <p className="kpi-number text-3xl font-bold text-omni-ink tabular-nums mt-1">
+            {fmt(outItems.length)}
+            <span className="text-sm font-medium text-omni-muted ml-1.5">{outItems.length === 1 ? 'mapa' : 'mapas'}</span>
+          </p>
+          <p className="text-[11.5px] text-omni-muted mt-1.5 leading-snug">
+            {hasStandards
+              ? `${fmt(outParams)} parâmetros GA4 que não aparecem como na Base de padrões`
+              : 'Cadastre os padrões na Base de padrões para comparar'}
+          </p>
+        </button>
       </div>
 
       <p className="text-xs text-omni-muted -mt-2">
-        {fmt(report.evaluated)} mapas com telas avaliados. Cada mapa entra numa só situação, a mais grave.
+        {fmt(report.evaluated)} mapas com telas avaliados. Em desperdício, correção esquecida e parado, cada mapa entra numa só
+        situação, a mais grave. Fora do padrão é contado à parte.
         {report.withoutDate > 0 && ` ${fmt(report.withoutDate)} mapas sem data de atualização ficaram de fora.`}
       </p>
 
@@ -280,12 +356,17 @@ export const DocumentationHealthView: React.FC<Props> = ({ artifacts, staleDays,
       </div>
 
       {/* Lista para revisar */}
+      <div id="saude-mapas-para-revisar" className="scroll-mt-20">
       <Panel
         title="Mapas para revisar"
-        hint={<span className="text-xs text-omni-muted">Do mais antigo para o mais recente</span>}
+        hint={
+          <span className="text-xs text-omni-muted">
+            {kindFilter === 'FORA' ? 'Do que tem mais parâmetros para conferir' : 'Do mais antigo para o mais recente'}
+          </span>
+        }
       >
         <div className="flex flex-wrap gap-1.5 -mt-1">
-          {(['TODOS', 'DESPERDICIO', 'CORRECAO_ESQUECIDA', 'PARADO'] as const).map((k) => {
+          {(['TODOS', 'DESPERDICIO', 'CORRECAO_ESQUECIDA', 'PARADO', 'FORA'] as const).map((k) => {
             const active = kindFilter === k;
             return (
               <button
@@ -302,13 +383,67 @@ export const DocumentationHealthView: React.FC<Props> = ({ artifacts, staleDays,
                     : 'bg-white text-omni-ink-secondary border-omni-line hover:text-omni-ink'
                 }`}
               >
-                {k === 'TODOS' ? 'Todos' : HEALTH_KIND_LABEL[k]}
+                {k === 'TODOS' ? 'Todos' : k === 'FORA' ? 'Fora do padrão' : HEALTH_KIND_LABEL[k]}
               </button>
             );
           })}
         </div>
 
-        {list.length === 0 ? (
+        {kindFilter === 'FORA' ? (
+          outItems.length === 0 ? (
+            <p className="text-sm text-omni-muted py-6 text-center">
+              {hasStandards ? 'Nenhum mapa GA4 fora do padrão.' : 'Cadastre os padrões na Base de padrões para comparar.'}
+            </p>
+          ) : (
+            <div className="overflow-x-auto -mx-2">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-omni-muted border-b border-omni-line">
+                    <th className="font-medium py-2 px-2">Mapa</th>
+                    <th className="font-medium py-2 px-2">Produto</th>
+                    <th className="font-medium py-2 px-2">Responsável</th>
+                    <th className="font-medium py-2 px-2 whitespace-nowrap">Sem atualizar</th>
+                    <th className="font-medium py-2 px-2 text-right whitespace-nowrap">Para conferir</th>
+                    <th className="font-medium py-2 px-2">Situação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(showAll ? outItems : outItems.slice(0, 25)).map((it) => (
+                    <tr
+                      key={it.id}
+                      onClick={() => onOpenMap(it.artifact, { screenId: it.first.screenId, snippetIndex: it.first.snippetIndex })}
+                      className="border-b border-omni-line-subtle hover:bg-omni-mist cursor-pointer group"
+                    >
+                      <td className="py-2 px-2 max-w-[340px]">
+                        <span className="block truncate font-medium text-omni-ink group-hover:text-omni-bordo" title={it.title}>
+                          {it.title}
+                        </span>
+                      </td>
+                      <td className="py-2 px-2 text-omni-ink-secondary whitespace-nowrap">{it.produto}</td>
+                      <td className="py-2 px-2 text-omni-ink-secondary max-w-[180px]">
+                        <span className="block truncate" title={it.responsavel}>
+                          {it.responsavel}
+                        </span>
+                      </td>
+                      <td className="py-2 px-2 text-omni-ink-secondary whitespace-nowrap tabular-nums">
+                        {it.days === null ? 'Sem data' : formatAge(it.days)}
+                      </td>
+                      <td className="py-2 px-2 text-right tabular-nums text-omni-ink-secondary whitespace-nowrap">
+                        {fmt(it.params)} {it.params === 1 ? 'parâmetro' : 'parâmetros'}
+                      </td>
+                      <td className="py-2 px-2 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5 text-omni-ink">
+                          <span className="w-2 h-2 rounded-full" style={{ background: OUT_HEX }} aria-hidden="true" />
+                          Fora do padrão
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        ) : list.length === 0 ? (
           <p className="text-sm text-omni-muted py-6 text-center">Nenhum mapa nesta situação com os limites escolhidos.</p>
         ) : (
           <div className="overflow-x-auto -mx-2">
@@ -364,16 +499,19 @@ export const DocumentationHealthView: React.FC<Props> = ({ artifacts, staleDays,
           </div>
         )}
 
-        {listAll.length > 25 && (
+        {(kindFilter === 'FORA' ? outItems.length : listAll.length) > 25 && (
           <button
             type="button"
             onClick={() => setShowAll((v) => !v)}
             className="text-xs font-semibold text-omni-ink-secondary hover:text-omni-bordo cursor-pointer"
           >
-            {showAll ? 'Mostrar só os 25 primeiros' : `Mostrar todos (${fmt(listAll.length)})`}
+            {showAll
+              ? 'Mostrar só os 25 primeiros'
+              : `Mostrar todos (${fmt(kindFilter === 'FORA' ? outItems.length : listAll.length)})`}
           </button>
         )}
       </Panel>
+      </div>
     </div>
   );
 };

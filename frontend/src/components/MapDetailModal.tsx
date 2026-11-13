@@ -14,7 +14,7 @@ import { resolveMeasurementClass, getMeasurementLabel } from '../domain/measurem
 import { getMapStatusMetrics } from '../domain/status';
 import { findArtifactValueIssues, findPatternIssues } from '../domain/quality/valueQuality';
 import { HoverHint } from './HoverHint';
-import { MapAdherence } from '../domain/padroes/adherence';
+import { MapAdherence, AdherenceFlag } from '../domain/padroes/adherence';
 
 interface MapDetailModalProps {
   item: Artifact | null;
@@ -23,8 +23,10 @@ interface MapDetailModalProps {
   initialScreenId?: string;
   initialSnippetIndex?: number;
   onViewInTree?: (id: string) => void;
-  /** Pontos para conferir com a Base de padrões (roxo) */
+  /** Parâmetros fora do padrão (roxo). Só vem quando o mapa é aberto pela Saúde da documentação */
   adherence?: MapAdherence | null;
+  /** Abre o Guia de tagueamento (link "Acesse as documentações para conferir") */
+  onOpenDocs?: () => void;
 }
 
 export const MapDetailModal: React.FC<MapDetailModalProps> = ({ 
@@ -34,7 +36,8 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
   initialScreenId,
   initialSnippetIndex,
   onViewInTree,
-  adherence
+  adherence,
+  onOpenDocs
 }) => {
   const [activeTab, setActiveTab] = useState<'telas' | 'parametros' | 'padroes' | 'detalhes'>(initialTab || 'telas');
   const [copiedSnippetId, setCopiedSnippetId] = useState<string | null>(null);
@@ -122,9 +125,14 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
 
   if (!item) return null;
 
-  // Bolinha roxa: parâmetros que não batem com a Base de padrões (só um sinal, sem veredito)
+  // Roxo: parâmetros que não batem com a Base de padrões (só quando aberto pela Saúde da documentação)
   const flagsByScreen = new Map<string, number>();
-  for (const f of adherence?.flags || []) flagsByScreen.set(f.screenId, (flagsByScreen.get(f.screenId) || 0) + 1);
+  const flagsBySnippet = new Map<string, AdherenceFlag[]>();
+  for (const f of adherence?.flags || []) {
+    flagsByScreen.set(f.screenId, (flagsByScreen.get(f.screenId) || 0) + 1);
+    const k = `${f.screenId}-snippet-${f.snippetIndex}`;
+    flagsBySnippet.set(k, [...(flagsBySnippet.get(k) || []), f]);
+  }
   const flaggedParams = new Map<string, string>((adherence?.flags || []).map((f) => [f.param, f.message]));
 
   const screens = item.screens || [];
@@ -481,6 +489,29 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                                         {snip.raw_code}
                                       </pre>
                                     </div>
+
+                                    {/* Fora do padrão: o que conferir e em qual documentação */}
+                                    {(flagsBySnippet.get(`${screenKey}-snippet-${snIdx}`) || []).length > 0 && (
+                                      <div className="rounded-xl border border-violet-200 bg-violet-50/70 px-4 py-3 space-y-2">
+                                        <ul className="space-y-1.5">
+                                          {flagsBySnippet.get(`${screenKey}-snippet-${snIdx}`)!.map((f) => (
+                                            <li key={f.param} className="text-xs text-violet-950/85 leading-relaxed flex gap-2">
+                                              <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-violet-500 shrink-0" aria-hidden="true" />
+                                              <span>{f.message}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                        {onOpenDocs && (
+                                          <button
+                                            type="button"
+                                            onClick={onOpenDocs}
+                                            className="text-[11.5px] font-semibold text-violet-800 hover:underline cursor-pointer"
+                                          >
+                                            Acesse as documentações para conferir
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
 
                                     {/* Resumo neutro fora do fundo preto */}
                                     <div className="flex items-center justify-between text-xs font-ui text-gray-500 dark:text-slate-400 px-1">

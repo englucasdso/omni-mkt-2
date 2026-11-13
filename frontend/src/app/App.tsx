@@ -436,6 +436,8 @@ export default function App() {
 
   const [detailModalItem, setDetailModalItem] = useState<Artifact | null>(null);
   const [detailTarget, setDetailTarget] = useState<{ screenId?: string; snippetIndex?: number } | null>(null);
+  // Mapa aberto pela Saúde da documentação: só aí mostra o que está fora do padrão
+  const [detailFromHealth, setDetailFromHealth] = useState(false);
   const [conexoesTargetArtifactId, setConexoesTargetArtifactId] = useState<string | null>(null);
   // Conta os pedidos de "Acessar na árvore": pedir de novo o mesmo mapa também recentraliza
   const [conexoesTargetRequest, setConexoesTargetRequest] = useState(0);
@@ -443,6 +445,7 @@ export default function App() {
   const handleViewInTree = useCallback((artifactId: string) => {
     setDetailModalItem(null);
     setDetailTarget(null);
+    setDetailFromHealth(false);
     setConexoesTargetArtifactId(artifactId);
     setConexoesTargetRequest((n) => n + 1);
     navigate(`${ROUTES.graph}?artifactId=${encodeURIComponent(artifactId)}`);
@@ -1474,6 +1477,7 @@ export default function App() {
     // 6. Fechar quaisquer modais abertos e limpar alvos de detalhe
     setDetailModalItem(null);
     setDetailTarget(null);
+    setDetailFromHealth(false);
     setConexoesTargetArtifactId(null);
     setShowAdmin(false);
     setShowExportModal(false);
@@ -1781,8 +1785,14 @@ export default function App() {
                 staleDays={healthStaleDays}
                 wasteDays={healthWasteDays}
                 product={healthProduct}
-                onOpenMap={(art) => setDetailModalItem(art)}
+                onOpenMap={(art, target) => {
+                  setDetailFromHealth(true);
+                  setDetailTarget(target || null);
+                  setDetailModalItem(art);
+                }}
                 onDrillDown={handleInsightDrillDown}
+                adherence={adherenceByMap}
+                hasStandards={standardsDocs.length > 0}
               />
             </ErrorBoundary>
           )}
@@ -1996,6 +2006,7 @@ export default function App() {
                   activeSearch={activeSearch}
                   onOpenDetails={(artifact) => {
                     setDetailTarget(null);
+                    setDetailFromHealth(false);
                     setDetailModalItem(artifact);
                   }}
                   onOpenSnippet={(artifact, target) => {
@@ -2354,6 +2365,7 @@ export default function App() {
         onDismiss={() => {
           setDetailModalItem(null);
           setDetailTarget(null);
+          setDetailFromHealth(false);
         }}
       >
       {detailModalItem && (
@@ -2364,10 +2376,17 @@ export default function App() {
         initialScreenId={detailTarget?.screenId}
         initialSnippetIndex={detailTarget?.snippetIndex}
         onViewInTree={handleViewInTree}
-        adherence={detailModalItem ? adherenceByMap.get(String(detailModalItem.id)) : null}
+        adherence={detailFromHealth && detailModalItem ? adherenceByMap.get(String(detailModalItem.id)) : null}
+        onOpenDocs={() => {
+          setDetailModalItem(null);
+          setDetailTarget(null);
+          setDetailFromHealth(false);
+          setAppState("guia");
+        }}
         onClose={() => {
           setDetailModalItem(null);
           setDetailTarget(null);
+          setDetailFromHealth(false);
         }} 
       />
       </Suspense>
