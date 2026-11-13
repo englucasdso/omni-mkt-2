@@ -11,6 +11,9 @@
  *   classificados e mapas legados ficam de fora: não seguem os padrões atuais.
  * - Aparece só na Saúde da documentação ("Fora do padrão") e no mapa aberto a partir
  *   dela. A comparação não é 100% certa, então não aparece nas outras telas.
+ * - Só aponta o que tem evidência: nome escrito diferente (maiúsculas) ou nome que só
+ *   existe na documentação de outro canal. Nome que não aparece em nenhuma
+ *   documentação não é apontado.
  * - A mensagem cita a documentação exata quando ela é uma ou duas; se não, o mapa
  *   mostra o link para acessar as documentações.
  */
@@ -24,10 +27,9 @@ export type Channel = 'APP' | 'WEB' | 'WEBVIEW' | 'GTM';
 export const FLAG_KIND_LABEL: Record<FlagKind, string> = {
   CAIXA: 'Escrito diferente',
   OUTRO_PADRAO: 'Padrão de outro canal',
-  NAO_ENCONTRADO: 'Fora das documentações',
 };
 
-export type FlagKind = 'CAIXA' | 'OUTRO_PADRAO' | 'NAO_ENCONTRADO';
+export type FlagKind = 'CAIXA' | 'OUTRO_PADRAO';
 
 export interface AdherenceFlag {
   kind: FlagKind;
@@ -211,18 +213,20 @@ export function analyzeAdherence(artifacts: Artifact[], docs: StandardDoc[]): Ma
             });
             continue;
           }
-          const lowerElsewhere = allIndex.lower.get(name.toLowerCase());
-          const where = lowerElsewhere ? docPhrase(docsByName.get(lowerElsewhere) || []) : null;
-          flags.push({
-            ...base,
-            kind: 'NAO_ENCONTRADO',
-            expected: lowerElsewhere,
-            message: lowerElsewhere
-              ? where
-                ? `"${name}" não aparece nas documentações deste mapa. ${where.plural ? 'Nas documentações' : 'Na documentação'} ${where.text} aparece "${lowerElsewhere}".`
-                : `"${name}" não aparece nas documentações deste mapa. Em outras aparece "${lowerElsewhere}".`
-              : `"${name}" não aparece em nenhuma documentação cadastrada.`,
-          });
+          // Nome que não aparece em nenhuma documentação não é apontado: muitos parâmetros
+          // válidos simplesmente não estão nas páginas de padrões.
+          const otherCase = allIndex.lower.get(name.toLowerCase());
+          if (otherCase) {
+            const where = docPhrase(docsByName.get(otherCase) || []);
+            flags.push({
+              ...base,
+              kind: 'CAIXA',
+              expected: otherCase,
+              message: where
+                ? `"${name}" está escrito diferente. ${where.plural ? 'Nas documentações' : 'Na documentação'} ${where.text} aparece "${otherCase}".`
+                : `"${name}" está escrito diferente. Nas documentações aparece "${otherCase}".`,
+            });
+          }
         }
       });
     });

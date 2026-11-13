@@ -438,6 +438,7 @@ export default function App() {
   const [detailTarget, setDetailTarget] = useState<{ screenId?: string; snippetIndex?: number } | null>(null);
   // Mapa aberto pela Saúde da documentação: só aí mostra o que está fora do padrão
   const [detailFromHealth, setDetailFromHealth] = useState(false);
+  const [detailSituations, setDetailSituations] = useState<{ label: string; hex: string }[]>([]);
   const [conexoesTargetArtifactId, setConexoesTargetArtifactId] = useState<string | null>(null);
   // Conta os pedidos de "Acessar na árvore": pedir de novo o mesmo mapa também recentraliza
   const [conexoesTargetRequest, setConexoesTargetRequest] = useState(0);
@@ -1785,8 +1786,9 @@ export default function App() {
                 staleDays={healthStaleDays}
                 wasteDays={healthWasteDays}
                 product={healthProduct}
-                onOpenMap={(art, target) => {
+                onOpenMap={(art, target, situations) => {
                   setDetailFromHealth(true);
+                  setDetailSituations(situations || []);
                   setDetailTarget(target || null);
                   setDetailModalItem(art);
                 }}
@@ -2377,6 +2379,7 @@ export default function App() {
         initialSnippetIndex={detailTarget?.snippetIndex}
         onViewInTree={handleViewInTree}
         adherence={detailFromHealth && detailModalItem ? adherenceByMap.get(String(detailModalItem.id)) : null}
+        situations={detailFromHealth ? detailSituations : undefined}
         onOpenDocs={() => {
           setDetailModalItem(null);
           setDetailTarget(null);

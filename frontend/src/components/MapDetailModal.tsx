@@ -27,6 +27,8 @@ interface MapDetailModalProps {
   adherence?: MapAdherence | null;
   /** Abre o Guia de tagueamento (link "Acesse as documentações para conferir") */
   onOpenDocs?: () => void;
+  /** Situações do mapa na Saúde da documentação (ex.: Desperdício e Fora do padrão) */
+  situations?: { label: string; hex: string }[];
 }
 
 export const MapDetailModal: React.FC<MapDetailModalProps> = ({ 
@@ -37,7 +39,8 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
   initialSnippetIndex,
   onViewInTree,
   adherence,
-  onOpenDocs
+  onOpenDocs,
+  situations
 }) => {
   const [activeTab, setActiveTab] = useState<'telas' | 'parametros' | 'padroes' | 'detalhes'>(initialTab || 'telas');
   const [copiedSnippetId, setCopiedSnippetId] = useState<string | null>(null);
@@ -334,6 +337,17 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                 <span className="font-bold text-gray-900 dark:text-slate-100">{patterns.length}</span>
                 <span>{patterns.length === 1 ? 'padrão' : 'padrões'}</span>
               </div>
+              {(situations || []).length > 0 && (
+                <>
+                  <span className="text-gray-300 dark:text-slate-700">|</span>
+                  {situations!.map((sit) => (
+                    <span key={sit.label} className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: sit.hex }} aria-hidden="true" />
+                      <span className="font-medium text-gray-800 dark:text-slate-200">{sit.label}</span>
+                    </span>
+                  ))}
+                </>
+              )}
             </div>
           )}
 
