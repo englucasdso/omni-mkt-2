@@ -21,9 +21,6 @@ import { ErrorBoundary } from "../resilience/ErrorBoundary";
 import { lazyView, preloadLazyViews } from "../utils/lazyView";
 import { X, AlertTriangle, CheckCircle2, Shield, Trash2, Plus, Loader2, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, MessageCircleQuestion } from "lucide-react";
 import { JourneysSidebarFilters, JourneyMapPicker } from "../components/JourneysSidebarFilters";
-import { fetchStandards } from "../services/api";
-import { analyzeAdherence } from "../domain/padroes/adherence";
-import type { StandardDoc } from "../domain/padroes/types";
 import { fetchInventory, searchContent, fetchUsers, createUser, updateUser, deleteUser, safeFetch, describeError } from "../services/api";
 import { guarded } from "../resilience/circuitBreaker";
 import { Artifact, SearchResponse, User as UserType, UserRole, UserStatus, ActiveSearch, ParameterArtifactGroupSummary, ContentMatchSummary, QuestionMatchSummary } from "../types";
@@ -510,11 +507,6 @@ export default function App() {
   const [healthStaleDays, setHealthStaleDays] = useState(DEFAULT_HEALTH_THRESHOLDS.staleDays);
   const [healthWasteDays, setHealthWasteDays] = useState(DEFAULT_HEALTH_THRESHOLDS.wasteDays);
   const [healthProduct, setHealthProduct] = useState("");
-  // Base de padrões: documentos cadastrados (para os pontos roxos "para conferir")
-  const [standardsDocs, setStandardsDocs] = useState<StandardDoc[]>([]);
-  useEffect(() => {
-    fetchStandards().then(setStandardsDocs).catch(() => setStandardsDocs([]));
-  }, []);
   // Depois da primeira tela, baixa as outras abas em segundo plano
   useEffect(() => {
     preloadLazyViews();
@@ -528,11 +520,6 @@ export default function App() {
 
 
   const [fullInventory, setFullInventory] = useState<Artifact[]>([]);
-  // Pontos para conferir com a Base de padrões, calculados uma vez para todas as telas
-  const adherenceByMap = useMemo(
-    () => analyzeAdherence(fullInventory.length > 0 ? fullInventory : results, standardsDocs),
-    [fullInventory, results, standardsDocs]
-  );
   // Falha ao falar com o servidor: a tela continua com os últimos dados e mostra um aviso
   const [dataError, setDataError] = useState<string | null>(null);
   const [retryingData, setRetryingData] = useState(false);
@@ -1764,7 +1751,6 @@ export default function App() {
                 artifacts={fullInventory.length > 0 ? fullInventory : results}
                 onDrillDown={handleInsightDrillDown}
                 onOpenGuide={() => setAppState("guia")}
-                onDocsChange={setStandardsDocs}
               />
             </ErrorBoundary>
           )}
@@ -1793,8 +1779,6 @@ export default function App() {
                   setDetailModalItem(art);
                 }}
                 onDrillDown={handleInsightDrillDown}
-                adherence={adherenceByMap}
-                hasStandards={standardsDocs.length > 0}
               />
             </ErrorBoundary>
           )}
@@ -2378,14 +2362,7 @@ export default function App() {
         initialScreenId={detailTarget?.screenId}
         initialSnippetIndex={detailTarget?.snippetIndex}
         onViewInTree={handleViewInTree}
-        adherence={detailFromHealth && detailModalItem ? adherenceByMap.get(String(detailModalItem.id)) : null}
         situations={detailFromHealth ? detailSituations : undefined}
-        onOpenDocs={() => {
-          setDetailModalItem(null);
-          setDetailTarget(null);
-          setDetailFromHealth(false);
-          setAppState("guia");
-        }}
         onClose={() => {
           setDetailModalItem(null);
           setDetailTarget(null);

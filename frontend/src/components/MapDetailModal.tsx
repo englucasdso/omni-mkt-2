@@ -4,7 +4,7 @@ import { HomologationBadge } from './badges/HomologationBadge';
 import { motion } from 'motion/react';
 import { 
   X, ExternalLink, FileText, Layers, Tag, Code2, Copy, Check, 
-  ChevronDown, ChevronUp, Image as ImageIcon, ArrowRight, 
+  ChevronDown, ChevronUp, Image as ImageIcon, ArrowRight,
   Network
 } from 'lucide-react';
 import { Artifact } from '../types';
@@ -14,7 +14,6 @@ import { resolveMeasurementClass, getMeasurementLabel } from '../domain/measurem
 import { getMapStatusMetrics } from '../domain/status';
 import { findArtifactValueIssues, findPatternIssues } from '../domain/quality/valueQuality';
 import { HoverHint } from './HoverHint';
-import { MapAdherence, AdherenceFlag } from '../domain/padroes/adherence';
 
 interface MapDetailModalProps {
   item: Artifact | null;
@@ -23,11 +22,7 @@ interface MapDetailModalProps {
   initialScreenId?: string;
   initialSnippetIndex?: number;
   onViewInTree?: (id: string) => void;
-  /** Parâmetros fora do padrão (roxo). Só vem quando o mapa é aberto pela Saúde da documentação */
-  adherence?: MapAdherence | null;
-  /** Abre o Guia de tagueamento (link "Acesse as documentações para conferir") */
-  onOpenDocs?: () => void;
-  /** Situações do mapa na Saúde da documentação (ex.: Desperdício e Fora do padrão) */
+  /** Situação do mapa na Saúde da documentação (ex.: Desperdício), quando aberto por lá */
   situations?: { label: string; hex: string }[];
 }
 
@@ -38,8 +33,6 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
   initialScreenId,
   initialSnippetIndex,
   onViewInTree,
-  adherence,
-  onOpenDocs,
   situations
 }) => {
   const [activeTab, setActiveTab] = useState<'telas' | 'parametros' | 'padroes' | 'detalhes'>(initialTab || 'telas');
@@ -128,16 +121,6 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
 
   if (!item) return null;
 
-  // Roxo: parâmetros que não batem com a Base de padrões (só quando aberto pela Saúde da documentação)
-  const flagsByScreen = new Map<string, number>();
-  const flagsBySnippet = new Map<string, AdherenceFlag[]>();
-  for (const f of adherence?.flags || []) {
-    flagsByScreen.set(f.screenId, (flagsByScreen.get(f.screenId) || 0) + 1);
-    const k = `${f.screenId}-snippet-${f.snippetIndex}`;
-    flagsBySnippet.set(k, [...(flagsBySnippet.get(k) || []), f]);
-  }
-  const flaggedParams = new Map<string, string>((adherence?.flags || []).map((f) => [f.param, f.message]));
-
   const screens = item.screens || [];
   const parameters = item.parameter_summary || [];
   const patterns = item.pattern_summary || [];
@@ -185,10 +168,10 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
   const isFigmaLink = figmaRaw && figmaRaw !== '-' && figmaRaw.trim() !== '' && (figmaRaw.startsWith('http://') || figmaRaw.startsWith('https://'));
 
   const tabs = [
-    { id: 'telas', label: 'Telas', icon: Layers, alerts: 0, standards: flagsByScreen.size },
-    { id: 'parametros', label: 'Parâmetros', icon: Tag, alerts: valueIssueCount, standards: flaggedParams.size },
-    { id: 'padroes', label: 'Padrões', icon: Code2, alerts: patternIssues.size, standards: 0 },
-    { id: 'detalhes', label: 'Detalhes', icon: FileText, alerts: 0, standards: 0 }
+    { id: 'telas', label: 'Telas', icon: Layers, alerts: 0 },
+    { id: 'parametros', label: 'Parâmetros', icon: Tag, alerts: valueIssueCount },
+    { id: 'padroes', label: 'Padrões', icon: Code2, alerts: patternIssues.size },
+    { id: 'detalhes', label: 'Detalhes', icon: FileText, alerts: 0 }
   ] as const;
 
   return (
@@ -375,13 +358,6 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                       aria-label="Tem alerta para conferir"
                     />
                   )}
-                  {tab.standards > 0 && (
-                    <span
-                      className="w-1.5 h-1.5 rounded-full bg-violet-500"
-                      title="Tem parâmetro para conferir na Base de padrões"
-                      aria-label="Tem parâmetro para conferir na Base de padrões"
-                    />
-                  )}
                 </button>
               );
             })}
@@ -426,13 +402,6 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                             #{displayScreenNumber}
                           </span>
                           <StatusBadge status={screen.status} />
-                          {flagsByScreen.get(screenKey) ? (
-                            <span
-                              className="shrink-0 w-1.5 h-1.5 rounded-full bg-violet-500"
-                              title="Tem parâmetro para conferir na Base de padrões"
-                              aria-label="Tem parâmetro para conferir na Base de padrões"
-                            />
-                          ) : null}
                           <span className="text-xs font-semibold text-gray-800 dark:text-slate-200 truncate">
                             {screen.instruction || 'Tela sem instrução especificada'}
                           </span>
@@ -503,29 +472,6 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                                         {snip.raw_code}
                                       </pre>
                                     </div>
-
-                                    {/* Fora do padrão: o que conferir e em qual documentação */}
-                                    {(flagsBySnippet.get(`${screenKey}-snippet-${snIdx}`) || []).length > 0 && (
-                                      <div className="rounded-xl border border-violet-200 bg-violet-50/70 px-4 py-3 space-y-2">
-                                        <ul className="space-y-1.5">
-                                          {flagsBySnippet.get(`${screenKey}-snippet-${snIdx}`)!.map((f) => (
-                                            <li key={f.param} className="text-xs text-violet-950/85 leading-relaxed flex gap-2">
-                                              <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-violet-500 shrink-0" aria-hidden="true" />
-                                              <span>{f.message}</span>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                        {onOpenDocs && (
-                                          <button
-                                            type="button"
-                                            onClick={onOpenDocs}
-                                            className="text-[11.5px] font-semibold text-violet-800 hover:underline cursor-pointer"
-                                          >
-                                            Acesse as documentações para conferir
-                                          </button>
-                                        )}
-                                      </div>
-                                    )}
 
                                     {/* Resumo neutro fora do fundo preto */}
                                     <div className="flex items-center justify-between text-xs font-ui text-gray-500 dark:text-slate-400 px-1">
@@ -606,13 +552,6 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
                           >
                             <div className="col-span-6 sm:col-span-7 font-mono text-xs font-semibold text-gray-900 dark:text-slate-100 truncate flex items-center gap-2">
                               <span className="truncate">{param.name}</span>
-                              {flaggedParams.has(param.name) && (
-                                <span
-                                  className="shrink-0 w-1.5 h-1.5 rounded-full bg-violet-500"
-                                  title={flaggedParams.get(param.name)}
-                                  aria-label="Para conferir com a Base de padrões"
-                                />
-                              )}
                               {paramIssues && (
                                 <span
                                   className="shrink-0 w-1.5 h-1.5 rounded-full bg-amber-500"

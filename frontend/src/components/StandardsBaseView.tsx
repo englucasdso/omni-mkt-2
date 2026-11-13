@@ -12,8 +12,6 @@ interface Props {
   onDrillDown: (label: string, ids: string[], target: 'cards' | 'inventario') => void;
   /** Abre o Guia de tagueamento (a leitura dos padrões) */
   onOpenGuide: () => void;
-  /** Avisa o App quando os documentos mudam (importar, substituir, remover) */
-  onDocsChange?: (docs: StandardDoc[]) => void;
 }
 
 const fmt = (n: number) => n.toLocaleString('pt-BR');
@@ -110,7 +108,7 @@ const ExtractorHowTo: React.FC = () => {
   );
 };
 
-export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown, onOpenGuide, onDocsChange }) => {
+export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown, onOpenGuide }) => {
   const [docs, setDocs] = useState<StandardDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -131,12 +129,6 @@ export const StandardsBaseView: React.FC<Props> = ({ artifacts, onDrillDown, onO
       .catch((e) => setError(describeError(e)))
       .finally(() => setLoading(false));
   }, []);
-
-  // Mantém o App em dia (os pontos roxos dependem dos documentos)
-  useEffect(() => {
-    if (!loading && !error) onDocsChange?.(docs);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [docs, loading]);
 
   const handleFiles = async (files: FileList | File[]) => {
     const list = Array.from(files).filter((f) => /\.json$/i.test(f.name));
