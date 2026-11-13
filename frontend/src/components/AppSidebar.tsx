@@ -10,7 +10,10 @@ import {
   RefreshCw,
   X,
   Route,
-  Search
+  Search,
+  Database,
+  BookOpen,
+  ShieldCheck
 } from 'lucide-react';
 import { formatUltimaSincronizacao } from '../utils/helpers';
 
@@ -37,6 +40,14 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       { id: 'produtos_analise', label: 'Por produto', path: ROUTES.produtos_analise, icon: Layers },
       { id: 'parametros_analise', label: 'Por parâmetro', path: ROUTES.parametros_analise, icon: Tag },
       { id: 'insights', label: 'Insights', path: ROUTES.insights, icon: Sparkles },
+    ]
+  },
+  {
+    title: 'Governar',
+    items: [
+      { id: 'padroes', label: 'Base de padrões', path: ROUTES.padroes, icon: Database },
+      { id: 'guia', label: 'Guia de tagueamento', path: ROUTES.guia, icon: BookOpen },
+      { id: 'aderencia', label: 'Aderência ao padrão', path: ROUTES.aderencia, icon: ShieldCheck },
     ]
   }
 ];

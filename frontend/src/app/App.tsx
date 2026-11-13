@@ -15,7 +15,8 @@ import React, { useState, useEffect, useRef, useMemo, useCallback, useDeferredVa
 import { ExportDialog } from "../components/export/ExportDialog";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
-import { ROUTES, viewFromPath, legacyRedirect } from "./routes";
+import { ROUTES, viewFromPath, legacyRedirect, type AppView } from "./routes";
+import { ComingSoonView } from "../components/ComingSoonView";
 import { ErrorBoundary } from "../resilience/ErrorBoundary";
 import { X, AlertTriangle, Target, Network, Filter, CheckCircle2, AlertCircle, Clock, User, Info, Shield, LogOut, Trash2, Plus, Settings, Landmark, LayoutList, RefreshCw, Check, Loader2, KeyRound, Activity, ArrowRight, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, Sparkles, MessageCircleQuestion, FileText, Layers, Tag, Code2, Eye, ArrowUpDown, Calendar, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { ConexoesCanvas } from "../components/ConexoesCanvas";
@@ -446,7 +447,7 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [rawAppState, setRawAppState] = useState<"initial" | "results" | "insights" | "empty" | "inventory_table" | "graph" | "produtos_analise" | "parametros_analise" | "journeys">("initial");
+  const [rawAppState, setRawAppState] = useState<AppView | "empty">("initial");
   const appState = rawAppState;
 
   const [detailModalItem, setDetailModalItem] = useState<Artifact | null>(null);
@@ -1784,6 +1785,26 @@ export default function App() {
               </div>
             ) : null}
           </section>
+
+          {/* Governar: telas reservadas (ainda não construídas) */}
+          {appState === "padroes" && (
+            <ComingSoonView
+              title="Base de padrões"
+              description="Onde o time vai manter os padrões oficiais de eventos e parâmetros. É a fonte que alimenta o Guia de tagueamento e a Aderência ao padrão."
+            />
+          )}
+          {appState === "guia" && (
+            <ComingSoonView
+              title="Guia de tagueamento"
+              description="Consulta às regras de tagueamento do time, organizadas por assunto, com busca e ligação aos parâmetros usados nos mapas."
+            />
+          )}
+          {appState === "aderencia" && (
+            <ComingSoonView
+              title="Aderência ao padrão"
+              description="Mostra quais mapas seguem os padrões oficiais e aponta o que está fora deles, por mapa e por produto."
+            />
+          )}
 
           {/* Canonical Insights Dashboard */}
           {appState === "insights" && (

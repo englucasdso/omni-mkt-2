@@ -10,7 +10,10 @@ export type AppView =
   | 'parametros_analise'
   | 'insights'
   | 'graph'
-  | 'journeys';
+  | 'journeys'
+  | 'padroes'
+  | 'guia'
+  | 'aderencia';
 
 export const ROUTES: Record<AppView, string> = {
   initial: '/',
@@ -21,6 +24,9 @@ export const ROUTES: Record<AppView, string> = {
   insights: '/insights',
   graph: '/conexoes',
   journeys: '/jornadas',
+  padroes: '/base-de-padroes',
+  guia: '/guia-de-tagueamento',
+  aderencia: '/aderencia-ao-padrao',
 };
 
 const VIEW_BY_PATH: Record<string, AppView> = Object.fromEntries(
