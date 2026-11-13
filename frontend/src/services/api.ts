@@ -103,3 +103,34 @@ export async function deleteUser(id: string) {
   if (!res.ok) throw new Error("Falha ao deletar usuário");
   return res.json();
 }
+
+// --- Base de padrões ---------------------------------------------------------------
+
+/** Documentos de padrões importados (extrator do Confluence) */
+export async function fetchStandards() {
+  return guarded('api:padroes', async () => {
+    const res = await safeFetch('/api/padroes');
+    if (!res.ok) throw new Error(`O servidor respondeu com erro ${res.status} ao carregar os padrões.`);
+    const data = await res.json();
+    return Array.isArray(data?.documentos) ? data.documentos : [];
+  });
+}
+
+/** Envia os arquivos gerados pelo extrator. Devolve a lista atualizada e os avisos. */
+export async function importStandards(docs: unknown[]) {
+  const res = await safeFetch('/api/padroes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ documentos: docs }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `O servidor respondeu com erro ${res.status} ao importar.`);
+  return { documentos: data.documentos || [], importados: data.importados || [], erros: data.erros || [] };
+}
+
+export async function deleteStandard(id: string) {
+  const res = await safeFetch(`/api/padroes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `O servidor respondeu com erro ${res.status} ao remover.`);
+  return data.documentos || [];
+}

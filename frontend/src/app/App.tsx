@@ -19,6 +19,7 @@ import { ROUTES, viewFromPath, legacyRedirect, type AppView } from "./routes";
 import { ComingSoonView } from "../components/ComingSoonView";
 import { DocumentationHealthView } from "../components/DocumentationHealthView";
 import { HealthSidebarFilters } from "../components/HealthSidebarFilters";
+import { StandardsBaseView } from "../components/StandardsBaseView";
 import { DEFAULT_HEALTH_THRESHOLDS } from "../domain/health/documentationHealth";
 import { ErrorBoundary } from "../resilience/ErrorBoundary";
 import { X, AlertTriangle, Target, Network, Filter, CheckCircle2, AlertCircle, Clock, User, Info, Shield, LogOut, Trash2, Plus, Settings, Landmark, LayoutList, RefreshCw, Check, Loader2, KeyRound, Activity, ArrowRight, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, Sparkles, MessageCircleQuestion, FileText, Layers, Tag, Code2, Eye, ArrowUpDown, Calendar, RotateCcw, SlidersHorizontal } from "lucide-react";
@@ -562,7 +563,7 @@ export default function App() {
   const [searchSessionId, setSearchSessionId] = useState(0);
 
   useEffect(() => {
-    const mainCatalogStates = ["inventory_table", "results", "produtos_analise", "parametros_analise", "insights", "graph", "saude"];
+    const mainCatalogStates = ["inventory_table", "results", "produtos_analise", "parametros_analise", "insights", "graph", "saude", "padroes"];
     // Uma busca que voltou vazia é um resultado legítimo: não recarregar a base inteira por cima dela
     if (mainCatalogStates.includes(appState) && results.length === 0 && !loading && !dataError && !isSearchingRef.current && !activeSearch && (query === "" || query === "inventario")) {
       executeSearch("inventario");
@@ -1805,10 +1806,12 @@ export default function App() {
 
           {/* Governar: telas reservadas (ainda não construídas) */}
           {appState === "padroes" && (
-            <ComingSoonView
-              title="Base de padrões"
-              description="Onde o time vai manter os padrões oficiais de eventos e parâmetros. É a fonte que alimenta o Guia de tagueamento e a Aderência ao padrão."
-            />
+            <ErrorBoundary area="a Base de padrões" resetKey={appState}>
+              <StandardsBaseView
+                artifacts={fullInventory.length > 0 ? fullInventory : results}
+                onDrillDown={handleInsightDrillDown}
+              />
+            </ErrorBoundary>
           )}
           {appState === "guia" && (
             <ComingSoonView

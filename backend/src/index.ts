@@ -13,6 +13,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import searchRoutes from "./routes/search.routes";
 import usersRoutes from "./routes/users.routes";
+import padroesRoutes from "./routes/padroes.routes";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,6 +31,7 @@ async function startServer() {
   // definidas dentro do arquivo searchRoutes.ts
   app.use("/api", searchRoutes);
   app.use("/api/users", usersRoutes);
+  app.use("/api/padroes", padroesRoutes);
 
 
   // Integração e Servimento do Frontend (Visão do Usuário)
