@@ -832,18 +832,11 @@ export const MapDetailModal: React.FC<MapDetailModalProps> = ({
           )}
         </div>
 
-        {/* Modal Footer */}
+        {/* Rodapé: só a data da sincronização (fechar fica no X do topo, no Esc ou clicando fora) */}
         <div className="p-4 sm:p-5 border-t border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 flex items-center justify-between">
           <div className="text-xs font-ui text-gray-400 dark:text-slate-500">
             Última sincronização no Confluence: {formatUltimaSincronizacao(item.ultima_atualizacao)}
           </div>
-          <button 
-            type="button"
-            onClick={onClose}
-            className="btn-neu px-5 py-2 text-gray-700 dark:text-slate-200 rounded-xl font-ui font-semibold text-xs hover:text-bradesco-red transition-colors cursor-pointer"
-          >
-            Fechar
-          </button>
         </div>
       </motion.div>
     </div>
