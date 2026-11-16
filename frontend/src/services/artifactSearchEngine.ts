@@ -427,8 +427,12 @@ class ArtifactSearchEngine {
       return exactIdMatches.slice(0, limit);
     }
 
+    // Título exato isolado só vale para nomes com mais de uma palavra (nome de mapa).
+    // Uma palavra só (ex.: "créditos") é busca de conteúdo: o item com esse nome
+    // vem primeiro, mas os mapas que têm a palavra continuam aparecendo.
+    const isSingleWord = normQuery.split(/\s+/).filter(Boolean).length < 2;
     const exactTitleMatches: Array<{ art: IndexedArtifact; result: ContentSearchResult }> = [];
-    for (const art of this.indexedArtifacts) {
+    for (const art of isSingleWord ? [] : this.indexedArtifacts) {
       if (art.contentNormTitle && art.contentNormTitle === normQuery) {
         exactTitleMatches.push({
           art,
@@ -452,7 +456,11 @@ class ArtifactSearchEngine {
     }
 
     // 2. Hierarchical Partial Search Stage
-    const tokens = normQuery.split(/\s+/).filter(Boolean);
+    // Plural simples: "creditos" também acha "credito" (o singular está contido no plural)
+    const tokens = normQuery
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((t) => (t.length >= 5 && t.endsWith('s') && !t.endsWith('ss') ? t.slice(0, -1) : t));
     if (tokens.length === 0) return [];
 
     const meaningfulQueryTokens = tokens.filter(
@@ -652,7 +660,9 @@ class ArtifactSearchEngine {
       const hasAllTokensAcrossArtifact = allMatchedTokens.size === tokens.length;
 
       let matchType: ContentMatchType;
-      if (isTitlePrefix) {
+      if (art.contentNormTitle === normQuery) {
+        matchType = 'EXACT_TITLE';
+      } else if (isTitlePrefix) {
         matchType = 'TITLE_PREFIX';
       } else if (isTitlePhrase) {
         matchType = 'TITLE_PHRASE';
