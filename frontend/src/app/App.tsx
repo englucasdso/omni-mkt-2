@@ -1853,12 +1853,10 @@ export default function App() {
           )}
 
           {/* Graph Visualization Section */}
-          <AnimatePresence>
             {appState === "graph" && (
               <motion.section 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
                 className="graph-container pb-20 space-y-6"
               >
                 <PageHeader
@@ -1877,15 +1875,12 @@ export default function App() {
                 </ErrorBoundary>
               </motion.section>
             )}
-          </AnimatePresence>
 
           {/* Journeys Visualization Section */}
-          <AnimatePresence>
             {appState === "journeys" && (
               <motion.section 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
                 className="journeys-container pb-20 space-y-6 flex flex-col flex-1"
                 style={{ height: 'calc(100vh - 100px)' }}
               >
@@ -1913,7 +1908,6 @@ export default function App() {
                 </ErrorBoundary>
               </motion.section>
             )}
-          </AnimatePresence>
 
           {/* Results Area (Tela de Cards) */}
           <ErrorBoundary area="os Cards" resetKey={appState}>
@@ -2231,15 +2225,8 @@ export default function App() {
                               if (isMapItem) {
                                 const mc = resolveMeasurementClass(item);
                                 classLabel = getMeasurementLabel(mc);
-                                if (mc === 'GA4') {
-                                  classStyle = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-                                } else if (mc === 'GA3') {
-                                  classStyle = 'bg-blue-50 text-blue-700 border border-blue-200';
-                                } else if (mc === 'HIBRIDO') {
-                                  classStyle = 'bg-purple-50 text-purple-700 border border-purple-200';
-                                } else {
-                                  classStyle = 'bg-gray-100 text-omni-ink-secondary border border-omni-line';
-                                }
+                                // Mesmas cores do selo em todo o OMNI (GA4 laranja, Universal Analytics roxo)
+                                classStyle = `border ${MEASUREMENT_CONFIGS[mc]?.badgeClasses || 'bg-gray-100 text-omni-ink-secondary border-omni-line'}`;
                               }
 
                               return (
