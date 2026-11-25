@@ -2,17 +2,22 @@ import fs from 'fs';
 import path from 'path';
 
 const DATA_DIR = path.resolve(process.cwd(), 'backend/data');
-const INVENTORY_PATH = path.resolve(DATA_DIR, 'inventario.json');
 
+/** Cada espaço tem o seu arquivo de inventário (padrão: inventario.json). */
 export class InventoryRepository {
+  constructor(fileName = 'inventario.json') {
+    this.fileName = fileName;
+    this.inventoryPath = path.resolve(DATA_DIR, fileName);
+  }
+
   getInventory() {
-    if (!fs.existsSync(INVENTORY_PATH)) return [];
+    if (!fs.existsSync(this.inventoryPath)) return [];
     try {
-      const data = fs.readFileSync(INVENTORY_PATH, 'utf-8');
+      const data = fs.readFileSync(this.inventoryPath, 'utf-8');
       const items = JSON.parse(data);
       return Array.isArray(items) ? items : [];
     } catch (e) {
-      console.error('[InventoryRepository] Failed to read inventario.json:', e);
+      console.error(`[InventoryRepository] Failed to read ${this.fileName}:`, e);
       return [];
     }
   }
@@ -33,9 +38,9 @@ export class InventoryRepository {
     }
 
     // Gravação atômica via arquivo temporário
-    const tempPath = `${INVENTORY_PATH}.tmp.${Date.now()}`;
+    const tempPath = `${this.inventoryPath}.tmp.${Date.now()}`;
     fs.writeFileSync(tempPath, JSON.stringify(items, null, 2), 'utf-8');
-    fs.renameSync(tempPath, INVENTORY_PATH);
-    console.log(`[InventoryRepository] Salvo com sucesso e atomicamente: ${items.length} mapas no inventario.json`);
+    fs.renameSync(tempPath, this.inventoryPath);
+    console.log(`[InventoryRepository] Salvo com sucesso e atomicamente: ${items.length} mapas no ${this.fileName}`);
   }
 }

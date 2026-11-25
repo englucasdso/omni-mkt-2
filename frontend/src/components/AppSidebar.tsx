@@ -13,9 +13,12 @@ import {
   Search,
   Database,
   BookOpen,
-  HeartPulse
+  HeartPulse,
+  ChevronsUpDown,
+  Check
 } from 'lucide-react';
 import { formatUltimaSincronizacao } from '../utils/helpers';
+import type { Workspace } from '../services/workspace';
 
 export interface NavItem {
   id: string;
@@ -62,7 +65,22 @@ interface AppSidebarProps {
   onCloseMobile?: () => void;
   onSyncClick?: () => void;
   lastSync?: string | null;
+  workspaces?: Workspace[];
+  activeWorkspace?: Workspace;
+  onSwitchWorkspace?: (id: string) => void;
+  workspaceSwitchLocked?: boolean;
 }
+
+/** Selo com a sigla do espaço (SP, BE): aparece mesmo com o menu fechado. */
+const WorkspaceBadge: React.FC<{ ws?: Workspace; active?: boolean }> = ({ ws, active = true }) => (
+  <span
+    className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-[11px] font-heading font-bold tracking-wide
+      ${active ? 'bg-white text-bradesco-red' : 'bg-white/10 text-white border border-white/20'}`}
+    aria-hidden="true"
+  >
+    {ws?.shortName || '?'}
+  </span>
+);
 
 // Menu que abre ao passar o mouse (expand on hover): fica como faixa de ícones
 // e abre por cima do conteúdo, sem empurrar a página.
@@ -79,9 +97,39 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   onCloseMobile,
   onSyncClick,
   lastSync,
+  workspaces = [],
+  activeWorkspace,
+  onSwitchWorkspace,
+  workspaceSwitchLocked = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const timerRef = useRef<number | null>(null);
+  // Lista de espaços (abre para cima, como a troca de conta)
+  const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
+  const workspaceMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isWorkspaceMenuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (workspaceMenuRef.current && !workspaceMenuRef.current.contains(e.target as globalThis.Node)) {
+        setIsWorkspaceMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsWorkspaceMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isWorkspaceMenuOpen]);
+
+  // O menu recolhido fecha também a lista de espaços
+  useEffect(() => {
+    if (!isExpanded && !isMobileOpen) setIsWorkspaceMenuOpen(false);
+  }, [isExpanded, isMobileOpen]);
 
   const schedule = (open: boolean) => {
     if (timerRef.current) window.clearTimeout(timerRef.current);
@@ -257,15 +305,83 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           ))}
         </nav>
 
-        {/* 4. Rodapé (borda branco/10): Sincronização, altura fixa nos dois estados */}
-        <div className="shrink-0 border-t border-white/10 p-2">
+        {/* 4. Rodapé (borda branco/10): espaço ativo e sincronização, altura fixa nos dois estados */}
+        <div className="shrink-0 border-t border-white/10 p-2 space-y-1">
+          {activeWorkspace && (
+            <div className="relative" ref={workspaceMenuRef}>
+              {isWorkspaceMenuOpen && (
+                <div
+                  role="menu"
+                  aria-label="Trocar de espaço"
+                  className="absolute bottom-full left-0 right-0 mb-2 rounded-xl bg-white text-omni-ink shadow-2xl border border-omni-line p-1.5 z-50"
+                >
+                  <div className="px-2.5 pt-1.5 pb-2 text-[11px] text-omni-muted font-ui">Trocar de espaço</div>
+                  {workspaces.map((ws) => {
+                    const isCurrent = ws.id === activeWorkspace.id;
+                    return (
+                      <button
+                        key={ws.id}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={isCurrent}
+                        onClick={() => {
+                          setIsWorkspaceMenuOpen(false);
+                          if (!isCurrent && onSwitchWorkspace) onSwitchWorkspace(ws.id);
+                        }}
+                        className={`w-full flex items-center gap-2.5 rounded-lg px-2 py-2 text-left text-xs font-ui transition-colors cursor-pointer
+                          ${isCurrent ? 'bg-omni-mist font-semibold' : 'hover:bg-omni-mist/70 font-medium'}`}
+                      >
+                        <span
+                          className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 text-[10.5px] font-heading font-bold
+                            ${isCurrent ? 'bg-bradesco-red text-white' : 'bg-omni-mist text-omni-ink border border-omni-line'}`}
+                          aria-hidden="true"
+                        >
+                          {ws.shortName}
+                        </span>
+                        <span className="flex-1 min-w-0 truncate">{ws.name}</span>
+                        {isCurrent && <Check className="w-4 h-4 shrink-0 text-bradesco-red" aria-hidden="true" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (workspaceSwitchLocked) return;
+                  setIsWorkspaceMenuOpen((open) => !open);
+                }}
+                aria-haspopup="menu"
+                aria-expanded={isWorkspaceMenuOpen}
+                aria-label={`Espaço: ${activeWorkspace.name}. Trocar de espaço`}
+                title={workspaceSwitchLocked
+                  ? 'Aguarde a sincronização terminar para trocar de espaço'
+                  : `Espaço: ${activeWorkspace.name}`}
+                className={`w-full h-11 rounded-lg text-left transition-colors flex items-center pl-[14px] pr-3 gap-3
+                  ${workspaceSwitchLocked ? 'opacity-60 cursor-not-allowed' : 'hover:bg-white/[0.07] cursor-pointer'}`}
+              >
+                <WorkspaceBadge ws={activeWorkspace} />
+                <div className={`flex flex-col min-w-0 flex-1 whitespace-nowrap ${labelFade}`}>
+                  <span className="text-[10px] text-white/50 font-ui leading-tight">Espaço</span>
+                  <span className="text-xs font-ui font-semibold text-white leading-tight truncate mt-0.5">
+                    {activeWorkspace.name}
+                  </span>
+                </div>
+                {workspaces.length > 1 && (
+                  <ChevronsUpDown className={`w-4 h-4 shrink-0 text-white/60 ${labelFade}`} aria-hidden="true" />
+                )}
+              </button>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={() => {
               if (onSyncClick) onSyncClick();
               if (onCloseMobile) onCloseMobile();
             }}
-            title={`Atualizar do Confluence (Última: ${formatUltimaSincronizacao(lastSync)})`}
+            title={`Atualizar ${activeWorkspace ? activeWorkspace.name : ''} do Confluence (Última: ${formatUltimaSincronizacao(lastSync)})`}
             className="w-full h-11 rounded-lg text-left text-white/75 hover:bg-white/[0.07] hover:text-white transition-colors cursor-pointer flex items-center pl-5 pr-3 gap-3"
           >
             <RefreshCw className="w-4 h-4 shrink-0 text-white/75" />

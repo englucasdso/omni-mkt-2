@@ -8,6 +8,25 @@
 import { guarded, CircuitOpenError } from '../resilience/circuitBreaker';
 import { sanitizeStandardDoc } from '../domain/padroes/sanitize';
 import { StandardDoc } from '../domain/padroes/types';
+import { getActiveWorkspaceId, Workspace, FALLBACK_WORKSPACES } from './workspace';
+
+/** Parâmetro do espaço ativo para as rotas de dados. */
+function workspaceParam() {
+  return `workspace=${encodeURIComponent(getActiveWorkspaceId())}`;
+}
+
+/** Espaços que o OMNI consegue ler. Se o servidor não responder, usa a lista conhecida. */
+export async function fetchWorkspaces(): Promise<Workspace[]> {
+  try {
+    const res = await safeFetch('/api/workspaces');
+    if (!res.ok) return FALLBACK_WORKSPACES;
+    const data = await res.json();
+    const list = Array.isArray(data?.workspaces) ? data.workspaces : [];
+    return list.length > 0 ? list : FALLBACK_WORKSPACES;
+  } catch {
+    return FALLBACK_WORKSPACES;
+  }
+}
 
 /** fetch que troca o erro genérico de rede ("Failed to fetch") por uma mensagem clara. */
 export async function safeFetch(input: string, init?: RequestInit): Promise<Response> {
@@ -44,7 +63,7 @@ function ensureSearchResponse(data: any, what: string) {
  */
 export async function fetchInventory() {
   return guarded('api:inventario', async () => {
-    const res = await safeFetch("/api/inventario");
+    const res = await safeFetch(`/api/inventario?${workspaceParam()}`);
     if (!res.ok) throw new Error(`O servidor respondeu com erro ${res.status} ao carregar a base.`);
     return ensureSearchResponse(await res.json(), 'a base');
   });
@@ -60,7 +79,7 @@ export async function searchContent(query: string) {
   // EncodeURIComponent é usado para garantir que espaços e caracteres especiais 
   // na busca não quebrem o formato da URL (ex: "mapa site" vira "mapa%20site").
   return guarded('api:busca', async () => {
-    const res = await safeFetch(`/api/search?q=${encodeURIComponent(query)}`);
+    const res = await safeFetch(`/api/search?q=${encodeURIComponent(query)}&${workspaceParam()}`);
     if (!res.ok) throw new Error(`O servidor respondeu com erro ${res.status} na busca.`);
     return ensureSearchResponse(await res.json(), 'a busca');
   });
