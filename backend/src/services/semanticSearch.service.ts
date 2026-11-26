@@ -316,10 +316,10 @@ function localResults(candidates: LocalCandidate[], terms: QueryTerm[], limit: n
   });
 }
 
-export function searchSemantic(question: string, limit = 50): SemanticSearchResponse {
+export function searchSemantic(question: string, limit = 50, workspaceId?: string): SemanticSearchResponse {
   const trimmedQuestion = question.trim();
   const terms = extractTerms(trimmedQuestion);
-  const candidates = selectLocalCandidates(getInventoryData(), terms, limit);
+  const candidates = selectLocalCandidates(getInventoryData(workspaceId), terms, limit);
   const results = localResults(candidates, terms, limit);
 
   console.log(`[Pergunta] ${terms.length} termos úteis, ${results.length} resultados.`);

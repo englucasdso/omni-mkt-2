@@ -21,7 +21,8 @@ import { ErrorBoundary } from "../resilience/ErrorBoundary";
 import { lazyView, preloadLazyViews } from "../utils/lazyView";
 import { X, AlertTriangle, CheckCircle2, Shield, Trash2, Plus, Loader2, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Download, MessageCircleQuestion } from "lucide-react";
 import { JourneysSidebarFilters, JourneyMapPicker } from "../components/JourneysSidebarFilters";
-import { fetchInventory, searchContent, fetchUsers, createUser, updateUser, deleteUser, safeFetch, describeError } from "../services/api";
+import { fetchInventory, searchContent, fetchUsers, createUser, updateUser, deleteUser, safeFetch, describeError, fetchWorkspaces } from "../services/api";
+import { Workspace, FALLBACK_WORKSPACES, getActiveWorkspaceId, setActiveWorkspaceId, readLastSync, writeLastSync } from "../services/workspace";
 import { guarded } from "../resilience/circuitBreaker";
 import { Artifact, SearchResponse, User as UserType, UserRole, UserStatus, ActiveSearch, ParameterArtifactGroupSummary, ContentMatchSummary, QuestionMatchSummary } from "../types";
 import { normalizar, formatDataBR } from "../utils/helpers";
@@ -315,7 +316,7 @@ const AdminUsers = ({ users, onAddUser, onUpdateUser, onDeleteUser, onClose }: {
   );
 };
 
-const SyncWidget = ({ job, onCancel }: { job: any, onCancel: () => void }) => {
+const SyncWidget = ({ job, onCancel, workspaceName }: { job: any, onCancel: () => void, workspaceName?: string }) => {
   if (!job.active) return null;
 
   const hasTotal = typeof job.total === "number" && job.total > 0;
@@ -360,7 +361,7 @@ const SyncWidget = ({ job, onCancel }: { job: any, onCancel: () => void }) => {
           <div className="flex flex-col flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
               <span className="font-bold text-gray-900 dark:text-slate-50 text-sm truncate">
-                {isRunning ? "Sincronizando..." : isSuccess ? "Sincronização concluída" : "Falha na Sincronização"}
+                {isRunning ? "Sincronizando" : isSuccess ? "Sincronização concluída" : "Falha na sincronização"}{workspaceName ? ` · ${workspaceName}` : (isRunning ? "..." : "")}
               </span>
               {displayPercentage !== null && !isError && (
                 <span className="text-xs font-bold text-gray-700 dark:text-slate-200 tabular-nums shrink-0">
@@ -514,7 +515,14 @@ export default function App() {
   // Busca do Guia de tagueamento (no cabeçalho)
   const [guideQuery, setGuideQuery] = useState("");
   const [tableFilter, setTableFilter] = useState("");
-  const [lastSync, setLastSync] = useState<string | null>(localStorage.getItem('last_sync'));
+  // Espaço ativo (Salla de Performance, BE...): cada um tem o seu inventário
+  const [workspaces, setWorkspaces] = useState<Workspace[]>(FALLBACK_WORKSPACES);
+  const [activeWorkspaceId] = useState<string>(() => getActiveWorkspaceId());
+  const activeWorkspace = workspaces.find((ws) => ws.id === activeWorkspaceId) || workspaces[0] || FALLBACK_WORKSPACES[0];
+  useEffect(() => {
+    fetchWorkspaces().then(setWorkspaces);
+  }, []);
+  const [lastSync, setLastSync] = useState<string | null>(() => readLastSync(activeWorkspaceId));
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportSource, setExportSource] = useState<'cards' | 'inventario'>('cards');
 
@@ -887,7 +895,7 @@ export default function App() {
       const res = await safeFetch("/api/update-inventory", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rootId: "1542391004", maxRows: null, mode: "full", forceRefresh: true })
+        body: JSON.stringify({ workspace: activeWorkspaceId, maxRows: null, mode: "full", forceRefresh: true })
       });
       
       const data = await res.json().catch(() => ({}));
@@ -915,7 +923,7 @@ export default function App() {
         warnings: typeof finalStatus.warnings === "number" ? finalStatus.warnings : s.warnings
       }));
       const now = new Date().toLocaleString('pt-BR');
-      localStorage.setItem('last_sync', now);
+      writeLastSync(now, activeWorkspaceId);
       setLastSync(now);
 
       try {
@@ -1538,8 +1546,24 @@ export default function App() {
     }
   };
 
+  const isSyncRunning = syncJob.active && syncJob.status === "running";
+
+  /**
+   * Troca de espaço como uma troca de conta: guarda a escolha e recarrega o OMNI na tela inicial.
+   * Recarregar garante que nenhuma busca, filtro ou dado do espaço anterior fique na tela.
+   */
+  const switchWorkspace = (id: string) => {
+    if (id === activeWorkspaceId || isSyncRunning) return;
+    setActiveWorkspaceId(id);
+    window.location.assign(ROUTES.initial);
+  };
+
   return (
     <AppShell
+      workspaces={workspaces}
+      activeWorkspace={activeWorkspace}
+      onSwitchWorkspace={switchWorkspace}
+      workspaceSwitchLocked={isSyncRunning}
       currentRouteId={appState}
       onNavigate={(item) => setAppState(item.id as any)}
       onHomeClick={resetSearchSession}
@@ -1677,7 +1701,7 @@ export default function App() {
           </div>
         )}
       <AnimatePresence>
-        <SyncWidget job={syncJob} onCancel={cancelSyncJob} />
+        <SyncWidget job={syncJob} onCancel={cancelSyncJob} workspaceName={activeWorkspace.name} />
       </AnimatePresence>
 
       <AnimatePresence>

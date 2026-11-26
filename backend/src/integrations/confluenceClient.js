@@ -1,7 +1,11 @@
 import { ConfluenceOrchestrator } from './confluence/confluenceOrchestrator.js';
 import { getSyncSessionStatus, setSyncSessionStatus } from './confluence/confluenceSession.js';
+import { InventoryRepository } from '../repositories/inventoryRepository.js';
+import { publicWorkspace } from '../config/workspaces.js';
 
 let orchestratorInstance = null;
+// Espaço da última sincronização iniciada (aparece no status para a tela)
+let currentWorkspace = null;
 
 async function abortCollection() {
   if (orchestratorInstance) {
@@ -20,7 +24,12 @@ async function runCollection(rootPageId, maxRows, options = {}) {
     throw new Error('A sincronização já está em andamento. Aguarde...');
   }
 
-  orchestratorInstance = new ConfluenceOrchestrator();
+  // Cada espaço lê e grava só o próprio inventário
+  const workspace = options && options.workspace ? options.workspace : null;
+  currentWorkspace = workspace ? publicWorkspace(workspace) : null;
+  orchestratorInstance = new ConfluenceOrchestrator(
+    workspace ? { repository: new InventoryRepository(workspace.inventoryFile) } : {}
+  );
   try {
     const result = await orchestratorInstance.run(rootPageId, maxRows, options);
     const syncStatus = getSyncSessionStatus();
@@ -53,7 +62,8 @@ function getSyncStatus() {
   const sessionStatus = getSyncSessionStatus();
   return {
     ...sessionStatus,
-    isCollecting: Boolean(orchestratorInstance && orchestratorInstance.isCollecting)
+    isCollecting: Boolean(orchestratorInstance && orchestratorInstance.isCollecting),
+    workspace: currentWorkspace
   };
 }
 

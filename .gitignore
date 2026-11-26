@@ -13,6 +13,9 @@ backend/data/ga4-events.json
 backend/data/playwright_session/
 # Padrões importados do Confluence (conteúdo interno)
 backend/data/padroes.json
+# Inventários dos outros espaços (BE...)
+backend/data/inventario-*.json
+backend/data/inventario*.json.tmp.*
 backend/data/padroes.json.tmp.*
 *.service-account.json
 ga4-service-account.json

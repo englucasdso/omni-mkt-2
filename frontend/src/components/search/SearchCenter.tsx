@@ -21,6 +21,7 @@ import {
 } from '../../types';
 import { searchWorkerClient } from '../../services/searchWorkerClient';
 import { safeFetch, describeError } from '../../services/api';
+import { getActiveWorkspaceId } from '../../services/workspace';
 import { guarded } from '../../resilience/circuitBreaker';
 import {
   getContentMatchLabel,
@@ -451,7 +452,7 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
         safeFetch('/api/search/question', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question: q }),
+          body: JSON.stringify({ question: q, workspace: getActiveWorkspaceId() }),
           signal: abortController.signal,
         })
       );
@@ -532,7 +533,9 @@ export const SearchCenter: React.FC<SearchCenterProps> = ({
           </motion.h2>
         </AnimatePresence>
         <p className="text-sm text-omni-ink-secondary text-center max-w-xl font-sans mt-2">
-          {stats.total} artefatos sincronizados do Confluence, dos quais {stats.mapas} são mapas com {stats.telas} telas documentadas.
+          {stats.total > 0
+            ? <>{stats.total} artefatos sincronizados do Confluence, dos quais {stats.mapas} são mapas com {stats.telas} telas documentadas.</>
+            : <>Este espaço ainda não tem dados. Use “Atualizar do Confluence”, no fim do menu, para fazer a primeira sincronização.</>}
         </p>
       </div>
 

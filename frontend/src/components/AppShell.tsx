@@ -1,6 +1,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { Menu } from 'lucide-react';
 import { AppSidebar, NavItem } from './AppSidebar';
+import type { Workspace } from '../services/workspace';
 
 interface AppShellProps {
   currentRouteId: string;
@@ -12,6 +13,10 @@ interface AppShellProps {
   children: React.ReactNode;
   contextualContent?: React.ReactNode;
   hasFilters?: boolean;
+  workspaces?: Workspace[];
+  activeWorkspace?: Workspace;
+  onSwitchWorkspace?: (id: string) => void;
+  workspaceSwitchLocked?: boolean;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
@@ -24,6 +29,10 @@ export const AppShell: React.FC<AppShellProps> = ({
   children,
   contextualContent,
   hasFilters: explicitHasFilters,
+  workspaces,
+  activeWorkspace,
+  onSwitchWorkspace,
+  workspaceSwitchLocked,
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -68,6 +77,10 @@ export const AppShell: React.FC<AppShellProps> = ({
         onCloseMobile={() => setIsMobileMenuOpen(false)}
         onSyncClick={onSyncClick}
         lastSync={lastSync}
+        workspaces={workspaces}
+        activeWorkspace={activeWorkspace}
+        onSwitchWorkspace={onSwitchWorkspace}
+        workspaceSwitchLocked={workspaceSwitchLocked}
       />
 
       {/* Área Principal: recua só a faixa de ícones (72px); o menu aberto passa por cima */}
@@ -101,7 +114,13 @@ export const AppShell: React.FC<AppShellProps> = ({
             </span>
           </button>
 
-          <div className="w-8" /> {/* Espaçador para balanceamento */}
+          {/* Sigla do espaço ativo (SP, BE); a troca fica no menu */}
+          <span
+            className="min-w-8 h-7 px-1.5 rounded-md bg-white text-bradesco-red text-[11px] font-heading font-bold flex items-center justify-center"
+            title={activeWorkspace ? `Espaço: ${activeWorkspace.name}` : undefined}
+          >
+            {activeWorkspace?.shortName || ''}
+          </span>
         </div>
 
         {/* Barra Superior Sticky Desktop: só aparece quando a tela tem busca/filtros (à direita) */}

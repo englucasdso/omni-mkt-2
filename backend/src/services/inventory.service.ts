@@ -1,8 +1,13 @@
 import fs from "fs";
 import path from "path";
 import { resolveCanonicalTaxonomy, evaluateStructuredContent } from "./classification/treeClassifier.js";
+import { resolveWorkspace } from "../config/workspaces.js";
 
-const DATA_FILE = path.join(process.cwd(), "backend/data/inventario.json");
+/** Arquivo de inventário do espaço (Salla de Performance, BE...). */
+function inventoryFileFor(workspaceId?: string) {
+  const ws = resolveWorkspace(workspaceId) || resolveWorkspace();
+  return path.join(process.cwd(), "backend/data", ws.inventoryFile);
+}
 
 export function normalizeInventoryItem(item: any) {
   if (!item) return null;
@@ -161,14 +166,15 @@ export function normalizeInventoryItem(item: any) {
   };
 }
 
-export function getInventoryData() {
+export function getInventoryData(workspaceId?: string) {
+  const dataFile = inventoryFileFor(workspaceId);
   try {
-    if (!fs.existsSync(DATA_FILE)) return [];
-    const raw = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
+    if (!fs.existsSync(dataFile)) return [];
+    const raw = JSON.parse(fs.readFileSync(dataFile, "utf-8"));
     if (!Array.isArray(raw)) return [];
     return raw.map(normalizeInventoryItem).filter(Boolean);
   } catch (e) {
-    console.error("[inventory.service] Erro ao ler inventario.json:", e);
+    console.error(`[inventory.service] Erro ao ler ${path.basename(dataFile)}:`, e);
     return [];
   }
 }
@@ -185,8 +191,8 @@ export function normalizeBackendContentTitle(value: string): string {
     .trim();
 }
 
-export function searchArtifacts(query: string) {
-  const inventory = getInventoryData();
+export function searchArtifacts(query: string, workspaceId?: string) {
+  const inventory = getInventoryData(workspaceId);
   if (!query) return inventory;
 
   const rawLower = String(query).trim().toLowerCase();
